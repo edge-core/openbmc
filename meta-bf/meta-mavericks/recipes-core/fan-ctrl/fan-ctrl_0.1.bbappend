@@ -31,7 +31,7 @@ binfiles = "                                    \
     fand					\
     "
 
-CXXFLAGS_prepend = "-DCONFIG_WEDGE100 "
+CXXFLAGS_prepend = "-DCONFIG_MAVERICKS "
 
 do_install() {
   bin="${D}/usr/local/bin"

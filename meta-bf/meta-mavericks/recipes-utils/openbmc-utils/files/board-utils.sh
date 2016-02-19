@@ -44,7 +44,7 @@ wedge_is_us_on() {
 }
 
 wedge_board_type() {
-    echo 'WEDGE100'
+    echo 'MAVERICKS'
 }
 
 wedge_slot_id() {

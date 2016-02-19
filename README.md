@@ -41,6 +41,9 @@ $ git clone git@github.com:facebook/openbmc.git meta-openbmc
 ```
 $ export TEMPLATECONF=meta-openbmc/meta-facebook/meta-wedge/conf
 $ source oe-init-build-env
+
+### set TEMPLATECONF to a different conf directory to build a different platform
+### e.g. export TEMPLATECONF=meta-openbmc/meta-bf/meta-mavericks/conf
 ```
 
 After this step, you will be dropped into a build directory, `poky/build`.
@@ -49,6 +52,8 @@ After this step, you will be dropped into a build directory, `poky/build`.
 
 ```
 $ bitbake wedge-image
+### to build a different target image, e.g., mavericks,
+### bitbake mavericks-image
 ```
 
 The build process automatically fetches all necessary packages and build the complete image. The final build results are in `poky/build/tmp/deploy/images/wedge`.

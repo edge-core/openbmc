@@ -16,6 +16,7 @@ SRC_URI = "git://git.denx.de/u-boot.git;branch=master;protocol=git \
            file://patch-2013.07/0001-u-boot-openbmc.patch \
            file://patch-2013.07/0002-Create-snapshot-of-OpenBMC.patch;striplevel=6 \
            file://patch-2013.07/0003-u-boot-snapshot-of-OpenBMC-f926614.patch;striplevel=6 \
+           file://patch-2013.07/0004-u-boot-openbmc-mavericks_base.patch \
           "
 
 S = "${WORKDIR}/git"
