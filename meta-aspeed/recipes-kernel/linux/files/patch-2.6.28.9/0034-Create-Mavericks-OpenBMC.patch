@@ -1,0 +1,122 @@
+diff --git a/arch/arm/mach-aspeed/Kconfig b/arch/arm/mach-aspeed/Kconfig
+index 6d548f8..0aa130b 100644
+--- a/arch/arm/mach-aspeed/Kconfig
++++ b/arch/arm/mach-aspeed/Kconfig
+@@ -215,6 +215,9 @@ config YOSEMITE
+ config FBPLATFORM1
+ 	bool "Facebook Platform1"
+ 
++config MAVERICKS
++	bool "Barefoot Mavericks"
++
+ # Support PCIE
+ config PCIE
+         bool "ASPEED PCIE support"
+diff --git a/arch/arm/mach-aspeed/include/mach/platform.h b/arch/arm/mach-aspeed/include/mach/platform.h
+index 4d6c50c..3579a99 100644
+--- a/arch/arm/mach-aspeed/include/mach/platform.h
++++ b/arch/arm/mach-aspeed/include/mach/platform.h
+@@ -70,6 +70,8 @@
+ #define AST_UART_BASE AST_UART3_BASE
+ #elif defined(CONFIG_WEDGE100)
+ #define AST_UART_BASE AST_UART3_BASE
++#elif defined(CONFIG_MAVERICKS)
++#define AST_UART_BASE AST_UART3_BASE
+ #elif defined(CONFIG_YOSEMITE)
+ #define AST_UART_BASE AST_UART0_BASE
+ #elif defined(CONFIG_FBPLATFORM1)
+diff --git a/arch/arm/plat-aspeed/dev-eth.c b/arch/arm/plat-aspeed/dev-eth.c
+index b115c5a..d629b29 100644
+--- a/arch/arm/plat-aspeed/dev-eth.c
++++ b/arch/arm/plat-aspeed/dev-eth.c
+@@ -136,7 +136,8 @@ void __init ast_add_device_gmac(void)
+ 	// MAC0.  Older drivers would drop interfaces without PHYs, but
+ 	// the latest open source drivers do not, so we drop the first
+ 	// MAC specs.
+-#if !defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100)
++#if !defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100) \
++                           && !defined(CONFIG_MAVERICKS)
+ 	ast_scu_init_eth(0);
+ 	ast_scu_multi_func_eth(0);
+ 
+diff --git a/arch/arm/plat-aspeed/dev-i2c.c b/arch/arm/plat-aspeed/dev-i2c.c
+index a6f75b1..3dbf90d 100644
+--- a/arch/arm/plat-aspeed/dev-i2c.c
++++ b/arch/arm/plat-aspeed/dev-i2c.c
+@@ -597,7 +597,7 @@ struct platform_device ast_i2c_dev14_device = {
+ //ASPEED AST2300 EVB I2C Device
+ #if defined(CONFIG_ARCH_AST2300) || defined(CONFIG_ARCH_AST2400)
+ 
+-#if defined(CONFIG_WEDGE100)
++#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
+ 
+ static struct i2c_board_info __initdata wedge100_i2c_bus1[] = {
+   /* shared NIC, no kernel driver */
+@@ -695,7 +695,7 @@ static struct i2c_board_info __initdata wedge100_i2c_bus13[] = {
+ 
+ /* i2c bus 14 on wedge100 are not connected as i2c bus */
+ 
+-/* end of defined(CONFIG_WEDGE100) */
++/* end of defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS) */
+ 
+ #elif defined(CONFIG_YOSEMITE) || defined(CONFIG_FBPLATFORM1)
+ 
+@@ -959,7 +959,7 @@ void __init ast_add_device_i2c(void)
+ 
+ 	pool_buff_page_init(ast_i2c_data.buf_pool);
+ 
+-#if defined(CONFIG_WEDGE100)
++#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
+ 
+   platform_device_register(&ast_i2c_dev1_device);
+   i2c_register_board_info(0, wedge100_i2c_bus1, ARRAY_SIZE(wedge100_i2c_bus1));
+@@ -995,7 +995,7 @@ void __init ast_add_device_i2c(void)
+ 
+   /* i2c bug 14 is not used as i2c on wedge100 */
+ 
+-  /* end of defined(CONFIG_WEDGE100) */
++  /* end of defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS) */
+ #else
+ 
+ 	platform_device_register(&ast_i2c_dev1_device);
+@@ -1046,7 +1046,7 @@ void __init ast_add_device_i2c(void)
+   /* end of defined(CONFIG_ARCH_AST2400) */
+ #endif
+ 
+-  /* end of else of defined(CONFIG_WEDGE100) */
++  /* end of else of defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS) */
+ #endif
+ }
+ #else
+diff --git a/arch/arm/plat-aspeed/dev-spi.c b/arch/arm/plat-aspeed/dev-spi.c
+index 0cb0189..2c5d12d 100644
+--- a/arch/arm/plat-aspeed/dev-spi.c
++++ b/arch/arm/plat-aspeed/dev-spi.c
+@@ -389,6 +389,14 @@ static struct spi_board_info ast_spi_devices[] = {
+         .bus_num    = 5,
+         .mode = SPI_MODE_0,
+     },
++#elif defined CONFIG_MAVERICKS
++    {
++        .modalias    = "spidev",
++        .chip_select    = 0,
++        .max_speed_hz    = 33 * 1000 * 1000,
++        .bus_num    = 5,
++        .mode = SPI_MODE_0,
++    },
+ #endif
+     {
+         .modalias    = "m25p80",
+diff --git a/drivers/net/ftgmac100_26.c b/drivers/net/ftgmac100_26.c
+index f558d38..27a429e 100644
+--- a/drivers/net/ftgmac100_26.c
++++ b/drivers/net/ftgmac100_26.c
+@@ -120,7 +120,7 @@
+ #err "Not define include for GMAC"
+ #endif
+ 
+-#ifdef CONFIG_WEDGE100
++#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
+ #define PHY_DEFAULT_ADDR 0x18
+ #else
+ /* wedge */

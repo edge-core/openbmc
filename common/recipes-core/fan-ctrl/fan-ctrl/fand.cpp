@@ -41,9 +41,10 @@
 /* Yeah, the file ends in .cpp, but it's a C program.  Deal. */
 
 /* XXX:  Both CONFIG_WEDGE and CONFIG_WEDGE100 are defined for Wedge100 */
+/* XXX:  Both CONFIG_WEDGE and CONFIG_MAVERICKS are defined for MAVERICKS */
 
 #if !defined(CONFIG_YOSEMITE) && !defined(CONFIG_WEDGE) && \
-    !defined(CONFIG_WEDGE100)
+    !defined(CONFIG_WEDGE100) && !defined(CONFIG_MAVERICKS)
 #error "No hardware platform defined!"
 #endif
 #if defined(CONFIG_YOSEMITE) && defined(CONFIG_WEDGE)
@@ -62,7 +63,8 @@
 #include <facebook/bic.h>
 #include <facebook/yosemite_sensor.h>
 #endif
-#if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100) \
+                          && !defined(CONFIG_MAVERICKS)
 #include <facebook/wedge_eeprom.h>
 #endif
 
@@ -70,7 +72,8 @@
 
 /* Sensor definitions */
 
-#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
+                          || defined(CONFIG_MAVERICKS)
 #define INTERNAL_TEMPS(x) ((x) * 1000) // stored as C * 1000
 #define EXTERNAL_TEMPS(x) ((x) / 1000)
 #elif defined(CONFIG_YOSEMITE)
@@ -86,7 +89,8 @@
  * the entire configuration.  JSON file?
  */
 
-#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
+                          || defined(CONFIG_MAVERICKS)
 #define USERVER_TEMP_FUDGE INTERNAL_TEMPS(10)
 #else
 #define USERVER_TEMP_FUDGE INTERNAL_TEMPS(0)
@@ -99,7 +103,7 @@
 #define FAN_SHUTDOWN_THRESHOLD 20 /* How long fans can be failed before */
                                   /* we just shut down the whole thing. */
 
-#if defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
 #define PWM_DIR "/sys/bus/i2c/drivers/fancpld/8-0033/"
 
 #define PWM_UNIT_MAX 31
@@ -165,7 +169,7 @@
 #endif
 
 #if (defined(CONFIG_YOSEMITE) || defined(CONFIG_WEDGE)) && \
-    !defined(CONFIG_WEDGE100)
+    !defined(CONFIG_WEDGE100) && !defined(CONFIG_MAVERICKS)
 #define PWM_DIR "/sys/devices/platform/ast_pwm_tacho.0"
 
 #define PWM_UNIT_MAX 96
@@ -179,9 +183,10 @@
 
 #define LARGEST_DEVICE_NAME 120
 
-#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
+                          || defined(CONFIG_MAVERICKS)
 const char *fan_led[] = {FAN0_LED, FAN1_LED, FAN2_LED, FAN3_LED,
-#if defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
                          FAN4_LED,
 #endif
 };
@@ -214,7 +219,7 @@ const char *fan_led[] = {FAN0_LED, FAN1_LED, FAN2_LED, FAN3_LED,
 #define WEDGE_FAN_LOW 35
 #define WEDGE_FAN_MEDIUM 50
 #define WEDGE_FAN_HIGH 70
-#if defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
 #define WEDGE_FAN_MAX 100
 #else
 #define WEDGE_FAN_MAX 99
@@ -230,7 +235,7 @@ const char *fan_led[] = {FAN0_LED, FAN1_LED, FAN2_LED, FAN3_LED,
  * RPM measuring and PWM setting, naturally.  Doh.
  */
 
-#if defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
 int fan_to_rpm_map[] = {1, 3, 5, 7, 9};
 int fan_to_pwm_map[] = {1, 2, 3, 4, 5};
 #define FANS 5
@@ -271,7 +276,7 @@ struct rpm_to_pct_map {
   uint rpm;
 };
 
-#if defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
 struct rpm_to_pct_map rpm_front_map[] = {{20, 4200},
                                          {25, 5550},
                                          {30, 6180},
@@ -498,7 +503,8 @@ int write_device(const char *device, const char *value) {
   }
 }
 
-#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
+                          || defined(CONFIG_MAVERICKS)
 int read_temp(const char *device, int *value) {
   char full_name[LARGEST_DEVICE_NAME + 1];
 
@@ -510,7 +516,8 @@ int read_temp(const char *device, int *value) {
 }
 #endif
 
-#if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100) \
+                          && !defined(CONFIG_MAVERICKS)
 int read_gpio_value(const int id, const char *device, int *value) {
   char full_name[LARGEST_DEVICE_NAME];
 
@@ -715,7 +722,7 @@ int write_fan_speed(const int fan, const int value) {
   int real_fan = fan_to_pwm_map[fan];
 
   if (value == 0) {
-#if defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
     return write_fan_value(real_fan, "fantray%d_pwm", 0);
 #else
     return write_fan_value(real_fan, "pwm%d_en", 0);
@@ -724,7 +731,7 @@ int write_fan_speed(const int fan, const int value) {
     int unit = value * PWM_UNIT_MAX / 100;
     int status;
 
-#if defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
     // Note that PWM for Wedge100 is in 32nds of a cycle
     return write_fan_value(real_fan, "fantray%d_pwm", unit);
 #else
@@ -755,7 +762,8 @@ int temp_to_fan_speed(int temp, struct temp_to_pct_map *map, int map_size) {
 /* Set up fan LEDs */
 
 int write_fan_led(const int fan, const char *color) {
-#if defined(CONFIG_WEDGE100) || defined(CONFIG_WEDGE)
+#if defined(CONFIG_WEDGE100) || defined(CONFIG_WEDGE) \
+    || defined(CONFIG_MAVERICKS)
 	return write_device(fan_led[fan], color);
 #else
         return 0;
@@ -769,12 +777,13 @@ int server_shutdown(const char *why) {
   }
 
   syslog(LOG_EMERG, "Shutting down:  %s", why);
-#if defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
   write_device(USERVER_POWER, "0");
   sleep(5);
   write_device(MAIN_POWER, "0");
 #endif
-#if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100) \
+                          && !defined(CONFIG_MAVERICKS)
   write_device(GPIO_USERVER_POWER_DIRECTION, "out");
   write_device(GPIO_USERVER_POWER, "0");
   /*
@@ -870,7 +879,8 @@ int main(int argc, char **argv) {
 
   openlog("fand", LOG_CONS, LOG_DAEMON);
 
-#if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100) \
+                          && !defined(CONFIG_MAVERICKS)
   if (is_two_fan_board(false)) {
     /* Alternate, two fan configuration */
     total_fans = 2;
@@ -983,7 +993,8 @@ int main(int argc, char **argv) {
 
     /* Read sensors */
 
-#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
+                          || defined(CONFIG_MAVERICKS)
     read_temp(INTAKE_TEMP_DEVICE, &intake_temp);
     read_temp(EXHAUST_TEMP_DEVICE, &exhaust_temp);
     read_temp(CHIP_TEMP_DEVICE, &switch_temp);
@@ -1029,7 +1040,8 @@ int main(int argc, char **argv) {
 
     if (log_count++ % report_temp == 0) {
       syslog(LOG_DEBUG,
-#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
+                          || defined(CONFIG_MAVERICKS)
              "Temp intake %d, t2 %d, "
              " userver %d, exhaust %d, "
              "fan speed %d, speed changes %d",
@@ -1038,7 +1050,8 @@ int main(int argc, char **argv) {
              "fan speed %d, speed changes %d",
 #endif
              intake_temp,
-#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
+                          || defined(CONFIG_MAVERICKS)
              switch_temp,
 #endif
              userver_temp,
@@ -1053,7 +1066,8 @@ int main(int argc, char **argv) {
       server_shutdown("Intake temp limit reached");
     }
 
-#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
+                          || defined(CONFIG_MAVERICKS)
     if (switch_temp > SWITCH_LIMIT) {
       server_shutdown("T2 temp limit reached");
     }
@@ -1194,7 +1208,8 @@ int main(int argc, char **argv) {
         write_fan_speed(fan + fan_offset, fan_speed);
       }
 
-#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100)
+#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
+                          || defined(CONFIG_MAVERICKS)
       /*
        * On Wedge, we want to shut down everything if none of the fans
        * are visible, since there isn't automatic protection to shut

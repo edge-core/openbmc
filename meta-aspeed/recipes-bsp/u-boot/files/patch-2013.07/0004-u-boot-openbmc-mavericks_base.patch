@@ -51,7 +51,7 @@ index 0000000..1aa3260
 +#define CONFIG_ARM926EJS	1		/* This is an arm926ejs CPU */
 +#define	CONFIG_ASPEED		1
 +#define CONFIG_AST2400		1
-+#define CONFIG_WEDGE100		1
++#define CONFIG_MAVERICKS		1
 +//#define CONFIG_AST1070		1
 +//#define CONFIG_SYS_FLASH_CFI			/* CONFIG_FLASH_CFI, CONFIG_FLASH_SPI is exclusive*/
 +#define CONFIG_FLASH_SPI
