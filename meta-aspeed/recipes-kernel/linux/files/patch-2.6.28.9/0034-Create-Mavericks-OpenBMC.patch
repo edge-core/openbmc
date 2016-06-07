@@ -40,15 +40,14 @@ index b115c5a..d629b29 100644
  	ast_scu_multi_func_eth(0);
 
 diff --git a/arch/arm/plat-aspeed/dev-i2c.c b/arch/arm/plat-aspeed/dev-i2c.c
-index a6f75b1..6de6720 100644
+index a6f75b1..0f3c36e 100644
 --- a/arch/arm/plat-aspeed/dev-i2c.c
 +++ b/arch/arm/plat-aspeed/dev-i2c.c
-@@ -785,6 +785,115 @@ static struct i2c_board_info __initdata ast_i2c_board_info_13[] = {
+@@ -785,6 +785,117 @@ static struct i2c_board_info __initdata ast_i2c_board_info_13[] = {
  
  /* end of CONFIG_YOSEMITE */
  
 +#elif defined(CONFIG_MAVERICKS)
-+
 +
 +static struct i2c_board_info __initdata mavericks_i2c_bus1[] = {
 +  /* shared NIC, no kernel driver */
@@ -149,6 +148,9 @@ index a6f75b1..6de6720 100644
 +
 +static struct i2c_board_info __initdata mavericks_i2c_bus13[] = {
 +  {
++    I2C_BOARD_INFO("syscpld", 0x30),
++  },
++  {
 +    I2C_BOARD_INFO("syscpld", 0x31),
 +  },
 +};
@@ -159,10 +161,11 @@ index a6f75b1..6de6720 100644
  #else
  
  /* wedge */
-@@ -996,6 +1105,56 @@ void __init ast_add_device_i2c(void)
+@@ -996,6 +1107,57 @@ void __init ast_add_device_i2c(void)
    /* i2c bug 14 is not used as i2c on wedge100 */
  
    /* end of defined(CONFIG_WEDGE100) */
++
 +#elif defined(CONFIG_MAVERICKS)
 +
 +  platform_device_register(&ast_i2c_dev1_device);

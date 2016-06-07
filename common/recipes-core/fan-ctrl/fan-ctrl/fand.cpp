@@ -124,6 +124,15 @@
 #define FAN3_LED PWM_DIR "fantray4_led_ctrl"
 #define FAN4_LED PWM_DIR "fantray5_led_ctrl"
 
+#if defined(CONFIG_MAVERICKS)
+#define PWM_UPPER_DIR "/sys/bus/i2c/drivers/fancpld/9-0033/"
+#define FAN5_LED PWM_UPPER_DIR "fantray1_led_ctrl"
+#define FAN6_LED PWM_UPPER_DIR "fantray2_led_ctrl"
+#define FAN7_LED PWM_UPPER_DIR "fantray3_led_ctrl"
+#define FAN8_LED PWM_UPPER_DIR "fantray4_led_ctrl"
+#define FAN9_LED PWM_UPPER_DIR "fantray5_led_ctrl"
+#endif
+
 #define FAN_LED_BLUE "0x1"
 #define FAN_LED_RED "0x2"
 
@@ -189,6 +198,9 @@ const char *fan_led[] = {FAN0_LED, FAN1_LED, FAN2_LED, FAN3_LED,
 #if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
                          FAN4_LED,
 #endif
+#if defined(CONFIG_MAVERICKS)
+                         FAN5_LED, FAN6_LED, FAN7_LED, FAN8_LED, FAN9_LED,
+#endif
 };
 #endif
 
@@ -235,13 +247,25 @@ const char *fan_led[] = {FAN0_LED, FAN1_LED, FAN2_LED, FAN3_LED,
  * RPM measuring and PWM setting, naturally.  Doh.
  */
 
-#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
+#if defined(CONFIG_WEDGE100)
 int fan_to_rpm_map[] = {1, 3, 5, 7, 9};
 int fan_to_pwm_map[] = {1, 2, 3, 4, 5};
 #define FANS 5
 // Tacho offset between front and rear fans:
 #define REAR_FAN_OFFSET 1
 #define BACK_TO_BACK_FANS
+
+#elif defined(CONFIG_MAVERICKS)
+/* make upper  fan tray numbers irbitrarily off by 100, more than the largest
+ * value
+ **/
+int fan_to_rpm_map[] = {1, 3, 5, 7, 9, 101, 103, 105, 107, 109};
+int fan_to_pwm_map[] = {1, 2, 3, 4, 5, 101, 102, 103, 104, 105};
+#define FANS 5
+// Tacho offset between front and rear fans:
+#define REAR_FAN_OFFSET 1
+#define BACK_TO_BACK_FANS
+
 
 #elif defined(CONFIG_WEDGE)
 int fan_to_rpm_map[] = {3, 2, 0, 1};
@@ -598,9 +622,18 @@ int read_fan_value(const int fan, const char *device, int *value) {
   char device_name[LARGEST_DEVICE_NAME];
   char output_value[LARGEST_DEVICE_NAME];
   char full_name[LARGEST_DEVICE_NAME];
-
+#if defined(CONFIG_MAVERICKS)
+  if (fan >= 100) {
+    snprintf(device_name, LARGEST_DEVICE_NAME, device, fan-100);
+    snprintf(full_name, LARGEST_DEVICE_NAME, "%s/%s",PWM_UPPER_DIR,device_name);
+  } else {
+    snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
+    snprintf(full_name, LARGEST_DEVICE_NAME, "%s/%s", PWM_DIR, device_name);
+  }
+#else
   snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
   snprintf(full_name, LARGEST_DEVICE_NAME, "%s/%s", PWM_DIR,device_name);
+#endif
   return read_device(full_name, value);
 }
 
@@ -609,8 +642,18 @@ int write_fan_value(const int fan, const char *device, const int value) {
   char device_name[LARGEST_DEVICE_NAME];
   char output_value[LARGEST_DEVICE_NAME];
 
+#if defined(CONFIG_MAVERICKS)
+  if (fan >= 100) {
+    snprintf(device_name, LARGEST_DEVICE_NAME, device, fan -100);
+    snprintf(full_name, LARGEST_DEVICE_NAME, "%s/%s",PWM_UPPER_DIR,device_name);
+  } else {
+    snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
+    snprintf(full_name, LARGEST_DEVICE_NAME, "%s/%s", PWM_DIR, device_name);
+  }
+#else
   snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
   snprintf(full_name, LARGEST_DEVICE_NAME, "%s/%s", PWM_DIR, device_name);
+#endif
   snprintf(output_value, LARGEST_DEVICE_NAME, "%d", value);
   return write_device(full_name, output_value);
 }

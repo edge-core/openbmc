@@ -18,22 +18,33 @@
 # Boston, MA 02110-1301 USA
 #
 usage() {
-    echo "Usage: $0 [Fan Unit (1..5)]" >&2
+    echo "Usage: $0 [Fan Unit (1..5) (upper: 6...10)]" >&2
 }
 
 FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0033
+FAN_DIR_UPPER=/sys/class/i2c-adapter/i2c-9/9-0033
 
 show_pwm()
 {
-    pwm="${FAN_DIR}/fantray${1}_pwm"
+    if [ $1 -gt 5 ]; then
+        fan=$(( $1 - 5 ))
+        pwm="${FAN_DIR_UPPER}/fantray${fan}_pwm"
+    else
+        pwm="${FAN_DIR}/fantray${1}_pwm"
+    fi
     val=$(cat $pwm | head -n 1)
     echo "$((val * 100 / 31))%"
 }
 
 show_rpm()
 {
-    front_rpm="${FAN_DIR}/fan$((($1 * 2 - 1)))_input"
-    rear_rpm="${FAN_DIR}/fan$((($1 * 2)))_input"
+    if [ $1 -gt 5 ]; then
+        front_rpm="${FAN_DIR_UPPER}/fan$(((($1 - 5) * 2 - 1)))_input"
+        rear_rpm="${FAN_DIR_UPPER}/fan$(((($1 - 5) * 2)))_input"
+    else
+        front_rpm="${FAN_DIR}/fan$((($1 * 2 - 1)))_input"
+        rear_rpm="${FAN_DIR}/fan$((($1 * 2)))_input"
+    fi
     echo "$(cat $front_rpm), $(cat $rear_rpm)"
 }
 
@@ -42,9 +53,9 @@ set -e
 # refer to the comments in init_pwn.sh regarding
 # the fan unit and tacho mapping
 if [ "$#" -eq 0 ]; then
-    FANS="1 2 3 4 5"
+    FANS="1 2 3 4 5 6 7 8 9 10"
 elif [ "$#" -eq 1 ]; then
-    if [ $1 -gt 5 ]; then
+    if [ $1 -gt 10 ]; then
         usage
         exit 1
     fi
