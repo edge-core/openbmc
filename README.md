@@ -34,6 +34,9 @@ $ git clone -b fido https://git.yoctoproject.org/git/poky
 $ cd poky
 $ git clone -b fido https://github.com/openembedded/meta-openembedded.git
 $ git clone git@github.com:facebook/openbmc.git meta-openbmc
+
+### Change the git repo to Barefootnetworks for openbmc 
+##$ git clone git@github.com:barefootnetworks/openbmc.git meta-openbmc
 ```
 
 * Step 3 - Initialize a build directory. In `poky` directory,
