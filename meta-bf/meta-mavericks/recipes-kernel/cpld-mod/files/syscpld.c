@@ -201,6 +201,38 @@ static const i2c_dev_attr_st syscpld_attr_table[] = {
     I2C_DEV_ATTR_STORE_DEFAULT,
     0x32, 0, 1,
   },
+  {
+    "psu1_in_pwr_sts",
+    "0: Power status BAD\n"
+    "1: Power status OK",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    NULL,
+    0x10, 2, 1,
+  },
+  {
+    "psu2_in_pwr_sts",
+    "0: Power status BAD\n"
+    "1: Power status OK",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    NULL,
+    0x10, 6, 1,
+  },
+  {
+    "psu1_output_pwr_sts",
+    "0: Power status BAD\n"
+    "1: Power status OK",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    NULL,
+    0x10, 1, 1,
+  },
+  {
+    "psu2_output_pwr_sts",
+    "0: Power status BAD\n"
+    "1: Power status OK",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    NULL,
+    0x10, 5, 1,
+  },
 };
 
 static i2c_dev_data_st syscpld_data;
