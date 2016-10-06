@@ -19,6 +19,7 @@ FILESEXTRAPATHS_prepend := "${THISDIR}/files:"
 
 SRC_URI += "file://disable_watchdog.sh \
             file://board-utils.sh \
+            file://btools.py \
            "
 
 OPENBMC_UTILS_FILES += " \
@@ -36,6 +37,8 @@ do_install_board() {
     # common lib and include files
     install -d ${D}${includedir}/facebook
     install -m 0644 src/include/i2c-dev.h ${D}${includedir}/facebook/i2c-dev.h
+    
+
 
     # init
     install -d ${D}${sysconfdir}/init.d
@@ -59,6 +62,8 @@ do_install_board() {
 
     install -m 0755 ${WORKDIR}/disable_watchdog.sh ${D}${sysconfdir}/init.d/disable_watchdog.sh
     update-rc.d -r ${D} disable_watchdog.sh start 99 2 3 4 5 .
+    
+    install -m 0755 ${WORKDIR}/btools.py ${D}/usr/local/bin/btools.py
 }
 
 FILES_${PN} += "${sysconfdir}"
