@@ -567,7 +567,7 @@ def error_tmp_usage():
 #
 # Lower board temperature sensors. Board exists on Montara and Mavericks 
 #
-def tmp_lower():
+def tmp_lower(board):
 
     i2c_dev = "/sys/class/i2c-adapter/i2c-3/3-00"
 
@@ -578,20 +578,57 @@ def tmp_lower():
                   5: "4c/temp1_input"}
 
     cmd = "cat"
+    
+    if board == "Mavericks":
+        x = 6
+    else:
+        x = 5
 
-    for i in range(1, 6):
+    for i in range(1, x):
 
         path = i2c_dev + tmp_sensor.get(i)
         try:
 
             output = subprocess.check_output([cmd, path])
-            print " TMP SENSOR %.2d             %.3f C" % (i,
+            print " TMP SENSOR %.2d                  %.3f C" % (i,
                                                           float(output) / 1000)
 
         except subprocess.CalledProcessError as e:
             print e
             print "Error occured while reading Temperature sensor %d " % i
 
+    if board == "Montara":
+
+        cmd = "i2cget"
+
+        try:
+            output = subprocess.check_output([cmd, "-f", "-y", "3", "0x4d", 
+                                             "0x00", "w"])
+            output = int(output, 16)
+            t = output & 0xff
+            d = output & 0xfff00
+
+            # if d is 0x80 means .0625 * 8(consider only fourth nibble 2 ^ 3)
+            if d == 0x8000:
+                t = float(t) + .500
+
+            print " TMP SENSOR %.2d                  %.3f C" % (5, t)
+
+
+            output = subprocess.check_output([cmd, "-f", "-y", "3", 
+                                             "0x4c", "0x00"])
+            output = int(output, 16)
+            print " TMP SENSOR MAX LOCAL           %.3f C" % output
+
+            output = subprocess.check_output([cmd, "-f", "-y", "3", 
+                                             "0x4c", "0x01"])
+            output = int(output, 16)
+            print " TMP SENSOR MAX Tofino          %.3f C" % (output)
+
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while reading Temperature sensor %d " % i
+        
     return
 
 #
@@ -621,7 +658,7 @@ def tmp_upper():
             if d == 0x8000:
                 t = float(t) + .500
 
-            print " TMP SENSOR UPPER %.2d       %.3f C" % (i, t)
+            print " TMP SENSOR UPPER %.2d            %.3f C" % (i, t)
 
         except subprocess.CalledProcessError as e:
             print e
@@ -631,6 +668,7 @@ def tmp_upper():
     TMP_MAX_I2C_BUS = "9"
     TMP_MAX_I2C_ADDR = "0x4c"
     TMP_MAX_READ_OP = "0x00"
+    TMP_MAX_READ_EXT_OP = "0x01"
 
     try:
         get_cmd = "i2cget"
@@ -640,7 +678,16 @@ def tmp_upper():
                                           TMP_MAX_READ_OP])
         output = int(output, 16)
 
-        print " TMP SENSOR UPPER MAX      %.2d.000 C" % (output)
+        print " TMP SENSOR UPPER MAX LOCAL     %.2d.000 C" % (output)
+
+        output = subprocess.check_output([get_cmd, "-f", "-y",
+                                          TMP_MAX_I2C_BUS,
+                                          TMP_MAX_I2C_ADDR,
+                                          TMP_MAX_READ_EXT_OP])
+
+        output = int(output, 16)
+
+        print " TMP SENSOR UPPER MAX TOFINO    %.2d.000 C" % (output)
 
     except subprocess.CalledProcessError as e:
         print e
@@ -717,10 +764,10 @@ def tmp(argv):
         return
 
     if argv[2] == "Montara" or argv[2] =="montara":
-        tmp_lower()
+        tmp_lower("Montara")
     elif argv[2] == "Mavericks" or argv[2] == "mavericks":
         a = tmp_open_i2c_switch()
-        tmp_lower()
+        tmp_lower("Mavericks")
         tmp_upper()
         tmp_restore_i2c_switch(a)
     else:
