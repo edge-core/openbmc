@@ -56,6 +56,17 @@ def get_fruid():
 
     mac2str = lambda mac: ':'.join(['{:02X}'.format(b) for b in mac])
 
+    import subprocess
+    val = subprocess.Popen(['/usr/sbin/i2cset', '-f', '-y', '6', '0x51', '0x01', '0x00', 'i'], stdout=subprocess.PIPE).communicate()
+
+    for num in range(0,11):
+        val = subprocess.Popen(['/usr/sbin/i2cget', '-f', '-y', '6', '0x51'], stdout=subprocess.PIPE).communicate()
+        temp = val[0][2], val[0][3]
+        res = str(int(''.join(temp)) - 30)
+        myfru.fbw_assembly_number += res
+
+    return myfru.fbw_assembly_number    
+
     fruinfo = { "Version": myfru.fbw_version,
                 "Product Name": myfru.fbw_product_name,
                 "Product Part Number": myfru.fbw_product_number,
