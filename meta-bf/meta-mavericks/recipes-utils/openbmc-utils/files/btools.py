@@ -542,11 +542,220 @@ def ucd(argv):
 
     return
 
+def ir_voltage_show_montara():
+
+    IR_I2C_BUS = "0x1"
+    IR_PMBUS_ADDR = {1: "0x70", 2: "0x72", 3: "0x77"}
+    IR_VOUT_MODE_OP = "0x20"
+    IR_READ_VOUT_OP = "0x8b"
+    string ={1: "VDD", 2: "AVDD", 3: "QSFP"}
+
+    for i in range(1, 4):
+
+        try:
+            # i2cget -f -y 1 0x70 0x8b w
+            get_cmd = "i2cget"
+            exponent = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                     IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing VOUT_MODE for IR "
+            continue
+
+        try:
+            # i2cget -f -y 1 0x70 0x8b w
+            get_cmd = "i2cget"
+            mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                         IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing i2cget for IR "
+            continue
+
+        # 2 ^ exponent
+        # exponent is 5 bit signed value. Thus calculating first exponent.
+        exp = int(exponent, 16) | ~0x1f
+        exp = ~exp + 1
+        div = 1 << exp
+
+        mantissa = int(mantissa, 16)
+
+        v = (float(mantissa)/float(div))
+
+        # As referred by hardware spec QSFP voltage need to be * 2
+        if i == 3:
+            v = v * 2
+
+        print "IR %s       %.3f V" % (string.get(i), v)
+
+    return
+
+#
+# Mavericks need i2c switch to be opened for reading IR
+#
+def ir_open_i2c_switch():
+
+    IR_I2C_SW_BUS = "9"
+    IR_I2C_SW_ADDR = "0x70"
+
+    try:
+        get_cmd = "i2cget"
+        output = subprocess.check_output([get_cmd, "-f", "-y",
+                                          IR_I2C_SW_BUS,
+                                          IR_I2C_SW_ADDR])
+
+        output = int(output, 16)
+
+        # opening i2c switch for 0x08, 0x09, 0x0c
+        res = output | 0x7
+        set_cmd = "i2cset"
+        o = subprocess.check_output([set_cmd, "-f", "-y",
+                                    IR_I2C_SW_BUS,
+                                    IR_I2C_SW_ADDR, str(res)])
+
+    except subprocess.CalledProcessError as e:
+        print e
+        print "Error occured while processing opening i2c switch" \
+              " on mavericks upper board"
+
+    return output
+
+#
+# Restoring the i2c switch state
+#
+def ir_restore_i2c_switch(res):
+
+    IR_I2C_SW_BUS = "9"
+    IR_I2C_SW_ADDR = "0x70"
+
+    try:
+        set_cmd = "i2cset"
+        o = subprocess.check_output([set_cmd, "-f", "-y",
+                                    IR_I2C_SW_BUS,
+                                    IR_I2C_SW_ADDR, str(res)])
+
+    except subprocess.CalledProcessError as e:
+        print e
+        print "Error occured while processing restoring i2c switch" \
+              " on mavericks upper board"
+
+    return
+
+def ir_voltage_show_mavericks():
+
+    a = ir_open_i2c_switch()
+
+    UPPER_IR_I2C_BUS = "0x9"
+    UPPER_IR_PMBUS_ADDR = {1: "0x70", 2: "0x72", 3: "0x77"}
+    IR_VOUT_MODE_OP = "0x20"
+    IR_READ_VOUT_OP = "0x8b"
+    string = {1: "VDD", 2: "AVDD", 3: "QSFP"}
+
+    for i in range(1, 4):
+
+        try:
+            # i2cget -f -y 1 0x70 0x8b w
+            get_cmd = "i2cget"
+            exponent = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
+                                     UPPER_IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing VOUT_MODE for UPPER IR "
+            continue
+
+        try:
+            # i2cget -f -y 1 0x70 0x8b w
+            get_cmd = "i2cget"
+            mantissa = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
+                                         UPPER_IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing i2cget for UPPER IR "
+            continue
+
+        # 2 ^ exponent
+        # exponent is 5 bit signed value. Thus calculating first exponent.
+        exp = int(exponent, 16) | ~0x1f
+        exp = ~exp + 1
+        div = 1 << exp
+
+        mantissa = int(mantissa, 16)
+
+        v = (float(mantissa)/float(div))
+
+        # As referred by hardware spec QSFP voltage need to be * 2
+        if i == 3:
+            v = v * 2
+
+        print "IR %s       %.3f V" % (string.get(i), v)
+
+    ir_restore_i2c_switch(a)
+
+    LOWER_IR_I2C_BUS = "0x1"
+    LOWER_IR_PMBUS_ADDR = {1: "0x10", 2: "0x12"}
+    lower_string = {1: "QSFP", 2: "REPEATER"}
+
+    for i in range(1, 3):
+
+        try:
+            # i2cget -f -y 1 0x70 0x8b w
+            get_cmd = "i2cget"
+            exponent = subprocess.check_output([get_cmd, "-f", "-y", LOWER_IR_I2C_BUS,
+                                     LOWER_IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing VOUT_MODE for LOWER IR "
+            continue
+
+        try:
+            # i2cget -f -y 1 0x70 0x8b w
+            get_cmd = "i2cget"
+            mantissa = subprocess.check_output([get_cmd, "-f", "-y", LOWER_IR_I2C_BUS,
+                                         LOWER_IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing i2cget for LOWER IR "
+            continue
+
+        # 2 ^ exponent
+        # exponent is 5 bit signed value. Thus calculating first exponent.
+        exp = int(exponent, 16) | ~0x1f
+        exp = ~exp + 1
+        div = 1 << exp
+
+        mantissa = int(mantissa, 16)
+
+        v = (float(mantissa)/float(div))
+
+        print "IR %s       %.3f V" % (string.get(i), v)
+
+    return
+
+
+# IR utility usage
+def error_ir_usage():
+
+    print ""
+    print "Usage:"
+    print "./btools.py --IR sh v          => Show IR voltages"
+
+    return
+
 #Work in progress
 def ir(argv):
 
-    for arg in argv:
-        print arg
+    arg_ir = argv[2:]
+
+    if arg_ir[0] == "help" or arg_ir[0] == "h":
+        error_ir_usage()
+        return
+
+    if arg_ir[0] == "sh":
+        ir_voltage_show_montara()
+        ir_voltage_show_mavericks()
+    else:
+        error_ir_usage()
+        return
 
     return
 
@@ -565,7 +774,7 @@ def error_tmp_usage():
     return
 
 #
-# Lower board temperature sensors. Board exists on Montara and Mavericks 
+# Lower board temperature sensors. Board exists on Montara and Mavericks
 #
 def tmp_lower(board):
 
@@ -578,7 +787,7 @@ def tmp_lower(board):
                   5: "4c/temp1_input"}
 
     cmd = "cat"
-    
+
     if board == "Mavericks":
         x = 6
     else:
@@ -602,7 +811,7 @@ def tmp_lower(board):
         cmd = "i2cget"
 
         try:
-            output = subprocess.check_output([cmd, "-f", "-y", "3", "0x4d", 
+            output = subprocess.check_output([cmd, "-f", "-y", "3", "0x4d",
                                              "0x00", "w"])
             output = int(output, 16)
             t = output & 0xff
@@ -615,12 +824,12 @@ def tmp_lower(board):
             print " TMP SENSOR %.2d                  %.3f C" % (5, t)
 
 
-            output = subprocess.check_output([cmd, "-f", "-y", "3", 
+            output = subprocess.check_output([cmd, "-f", "-y", "3",
                                              "0x4c", "0x00"])
             output = int(output, 16)
             print " TMP SENSOR MAX LOCAL           %.3f C" % output
 
-            output = subprocess.check_output([cmd, "-f", "-y", "3", 
+            output = subprocess.check_output([cmd, "-f", "-y", "3",
                                              "0x4c", "0x01"])
             output = int(output, 16)
             print " TMP SENSOR MAX Tofino          %.3f C" % (output)
@@ -628,7 +837,7 @@ def tmp_lower(board):
         except subprocess.CalledProcessError as e:
             print e
             print "Error occured while reading Temperature sensor %d " % i
-        
+
     return
 
 #
