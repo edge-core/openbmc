@@ -63,8 +63,7 @@
 #include <facebook/bic.h>
 #include <facebook/yosemite_sensor.h>
 #endif
-#if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100) \
-                          && !defined(CONFIG_MAVERICKS)
+#if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100)
 #include <facebook/wedge_eeprom.h>
 #endif
 
@@ -256,7 +255,7 @@ int fan_to_pwm_map[] = {1, 2, 3, 4, 5};
 #define BACK_TO_BACK_FANS
 
 #elif defined(CONFIG_MAVERICKS)
-/* make upper  fan tray numbers irbitrarily off by 100, more than the largest
+/* make upper  fan tray numbers arbitrarily off by 100, more than the largest
  * value
  **/
 int fan_to_rpm_map[] = {1, 3, 5, 7, 9, 101, 103, 105, 107, 109};
@@ -618,6 +617,39 @@ bool is_two_fan_board(bool verbose) {
 }
 #endif
 
+#if defined(CONFIG_MAVERICKS)
+/* define board types */
+#define BF_BOARD_MAV 1
+#define BF_BOARD_MON 2
+
+/* returns different BF board types */
+static int bf_board_type_get() {
+  struct wedge_eeprom_st eeprom;
+  /* Retrieve the board type from EEPROM . We support Rev2 upward EEPROM map */
+  if (wedge_eeprom_parse(NULL, &eeprom) == 0) {
+    /* able to parse EEPROM */
+    if (verbose) {
+      syslog(LOG_INFO, "BF board type is %s", eeprom.fbw_assembly_number);
+    }
+    if (!strncasecmp(eeprom.fbw_assembly_number, "13500001101",
+                   sizeof(eeprom.fbw_assembly_number))) {
+      syslog(LOG_INFO, "BF board type is Mavericks");
+      return BF_BOARD_MAV;
+    } else if (!strncasecmp(eeprom.fbw_assembly_number, "13500001102",
+                           sizeof(eeprom.fbw_assembly_number))) {
+      syslog(LOG_INFO, "BF board type is Montara");
+      return BF_BOARD_MON;
+    } else {
+      syslog(LOG_WARNING, "BF invalid board type. defaulting to Montara");
+      return BF_BOARD_MON;
+    }
+  } else {
+    syslog(LOG_WARNING, "BF error reading eeprom. defaulting to Montara");
+    return BF_BOARD_MON;
+  }
+}
+#endif
+
 int read_fan_value(const int fan, const char *device, int *value) {
   char device_name[LARGEST_DEVICE_NAME];
   char output_value[LARGEST_DEVICE_NAME];
@@ -900,8 +932,11 @@ int main(int argc, char **argv) {
   int fan_failure = 0;
   int fan_speed_changes = 0;
   int old_speed;
-
+#if defined(CONFIG_MAVERICKS)
+  int fan_bad[FANS*2];
+#else
   int fan_bad[FANS];
+#endif
   int fan;
 
   unsigned log_count = 0; // How many times have we logged our temps?
@@ -934,6 +969,12 @@ int main(int argc, char **argv) {
     fan_high = SIXPACK_FAN_HIGH;
     fan_max = SIXPACK_FAN_MAX;
     fan_speed = fan_high;
+  }
+#endif
+
+#if defined(CONFIG_MAVERICKS)
+  if (bf_board_type_get() == BF_BOARD_MAV) {
+    total_fans = 10; /* remains 5 for montara */
   }
 #endif
 
@@ -1227,6 +1268,13 @@ int main(int argc, char **argv) {
     fan_failure = 0;
     for (fan = 0; fan < total_fans; fan++) {
       if (fan_bad[fan] > FAN_FAILURE_THRESHOLD) {
+        /* FIXME: Not all mavericks have upper FAN tray always mounted.
+         * so, dont count errors due to absent upper fan tray, for now.
+         * at some point, below "#if" construct has to go away.
+         */
+#if defined(CONFIG_MAVERICKS)
+        if (fan < 5)
+#endif
         fan_failure++;
         write_fan_led(fan + fan_offset, FAN_LED_RED);
       }
