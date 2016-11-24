@@ -133,5 +133,39 @@ def get_bmc_tmp(param1):
 
     return result;
 
+def get_bmc_ucd():
+    
+    l = []
+    output = []
+    err = 0
+    err_status = "exit status"
+
+    cmd = "btools.py --UCD sh v"
+    data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+    
+    # if error while data collection
+    if err_status in data:
+	    err = find_err_status(data)
+
+    for t in data.split():
+        try:
+             l.append(float(t))
+        except ValueError:
+             pass	
+
+    output.append(err)
+
+    for i in range(0, 12):	
+	output.append(int(l[2*i + 1] * 1000))
+    
+    result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+
+    return result;
+
 #if __name__ == '__main__':
-#   get_bmc_tmp("Mavericks")
+#   get_bmc_ucd()
