@@ -121,6 +121,11 @@ def rest_fruid_hdl():
 def rest_bmc_hdl():
     return rest_bmc.get_bmc()
 
+# Handler for sys/bmc/tmp resource endpoint
+@bottle.route('/api/sys/bmc/tmp/<param1>')
+def rest_bmc_tmp_hdl(param1):
+    return rest_bmc.get_bmc_tmp(param1)
+
 # Handler for sys/server resource endpoint
 @bottle.route('/api/sys/server')
 def rest_server_hdl():

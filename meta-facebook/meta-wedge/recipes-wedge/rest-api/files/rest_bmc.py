@@ -75,3 +75,63 @@ def get_bmc():
 
     return result;
 
+def find_err_status(data):
+
+    err_status = "exit status"
+
+    for item in data.split('\n'):
+   	    if err_status in item:
+	        try:
+	            err = int(item[-1:])
+	            return err
+	        except ValueError:
+		        #default error if i2c failure 2
+		        err = 2
+		        return 2
+
+    return err
+	
+def get_bmc_tmp(param1):
+
+    l = []
+    output = []
+    err = 0
+    err_status = "exit status"
+
+    cmd = "btools.py --TMP %s sh" % param1
+    data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+
+    # if error while data collection
+    if err_status in data:
+	    err = find_err_status(data)
+
+    for t in data.split():
+        try:
+             l.append(float(t))
+        except ValueError:
+             pass	
+
+    output.append(err)
+
+    if param1 == "Mavericks" :
+    	for i in range(0, 9):	
+	    output.append(int(l[2*i + 1] * 10))
+		
+	#Max device temperature
+	output.append(int(l[18] * 10))
+
+    if param1 == "Montara" :
+	for i in range(0, 5):
+	    output.append(int(l[2*i + 1] * 10))
+
+    result = {
+		        "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+
+    return result;
+
+#if __name__ == '__main__':
+#   get_bmc_tmp("Mavericks")
