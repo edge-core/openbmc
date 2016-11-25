@@ -174,6 +174,7 @@ def get_bmc_ps(param1):
     load_sharing = []
     err = [0] * 8
     err_status = "exit status"
+    not_present = "not_present"
 
     # input voltage data
     cmd = "btools.py --PSU %s r v" % param1
@@ -281,7 +282,7 @@ def get_bmc_ps(param1):
     if err_status in data:
 	    err[6] = find_err_status(data)
 
-    if "not present" in data:
+    if not_present in data:
         l.append(float(0))
     else :
         l.append(float(1))
@@ -302,9 +303,9 @@ def get_bmc_ps(param1):
     if float(t[0]) > 0.0 and float(t[1]) > 0.0 :
         l.append(float(1))
     else :
-        l.append(float(0))
+	l.append(float(0))
 
-    # if err is present append it to output
+    #if err is present append it to output
     a = 0
     for x in err:
 	if x != 0:
@@ -324,13 +325,61 @@ def get_bmc_ps(param1):
 
     return result;
 
-def get_bmc_fan_get(param1):
+def get_bmc_fan(param1):
+
+    output = []
+    err = 0
+    error = ["error", "Error", "ERROR"]
 
     cmd = "/usr/local/bin/get_fan_speed.sh %s" % param1
     data = Popen(cmd, \
                        shell=True, stdout=PIPE).stdout.read()
 
-    print data
+    # if error while data collection
+    if any(x in data for x in error):
+        err = 1
 
-#if __name__ == '__main__':
-#   get_bmc_ps(2)
+    output.append(err)
+
+    t = re.findall('\d+', data)
+
+    for x in t:
+	output.append(int(x))
+	
+    cmd = "cat /sys/class/i2c-adapter/i2c-8/8-0033/fantray_present"
+    data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+
+        
+    t = re.findall('\d+', data)
+    output.append(int(t[0]))
+
+    result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+
+    return result;
+
+def set_bmc_fan(param1, param2, param3):
+
+    output = []	
+    error = ["error", "Error", "ERROR"]
+    err = 0
+    cmd = "/usr/local/bin/set_fan_speed.sh %s %s %s" % (param3, param2, param1)
+    data = Popen(cmd, \
+                      shell=True, stdout=PIPE).stdout.read()
+
+    # if error while data collection
+    if any(x in data for x in error):
+        err = 1
+
+    output.append(err)
+    result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+
+    return result;
