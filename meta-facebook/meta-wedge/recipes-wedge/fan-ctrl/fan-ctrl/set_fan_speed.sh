@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright 2004-present Facebook. All Rights Reserved.
+# Copyright 2015-present Facebook. All Rights Reserved.
 #
 # This program file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -18,68 +18,56 @@
 # Boston, MA 02110-1301 USA
 #
 usage() {
-    echo "Usage: $0 <PERCENT (0..100)> <Fan Unit (0..3)> " >&2
+    echo "Usage: $0 <PERCENT (0..100)> <Fan Unit (1..5)(6...10)> <board type (Montara Mavericks)>" >&2
 }
 
-PWM_DIR=/sys/devices/platform/ast_pwm_tacho.0
-
-# The maximum unit setting.
-# This should be the value in pwm_type_m_unit plus 1
-PWM_UNIT_MAX=96
+FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0033
+FAN_DIR_UPPER=/sys/class/i2c-adapter/i2c-9/9-0033
 
 set -e
 
-if [ "$#" -ne 2 ] && [ "$#" -ne 1 ]; then
+if [ "$#" -ne 3 ] && [ "$#" -ne 2 ]; then
     usage
     exit 1
 fi
 
-# refer to the comments in init_pwn.sh regarding
-# the fan unit and PWM mapping
-if [ "$#" -eq 1 ]; then
-    PWMS="0:7 1:6 2:0 3:1"
-else
-    case "$2" in
-    "0")
-        PWMS="0:7"
-        ;;
-    "1")
-        PWMS="1:6"
-        ;;
-    "2")
-        PWMS="2:0"
-        ;;
-    "3")
-        PWMS="3:1"
-        ;;
-    *)
+if [ "$#" -eq 2 ]; then
+    if [ $2 = "Mavericks" ]; then
+    	FANS="1 2 3 4 5 6 7 8 9 10"
+    elif [ $2 = "Montara" ]; then
+    	FANS="1 2 3 4 5"
+    else 
         usage
         exit 1
-        ;;
-    esac
+    fi
+else
+    if [ $3 = "Mavericks" ]; then
+    	if [ $2 -gt 10 ]; then
+       	    usage
+            exit 1
+    	fi
+    elif [ $3 = "Montara" ]; then
+    	if [ $2 -gt 5 ]; then
+       	    usage
+            exit 1
+    	fi
+    else 
+        usage
+        exit 1
+    fi
+    FANS="$2"
 fi
 
-# Convert the percentage to our 1/96th unit.
-unit=$(( ( $1 * $PWM_UNIT_MAX ) / 100 ))
+# Convert the percentage to our 1/32th unit (0-31).
+unit=$(( ( $1 * 31 ) / 100 ))
 
-for FAN_PWM in $PWMS; do
-    FAN_N=${FAN_PWM%%:*}
-    PWM_N=${FAN_PWM##*:}
-    if [ "$unit" -eq 0 ]; then
-        # For 0%, turn off the PWM entirely
-        echo 0 > $PWM_DIR/pwm${PWM_N}_en
+for fan in $FANS; do
+    if [ $fan -gt 5 ]; then
+        fan_idx=$(( $fan - 5))
+        pwm="${FAN_DIR_UPPER}/fantray${fan_idx}_pwm"
     else
-        if [ "$unit" -eq $PWM_UNIT_MAX ]; then
-            # For 100%, set falling and rising to the same value
-            unit=0
-        fi
-
-        # always use type M. refer to the comments in init_pwm.sh
-        echo 0 > $PWM_DIR/pwm${PWM_N}_type
-        echo 0 > $PWM_DIR/pwm${PWM_N}_rising
-        echo "$unit" > $PWM_DIR/pwm${PWM_N}_falling
-        echo 1 > $PWM_DIR/pwm${PWM_N}_en
+        pwm="${FAN_DIR}/fantray${fan}_pwm"
     fi
-
-    echo "Successfully set fan ${FAN_N} (PWM: $PWM_N) speed to $1%"
+    echo "$unit" > $pwm
+    echo "Successfully set fan ${fan} speed to $1%"
 done

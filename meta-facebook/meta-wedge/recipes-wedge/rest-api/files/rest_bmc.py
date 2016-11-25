@@ -167,5 +167,170 @@ def get_bmc_ucd():
 
     return result;
 
+def get_bmc_ps(param1):
+
+    l = []
+    output = []
+    load_sharing = []
+    err = [0] * 8
+    err_status = "exit status"
+
+    # input voltage data
+    cmd = "btools.py --PSU %s r v" % param1
+    data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+
+    # if error while data collection
+    if err_status in data:
+	    err[0] = find_err_status(data)
+
+    t = re.findall('\d+\.\d+', data)
+    try:
+    	l.append(float(t[0]))
+    except ValueError:
+        l.append(float(0))
+        pass
+
+    # output voltage
+    cmd = "btools.py --PSU %s r vo" % param1
+    data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+
+    # if error while data collection
+    if err_status in data:
+	    err[1] = find_err_status(data)
+
+    # ouput voltage data
+    t = re.findall('\d+\.\d+', data)
+    try:
+    	l.append(float(t[0]))
+    except ValueError:
+        l.append(float(0))
+        pass
+
+    # input current
+    cmd = "btools.py --PSU %s r i" % param1
+    data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+
+    # if error while data collection
+    if err_status in data:
+	    err[2] = find_err_status(data)
+
+    t = re.findall('\d+\.\d+', data)
+    try:
+    	l.append(float(t[0]))
+    except ValueError:
+        l.append(float(0))
+        pass
+
+    #  power supply
+    cmd = "btools.py --PSU %s r p" % param1
+    data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+
+    # if error while data collection
+    if err_status in data:
+	    err[3] = find_err_status(data)
+
+    t = re.findall('\d+\.\d+', data)
+    try:
+    	l.append(float(t[0]))
+    except ValueError:
+        l.append(float(0))
+        pass
+
+    # fan spped
+    cmd = "btools.py --PSU %s r fspeed" % param1
+    data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+
+    # if error while data collection
+    if err_status in data:
+	    err[4] = find_err_status(data)
+
+    t = re.findall('\d+', data)
+    try:
+    	l.append(float(t[0]))
+    except ValueError:
+        l.append(float(0))
+        pass
+	
+    # fan fault
+    cmd = "btools.py --PSU %s r ffault" % param1
+    data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+
+    # if error while data collection
+    if err_status in data:
+	    err[5] = find_err_status(data)
+
+    t = re.findall('\d+', data)
+    try:
+    	l.append(float(t[0]))
+    except ValueError:
+        l.append(float(0))
+        pass
+
+    # presence
+    cmd = "btools.py --PSU %s r presence" % param1
+    data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+
+    # if error while data collection
+    if err_status in data:
+	    err[6] = find_err_status(data)
+
+    if "not present" in data:
+        l.append(float(0))
+    else :
+        l.append(float(1))
+
+    #  load sharing
+    cmd = "btools.py --PSU %s r ld" % param1
+    data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+
+    # if error while data collection
+    if err_status in data:
+	    err[7] = find_err_status(data)
+
+    t = re.findall('\d+\.\d+', data)
+
+    # if current is shared between supplies then load sharing
+    # is true
+    if float(t[0]) > 0.0 and float(t[1]) > 0.0 :
+        l.append(float(1))
+    else :
+        l.append(float(0))
+
+    # if err is present append it to output
+    a = 0
+    for x in err:
+	if x != 0:
+	    a = x
+	    break
+
+    output.append(a)
+
+    for x in l:
+	    output.append(int(x))
+	
+    result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+
+    return result;
+
+def get_bmc_fan_get(param1):
+
+    cmd = "/usr/local/bin/get_fan_speed.sh %s" % param1
+    data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+
+    print data
+
 #if __name__ == '__main__':
-#   get_bmc_ucd()
+#   get_bmc_ps(2)
