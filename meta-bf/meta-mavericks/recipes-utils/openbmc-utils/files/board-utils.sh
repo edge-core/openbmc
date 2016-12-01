@@ -66,7 +66,7 @@ wedge_should_enable_oob() {
 }
 
 wedge_power_on_board() {
-    local val
+    local val isolbuf
     # power on main power, uServer power, and enable power button
     val=$(cat $PWR_MAIN_SYSFS | head -n 1)
     if [ "$val" != "0x1" ]; then
@@ -78,4 +78,9 @@ wedge_power_on_board() {
         echo 1 > $PWR_USRV_BTN_SYSFS
         sleep 1
     fi
+
+    # Enable the COME I2C isolation buffer
+    val=$(i2cget -f -y 12 0x31 0x28) 
+    isolbuf=$(($val|0x30))
+    i2cset -f -y 12 0x31 0x28 $isolbuf
 }
