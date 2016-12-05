@@ -30,6 +30,6 @@ def get_fruid():
     for num in range(0,11):
         val = subprocess.Popen(['/usr/sbin/i2cget', '-f', '-y', '6', '0x51'], stdout=subprocess.PIPE).communicate()
         temp = val[0][2], val[0][3]
-        res = str(int(''.join(temp)))
+        res = str(int(''.join(temp)) - 30)
         assembly_number += res
     return assembly_number 
