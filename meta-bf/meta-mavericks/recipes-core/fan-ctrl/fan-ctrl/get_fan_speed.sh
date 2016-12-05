@@ -18,7 +18,7 @@
 # Boston, MA 02110-1301 USA
 #
 usage() {
-    echo "Usage: $0 [Fan Unit (1..5) (upper: 6...10)]" >&2
+    echo "Usage: $0 [Fan Unit (1..5) (upper: 6...10)] [board type (Mavericks Montara)]" >&2
 }
 
 FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0033
@@ -52,9 +52,27 @@ set -e
 
 # refer to the comments in init_pwn.sh regarding
 # the fan unit and tacho mapping
+# fixing function to handle maverciks and montara number of fans 
+# while keeping backward command line compatibility with original FB script
 if [ "$#" -eq 0 ]; then
-    FANS="1 2 3 4 5 6 7 8 9 10"
+    	FANS="1 2 3 4 5"
 elif [ "$#" -eq 1 ]; then
+    if [ $1 = "Mavericks" ]; then
+    	FANS="1 2 3 4 5 6 7 8 9 10"
+    elif [ $1 = "Montara" ]; then
+    	FANS="1 2 3 4 5"
+    else 
+	if [ $1 -gt 10 ]; then
+      	    usage
+            exit 1
+	fi
+	FANS="$1"
+    fi
+elif [ "$#" -eq 2 ]; then
+    if [ $2 != "Mavericks" ] && [ $2 != "Montara" ]; then
+    	usage
+    	exit 1
+    fi
     if [ $1 -gt 10 ]; then
         usage
         exit 1
