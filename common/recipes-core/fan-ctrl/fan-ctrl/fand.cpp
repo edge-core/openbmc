@@ -631,11 +631,11 @@ static int bf_board_type_get() {
     if (verbose) {
       syslog(LOG_INFO, "BF board type is %s", eeprom.fbw_assembly_number);
     }
-    if (!strncasecmp(eeprom.fbw_assembly_number, "13500001101",
+    if (!strncasecmp(eeprom.fbw_assembly_number, "13500001102",
                    sizeof(eeprom.fbw_assembly_number))) {
       syslog(LOG_INFO, "BF board type is Mavericks");
       return BF_BOARD_MAV;
-    } else if (!strncasecmp(eeprom.fbw_assembly_number, "13500001102",
+    } else if (!strncasecmp(eeprom.fbw_assembly_number, "13500001104",
                            sizeof(eeprom.fbw_assembly_number))) {
       syslog(LOG_INFO, "BF board type is Montara");
       return BF_BOARD_MON;

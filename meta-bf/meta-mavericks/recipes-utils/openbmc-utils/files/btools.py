@@ -646,7 +646,7 @@ def ir_voltage_show_mavericks():
     a = ir_open_i2c_switch()
 
     UPPER_IR_I2C_BUS = "0x9"
-    UPPER_IR_PMBUS_ADDR = {1: "0x70", 2: "0x72", 3: "0x77"}
+    UPPER_IR_PMBUS_ADDR = {1: "0x70", 2: "0x72", 3: "0x75"}
     IR_VOUT_MODE_OP = "0x20"
     IR_READ_VOUT_OP = "0x8b"
     string = {1: "VDD", 2: "AVDD", 3: "QSFP"}
@@ -692,7 +692,7 @@ def ir_voltage_show_mavericks():
     ir_restore_i2c_switch(a)
 
     LOWER_IR_I2C_BUS = "0x1"
-    LOWER_IR_PMBUS_ADDR = {1: "0x10", 2: "0x12"}
+    LOWER_IR_PMBUS_ADDR = {1: "0x71", 2: "0x72"}
     lower_string = {1: "QSFP", 2: "REPEATER"}
 
     for i in range(1, 3):
@@ -727,7 +727,7 @@ def ir_voltage_show_mavericks():
 
         v = (float(mantissa)/float(div))
 
-        print "IR %s       %.3f V" % (string.get(i), v)
+        print "IR %s       %.3f V" % (lower_string.get(i), v)
 
     return
 
@@ -737,7 +737,7 @@ def error_ir_usage():
 
     print ""
     print "Usage:"
-    print "./btools.py --IR sh v          => Show IR voltages"
+    print "./btools.py --IR sh v <mavericks/montara>         => Show IR voltages "
 
     return
 
@@ -746,13 +746,18 @@ def ir(argv):
 
     arg_ir = argv[2:]
 
-    if arg_ir[0] == "help" or arg_ir[0] == "h":
+    if arg_ir[0] == "help" or arg_ir[0] == "h" or len(arg_ir) != 3:
         error_ir_usage()
         return
 
     if arg_ir[0] == "sh":
-        ir_voltage_show_montara()
-        ir_voltage_show_mavericks()
+        if arg_ir[2] == "Mavericks" or arg_ir[2] == "mavericks" :
+            ir_voltage_show_mavericks()
+        elif arg_ir[2] == "Montara" or arg_ir[2] == "montara" :
+            ir_voltage_show_montara()
+        else :
+            error_ir_usage()
+            return
     else:
         error_ir_usage()
         return
