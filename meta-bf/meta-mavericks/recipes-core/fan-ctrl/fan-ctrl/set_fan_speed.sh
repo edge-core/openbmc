@@ -18,7 +18,7 @@
 # Boston, MA 02110-1301 USA
 #
 usage() {
-    echo "Usage: $0 <PERCENT (0..100)> <Fan Unit (1..5)(6...10)> " >&2
+    echo "Usage: $0 <PERCENT (0..100)> <Fan Unit (1..5)(6...10)> <board type (Montara Mavericks)>" >&2
 }
 
 FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0033
@@ -26,15 +26,38 @@ FAN_DIR_UPPER=/sys/class/i2c-adapter/i2c-9/9-0033
 
 set -e
 
-if [ "$#" -ne 2 ] && [ "$#" -ne 1 ]; then
+if [ "$#" -gt 3 ] || [ "$#" -lt 1 ]; then
     usage
     exit 1
 fi
 
+# Adding fix for Mavericks and Montara while keeping backward compatibility with FB command line.
 if [ "$#" -eq 1 ]; then
     FANS="1 2 3 4 5 6 7 8 9 10"
+elif [ "$#" -eq 2 ]; then
+    if [ $2 = "Mavericks" ]; then
+    	FANS="1 2 3 4 5 6 7 8 9 10"
+    elif [ $2 = "Montara" ]; then
+    	FANS="1 2 3 4 5"
+    else 
+    	if [ $2 -gt 10 ]; then
+       	    usage
+            exit 1
+    	fi
+    	FANS="$2"
+    fi
 else
-    if [ $2 -gt 10 ]; then
+    if [ $3 = "Mavericks" ]; then
+    	if [ $2 -gt 10 ]; then
+       	    usage
+            exit 1
+    	fi
+    elif [ $3 = "Montara" ]; then
+    	if [ $2 -gt 5 ]; then
+       	    usage
+            exit 1
+    	fi
+    else 
         usage
         exit 1
     fi
@@ -45,7 +68,7 @@ fi
 unit=$(( ( $1 * 31 ) / 100 ))
 
 for fan in $FANS; do
-    if [ $2 -gt 5 ]; then
+    if [ $fan -gt 5 ]; then
         fan_idx=$(( $fan - 5))
         pwm="${FAN_DIR_UPPER}/fantray${fan_idx}_pwm"
     else
