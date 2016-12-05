@@ -55,7 +55,7 @@ set -e
 # fixing function to handle maverciks and montara number of fans 
 # while keeping backward command line compatibility with original FB script
 if [ "$#" -eq 0 ]; then
-    	FANS="1 2 3 4 5 6 7 8 9 10"
+    	FANS="1 2 3 4 5"
 elif [ "$#" -eq 1 ]; then
     if [ $1 = "Mavericks" ]; then
     	FANS="1 2 3 4 5 6 7 8 9 10"

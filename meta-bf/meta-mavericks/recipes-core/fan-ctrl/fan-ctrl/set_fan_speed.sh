@@ -33,7 +33,7 @@ fi
 
 # Adding fix for Mavericks and Montara while keeping backward compatibility with FB command line.
 if [ "$#" -eq 1 ]; then
-    FANS="1 2 3 4 5 6 7 8 9 10"
+    FANS="1 2 3 4 5"
 elif [ "$#" -eq 2 ]; then
     if [ $2 = "Mavericks" ]; then
     	FANS="1 2 3 4 5 6 7 8 9 10"
