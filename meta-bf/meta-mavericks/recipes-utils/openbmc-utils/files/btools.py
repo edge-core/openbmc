@@ -646,10 +646,10 @@ def ir_voltage_show_mavericks():
     a = ir_open_i2c_switch()
 
     UPPER_IR_I2C_BUS = "0x9"
-    UPPER_IR_PMBUS_ADDR = {1: "0x70", 2: "0x72", 3: "0x75"}
+    UPPER_IR_PMBUS_ADDR = {1: "0x40", 2: "0x72", 3: "0x75"}
     IR_VOUT_MODE_OP = "0x20"
     IR_READ_VOUT_OP = "0x8b"
-    string = {1: "VDD", 2: "AVDD", 3: "QSFP"}
+    string = {1: "VDD_CORE", 2: "AVDD", 3: "QSFP_UPPER"}
 
     for i in range(1, 4):
 
@@ -693,7 +693,7 @@ def ir_voltage_show_mavericks():
 
     LOWER_IR_I2C_BUS = "0x1"
     LOWER_IR_PMBUS_ADDR = {1: "0x71", 2: "0x72"}
-    lower_string = {1: "QSFP", 2: "REPEATER"}
+    lower_string = {1: "QSFP_LOWER", 2: "REPEATER"}
 
     for i in range(1, 3):
 
@@ -725,12 +725,11 @@ def ir_voltage_show_mavericks():
 
         mantissa = int(mantissa, 16)
 
-        v = (float(mantissa)/float(div))
+        v = (float(mantissa)/float(div)) * 2 
 
         print "IR %s       %.3f V" % (lower_string.get(i), v)
 
     return
-
 
 # IR utility usage
 def error_ir_usage():
@@ -738,10 +737,224 @@ def error_ir_usage():
     print ""
     print "Usage:"
     print "./btools.py --IR sh v <mavericks/montara>         => Show IR voltages "
+    print "./btools.py --IR set <mavericks/montara> <margin>        <voltage rail>  => Set IR voltages margin"
+    print "                                           l = low margin       AVDD                   "
+    print "                                           h = high margin      VDD_CORE               "
+    print "                                           n = normal           QSFP_UPPER             "
+    print "                                                                QSFP_LOWER             "
+    print "                                                                REPEATER               "
+    return
+
+def read_vout(rail, I2C_BUS, I2C_ADDR):
+
+    IR_VOUT_MODE_OP = "0x20"
+    IR_READ_VOUT_OP = "0x8b"
+
+        try:
+            # i2cget -f -y 1 0x70 0x20 w
+            get_cmd = "i2cget"
+            exponent = subprocess.check_output([get_cmd, "-f", "-y", I2C_BUS,
+                                     I2C_ADDR, IR_VOUT_MODE_OP, "w"])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing VOUT_MODE "
+            continue
+
+        try:
+            # i2cget -f -y 1 0x70 0x8b w
+            get_cmd = "i2cget"
+            mantissa = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
+                                         I2C_ADDR, IR_READ_VOUT_OP, "w"])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing i2cget "
+            continue
+
+        # 2 ^ exponent
+        # exponent is 5 bit signed value. Thus calculating first exponent.
+        exp = int(exponent, 16) | ~0x1f
+        exp = ~exp + 1
+        div = 1 << exp
+
+        mantissa = int(mantissa, 16)
+
+        v = (float(mantissa)/float(div))
+
+        print "IR %s       %.3f V" % rail, v)
+
+def set_ir_voltage(mod, i2c_bus, i2c_addr, margin_cmd, margin_apply, voltage):
+    
+  IR_OPERATION = "0x1"
+      
+  try
+    # set voltage margin value in register
+    set_cmd = "i2cset"
+    o = subprocess.check_output([set_cmd, "-f", "-y",
+                                i2c_bus, i2c_addr, 
+                                margin_cmd, voltage, 'w'])
+
+    # execute operation 0x1 with voltage margin AOF
+    set_cmd = "i2cset"
+    o = subprocess.check_output([set_cmd, "-f", "-y",
+                                i2c_bus, i2c_addr, 
+                                IR_OPERATION, margin_apply, 'w'])
+
+  except subprocess.CalledProcessError as e:
+    print e
+    print "Error occured while setting %s voltage low margin" % mod
+    
+  read_vout(mod, i2c_bus, i2c_addr)
 
     return
 
-#Work in progress
+def ir_voltage_set_mavericks(arg_ir):
+ 
+    a = ir_open_i2c_switch()
+
+    UPPER_IR_I2C_BUS = "0x9"
+    UPPER_IR_PMBUS_ADDR = {1: "0x40", 2: "0x72", 3: "0x75"}
+    string_upper = {1: "VDD_CORE", 2: "AVDD", 3: "QSFP_UPPER"}
+    LOWER_IR_I2C_BUS = "0x1"
+    LOWER_IR_PMBUS_ADDR = {1: "0x71", 2: "0x72"}
+    lower_string = {1: "QSFP_LOWER", 2: "REPEATER"}
+
+    IR_MARGIN_LOW_AOF_OP = "0x98"
+    IR_MARGIN_HIGH_AOF_OP = "0xA8"
+    IR_MARGIN_OFF = "0x80"
+    IR_OPERATION = "0x1"
+
+    IR_VOUT_MARGIN_HIGH = "0x25" 
+    IR_VOUT_MARGIN_LOW = "0x26" 
+    IR_VOUT_CMD = "0x21" 
+ 
+  
+    if arg_ir[3] == "AVDD":
+
+      VOLT_MARGIN_HIGH = "0x1E4"
+      VOLT_MARGIN_LOW = "0x1B6"
+      VOLT_NORMAL =  
+      i2c_addr = UPPER_IR_PMBUS_ADDR.get(2)
+
+      if arg_ir[2] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW 
+
+      elif arg_ir[2] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+      
+      else:
+        margin_cmd = VOLT_NORMAL
+        margin_apply = IR_MARGIN_OFF
+        voltage = IR_VOUT_CMD
+    
+      set_ir_voltage(arg_ir[3], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage) 
+    
+    elif arg_ir[3] == "VDD_CORE":
+ 
+      VOLT_MARGIN_HIGH = "0x1A5"
+      VOLT_MARGIN_LOW = "0x1B6"
+      VOLT_NORMAL =  "0x1AE"
+      i2c_addr = UPPER_IR_PMBUS_ADDR.get(1)
+
+      if arg_ir[2] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW 
+
+      elif arg_ir[2] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+      
+      else:
+        margin_cmd = VOLT_NORMAL
+        margin_apply = IR_MARGIN_OFF
+        voltage = IR_VOUT_CMD
+
+      set_ir_voltage(arg_ir[3], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage) 
+
+    elif arg_ir[3] == "QSFP_UPPER":
+ 
+      VOLT_MARGIN_HIGH = "0x376"
+      VOLT_MARGIN_LOW = "0x323"
+      VOLT_NORMAL =  "0x34d"
+      i2c_addr = UPPER_IR_PMBUS_ADDR.get(3)
+
+      if arg_ir[2] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW 
+
+      elif arg_ir[2] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+      
+      else:
+        margin_cmd = VOLT_NORMAL
+        margin_apply = IR_MARGIN_OFF
+        voltage = IR_VOUT_CMD
+
+      set_ir_voltage(arg_ir[3], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage) 
+    
+    elif arg_ir[3] == "QSFP_LOWER":
+ 
+      VOLT_MARGIN_HIGH = "0x376"
+      VOLT_MARGIN_LOW = "0x323"
+      VOLT_NORMAL =  "0x34d"
+      i2c_addr = LOWER_IR_PMBUS_ADDR.get(1)
+
+      if arg_ir[2] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW 
+
+      elif arg_ir[2] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+      
+      else:
+        margin_cmd = VOLT_NORMAL
+        margin_apply = IR_MARGIN_OFF
+        voltage = IR_VOUT_CMD
+
+      set_ir_voltage(arg_ir[3], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage) 
+    
+    elif arg_ir[3] == "REPEATER":
+ 
+      VOLT_MARGIN_HIGH = "0x2A0"
+      VOLT_MARGIN_LOW = "0x260"
+      VOLT_NORMAL =  "0x280"
+      i2c_addr = LOWER_IR_PMBUS_ADDR.get(2)
+
+      if arg_ir[2] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW 
+
+      elif arg_ir[2] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+      
+      else:
+        margin_cmd = VOLT_NORMAL
+        margin_apply = IR_MARGIN_OFF
+        voltage = IR_VOUT_CMD
+
+      set_ir_voltage(arg_ir[3], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage) 
+  
+    else:
+        error_ir_usage()
+  
+    ir_restore_i2c_switch(a)
+    
+    return
+
 def ir(argv):
 
     arg_ir = argv[2:]
@@ -755,6 +968,14 @@ def ir(argv):
             ir_voltage_show_mavericks()
         elif arg_ir[2] == "Montara" or arg_ir[2] == "montara" :
             ir_voltage_show_montara()
+        else :
+            error_ir_usage()
+            return
+    elif arg_ir[0] == "set":
+        if arg_ir[1] == "Mavericks" or arg_ir[1] == "mavericks" :
+            ir_voltage_set_mavericks(arg_ir)
+        elif arg_ir[1] == "Montara" or arg_ir[1] == "montara" :
+            ir_voltage_set_montara(arg_ir)
         else :
             error_ir_usage()
             return
