@@ -750,43 +750,43 @@ def read_vout(rail, I2C_BUS, I2C_ADDR):
     IR_VOUT_MODE_OP = "0x20"
     IR_READ_VOUT_OP = "0x8b"
 
-        try:
-            # i2cget -f -y 1 0x70 0x20 w
-            get_cmd = "i2cget"
-            exponent = subprocess.check_output([get_cmd, "-f", "-y", I2C_BUS,
+    try:
+      # i2cget -f -y 1 0x70 0x20 w
+      get_cmd = "i2cget"
+      exponent = subprocess.check_output([get_cmd, "-f", "-y", I2C_BUS,
                                      I2C_ADDR, IR_VOUT_MODE_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing VOUT_MODE "
-            continue
+    except subprocess.CalledProcessError as e:
+      print e
+      print "Error occured while processing VOUT_MODE "
 
-        try:
-            # i2cget -f -y 1 0x70 0x8b w
-            get_cmd = "i2cget"
-            mantissa = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
+    try:
+      # i2cget -f -y 1 0x70 0x8b w
+      get_cmd = "i2cget"
+      mantissa = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
                                          I2C_ADDR, IR_READ_VOUT_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cget "
-            continue
+    except subprocess.CalledProcessError as e:
+      print e
+      print "Error occured while processing i2cget "
 
-        # 2 ^ exponent
-        # exponent is 5 bit signed value. Thus calculating first exponent.
-        exp = int(exponent, 16) | ~0x1f
-        exp = ~exp + 1
-        div = 1 << exp
+    # 2 ^ exponent
+    # exponent is 5 bit signed value. Thus calculating first exponent.
+    exp = int(exponent, 16) | ~0x1f
+    exp = ~exp + 1
+    div = 1 << exp
 
-        mantissa = int(mantissa, 16)
+    mantissa = int(mantissa, 16)
 
-        v = (float(mantissa)/float(div))
+    v = (float(mantissa)/float(div))
 
-        print "IR %s       %.3f V" % rail, v)
+    print ("IR %s       %.3f V" % rail, v)
+
+    return
 
 def set_ir_voltage(mod, i2c_bus, i2c_addr, margin_cmd, margin_apply, voltage):
     
   IR_OPERATION = "0x1"
       
-  try
+  try:
     # set voltage margin value in register
     set_cmd = "i2cset"
     o = subprocess.check_output([set_cmd, "-f", "-y",
@@ -805,7 +805,7 @@ def set_ir_voltage(mod, i2c_bus, i2c_addr, margin_cmd, margin_apply, voltage):
     
   read_vout(mod, i2c_bus, i2c_addr)
 
-    return
+  return
 
 def ir_voltage_set_mavericks(arg_ir):
  
@@ -832,7 +832,7 @@ def ir_voltage_set_mavericks(arg_ir):
 
       VOLT_MARGIN_HIGH = "0x1E4"
       VOLT_MARGIN_LOW = "0x1B6"
-      VOLT_NORMAL =  
+      VOLT_NORMAL = "0x1B6" 
       i2c_addr = UPPER_IR_PMBUS_ADDR.get(2)
 
       if arg_ir[2] == "l":
