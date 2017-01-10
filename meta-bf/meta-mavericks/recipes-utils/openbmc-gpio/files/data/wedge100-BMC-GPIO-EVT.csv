@@ -24,6 +24,7 @@ Power LED blue will be off when LED_PWR_BLUE is low"
 D18,GPIOF0_NCTS4,Out,MSERVE_ISOBUF_EN,To enable  isolation buffer dedicated for microserver com port
 B19,GPIOF1_NDCD4_SIOPBI_N,Out,BMC_MAIN_RESET_N,BMC can request cpld to reset main power
 A20,GPIOF2_NDSR4_SIOPWRGD,Out,CPLD_JTAG_SEL,"SYSCPLD upgrade enable, 0: jtag header program, 1: BMC programming"
+D17,GPIOF3_NRI4_SIOPBO_N,Out,UPPER_CPLD_JTAG_SEL,"Upper SYSCPLD upgrade enable, 0: jtag header program, 1: BMC programming"
 B18,GPIOF4_NDTR4,Out,MSERV_POWERUP,To request cpld to turn on P12_uServer for microserver
 A19,GPIOF5_NRTS4,Out,RCKMON_RS485_DE,RS485 Drive Enable (TX/RX Toggle) pin for rackmon
 A14,GPIOG0_SGPSCK,Out,LED_POSTCODE_0,LED 7-segment code bit-0 for facebook debug header
@@ -54,6 +55,10 @@ W3,GPIOM4_NDTR2_VPIB6,out,BMC_CPLD_TMS,"SYSCPLD CPLD JTAG upgrade interface, BMC
 Y2,GPIOM5_NRTS2_VPIB7,out,BMC_CPLD_TDI,"SYSCPLD CPLD JTAG upgrade interface, BMC output to SYSCPLD TDI"
 AA1,GPIOM6_TXD2_VPIB8,out,BMC_CPLD_TCK,"SYSCPLD CPLD JTAG upgrade interface, BMC output to SYSCPLD TCK"
 V5,GPIOM7_RXD2_VPIB9,In,BMC_CPLD_TDO,"SYSCPLD CPLD JTAG upgrade interface, BMC output to SYSCPLD TDO"
+U20,ROMD7_GPIOS3_VPOCLK,out,BMC_UPPER_CPLD_TMS,"Upper SYSCPLD CPLD JTAG upgrade interface, BMC output to Upper SYSCPLD TMS"
+A8,GPIOH0_ROMD8_NCTS6,out,BMC_UPPER_CPLD_TDI,"Upper SYSCPLD CPLD JTAG upgrade interface, BMC output to Upper SYSCPLD TDI"
+C7,GPIOH1_ROMD9_NDCD6,out,BMC_UPPER_CPLD_TCK,"Upper SYSCPLD CPLD JTAG upgrade interface, BMC output to Upper SYSCPLD TCK"
+B7,GPIOH2_ROMD10_NDSR6,In,BMC_UPPER_CPLD_TDO,"Upper SYSCPLD CPLD JTAG upgrade interface, BMC output to Upper SYSCPLD TDO"
 V6,GPIOO0_TACH0_VPIG8,BI,RCKMON_SPARE4,RCKMON_SPARE[0:11] connect to fan_ctrl_rmon card connector
 Y5,GPIOO1_TACH1_VPIG9,BI,RCKMON_SPARE5,RCKMON_SPARE[0:11] connect to fan_ctrl_rmon card connector
 AA4,GPIOO2_TACH2_VPIR0,BI,RCKMON_SPARE10,RCKMON_SPARE[0:11] connect to fan_ctrl_rmon card connector(now not connected)

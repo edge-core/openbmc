@@ -67,7 +67,7 @@ display_upper() {
     devmem_clear_bit $(scu_addr 80) 14
     devmem_clear_bit $(scu_addr 80) 15
 
-    gpio_set 12 $bit0
+    gpio_set 195 $bit0
     gpio_set 13 $bit1
     gpio_set 14 $bit2
     gpio_set 15 $bit3
