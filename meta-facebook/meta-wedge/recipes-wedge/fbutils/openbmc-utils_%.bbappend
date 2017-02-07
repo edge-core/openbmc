@@ -23,16 +23,13 @@ SRC_URI += "file://board-utils.sh \
            file://power_led.sh \
            file://post_led.sh \
            file://reset_usb.sh \
+           file://reset_cp2112.sh \
            file://setup-gpio.sh \
            file://setup_rov.sh \
-           file://mdio.py \
-           file://bcm5396.py \
-           file://bcm5396_util.py \
-           file://at93cx6.py \
-           file://at93cx6_util.py \
            file://mount_data0.sh \
            file://eth0_mac_fixup.sh \
            file://wedge_power.sh \
+           file://reset_brcm.sh \
            file://power-on.sh \
            file://wedge_us_mac.sh \
            file://setup_switch.py \
@@ -46,9 +43,8 @@ SRC_URI += "file://board-utils.sh \
 
 OPENBMC_UTILS_FILES += " \
   board-utils.sh us_console.sh sol.sh power_led.sh post_led.sh \
-  reset_usb.sh mdio.py setup_rov.sh wedge_power.sh wedge_us_mac.sh \
-  bcm5396.py bcm5396_util.py setup_switch.py us_monitor.sh \
-  at93cx6.py at93cx6_util.py \
+  reset_usb.sh setup_rov.sh wedge_power.sh wedge_us_mac.sh \
+  setup_switch.py us_monitor.sh reset_brcm.sh reset_cp2112.sh \
   "
 
 DEPENDS_append = "update-rc.d-native"
@@ -81,7 +77,7 @@ do_install_board() {
   install -m 755 eth0_mac_fixup.sh ${D}${sysconfdir}/init.d/eth0_mac_fixup.sh
   update-rc.d -r ${D} eth0_mac_fixup.sh start 70 S .
   install -m 755 start_us_monitor.sh ${D}${sysconfdir}/init.d/start_us_monitor.sh
-  update-rc.d -r ${D} start_us_monitor.sh start 84 S .
+  update-rc.d -r ${D} start_us_monitor.sh start 83 S .
   install -m 755 power-on.sh ${D}${sysconfdir}/init.d/power-on.sh
   update-rc.d -r ${D} power-on.sh start 85 S .
   install -m 0755 ${WORKDIR}/rc.local ${D}${sysconfdir}/init.d/rc.local

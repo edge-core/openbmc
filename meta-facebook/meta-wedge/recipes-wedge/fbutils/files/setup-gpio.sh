@@ -85,10 +85,9 @@ devmem_clear_bit $(scu_addr a4) 13
 devmem_clear_bit $(scu_addr 80) 27
 devmem_clear_bit $(scu_addr a4) 14
 devmem_set_bit $(scu_addr 70) 19
-echo 16 > /sys/class/gpio/export
-echo 42 > /sys/class/gpio/export
-echo 43 > /sys/class/gpio/export
-# output
+gpio_export C0 T2_RESET_N
+gpio_export F2 RESET_SEQ1
+gpio_export F3 RESET_SEQ0
 
 # PANTHER_PRSNT_N, uServer presence, on GPIO E4
 devmem_clear_bit $(scu_addr 80) 20
@@ -211,6 +210,12 @@ echo 32 > /sys/class/gpio/export
 devmem_clear_bit $(scu_addr 80) 29
 echo 45 > /sys/class/gpio/export
 gpio_set 45 0
+
+# USB_BRDG_RST , GPIO D4
+devmem_clear_bit $(scu_addr 90 ) 1
+devmem_clear_bit $(scu_addr 8c ) 10
+devmem_clear_bit $(scu_addr 70 ) 21
+gpio_export D4 USB_BRDG_RST
 
 # Bloodhound GPIOs, P0-6, G4, J1-3, Y3
 # Make sure GPIOP0,1,2,3,6 are enabled.

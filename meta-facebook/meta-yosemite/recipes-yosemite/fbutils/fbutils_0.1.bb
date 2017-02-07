@@ -44,6 +44,7 @@ SRC_URI = "file://ast-functions \
            file://fcswitcher.sh \
            file://rc.early \
            file://rc.local \
+           file://fw_env_config.sh \
            file://src \
            file://COPYING \
           "
@@ -82,6 +83,8 @@ do_install() {
   update-rc.d -r ${D} mount_data0.sh start 03 S .
   install -m 0755 ${WORKDIR}/rc.early ${D}${sysconfdir}/init.d/rc.early
   update-rc.d -r ${D} rc.early start 04 S .
+  install -m 0755 ${WORKDIR}/fw_env_config.sh ${D}${sysconfdir}/init.d/fw_env_config.sh
+  update-rc.d -r ${D} fw_env_config.sh start 05 S .
   install -m 755 setup-gpio.sh ${D}${sysconfdir}/init.d/setup-gpio.sh
   update-rc.d -r ${D} setup-gpio.sh start 59 5 .
   # create VLAN intf automatically
@@ -92,7 +95,7 @@ do_install() {
   #install -m 755 eth0_mac_fixup.sh ${D}${sysconfdir}/init.d/eth0_mac_fixup.sh
   #update-rc.d -r ${D} eth0_mac_fixup.sh start 70 S .
   install -m 755 power-on.sh ${D}${sysconfdir}/init.d/power-on.sh
-  update-rc.d -r ${D} power-on.sh start 85 5 .
+  update-rc.d -r ${D} power-on.sh start 96 5 .
   #install -m 755 fcswitcher.sh ${D}${sysconfdir}/init.d/fcswitcher.sh
   #update-rc.d -r ${D} fcswitcher.sh start 90 S .
   install -m 0755 ${WORKDIR}/rc.local ${D}${sysconfdir}/init.d/rc.local

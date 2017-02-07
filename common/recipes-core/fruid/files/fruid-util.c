@@ -57,30 +57,45 @@ print_fruid_info(fruid_info_t *fruid, const char *name)
 
   if (fruid->chassis.flag) {
     printf("%-27s: %s", "\nChassis Type",fruid->chassis.type_str);
-    printf("%-27s: %s", "\nChassis Part",fruid->chassis.part);
+    printf("%-27s: %s", "\nChassis Part Number",fruid->chassis.part);
     printf("%-27s: %s", "\nChassis Serial Number",fruid->chassis.serial);
-    printf("%-27s: %s", "\nChassis Custom Data",fruid->chassis.custom);
+    if (fruid->chassis.custom1 != NULL)
+      printf("%-27s: %s", "\nChassis Custom Data 1",fruid->chassis.custom1);
+    if (fruid->chassis.custom2 != NULL)
+      printf("%-27s: %s", "\nChassis Custom Data 2",fruid->chassis.custom2);
+    if (fruid->chassis.custom3 != NULL)
+      printf("%-27s: %s", "\nChassis Custom Data 3",fruid->chassis.custom3);
   }
 
   if (fruid->board.flag) {
-    printf("%-27s: %s", "\nBoard Mfg Time",fruid->board.mfg_time_str);
-    printf("%-27s: %s", "\nBoard Manufacturer",fruid->board.mfg);
-    printf("%-27s: %s", "\nBoard Name",fruid->board.name);
-    printf("%-27s: %s", "\nBoard Serial Number",fruid->board.serial);
-    printf("%-27s: %s", "\nBoard Part",fruid->board.part);
+    printf("%-27s: %s", "\nBoard Mfg Date",fruid->board.mfg_time_str);
+    printf("%-27s: %s", "\nBoard Mfg",fruid->board.mfg);
+    printf("%-27s: %s", "\nBoard Product",fruid->board.name);
+    printf("%-27s: %s", "\nBoard Serial",fruid->board.serial);
+    printf("%-27s: %s", "\nBoard Part Number",fruid->board.part);
     printf("%-27s: %s", "\nBoard FRU ID",fruid->board.fruid);
-    printf("%-27s: %s", "\nBoard Custom Data",fruid->board.custom);
+    if (fruid->board.custom1 != NULL)
+      printf("%-27s: %s", "\nBoard Custom Data 1",fruid->board.custom1);
+    if (fruid->board.custom2 != NULL)
+      printf("%-27s: %s", "\nBoard Custom Data 2",fruid->board.custom2);
+    if (fruid->board.custom3 != NULL)
+      printf("%-27s: %s", "\nBoard Custom Data 3",fruid->board.custom3);
   }
 
   if (fruid->product.flag) {
     printf("%-27s: %s", "\nProduct Manufacturer",fruid->product.mfg);
     printf("%-27s: %s", "\nProduct Name",fruid->product.name);
-    printf("%-27s: %s", "\nProduct Part",fruid->product.part);
+    printf("%-27s: %s", "\nProduct Part Number",fruid->product.part);
     printf("%-27s: %s", "\nProduct Version",fruid->product.version);
-    printf("%-27s: %s", "\nProduct Serial Number",fruid->product.serial);
+    printf("%-27s: %s", "\nProduct Serial",fruid->product.serial);
     printf("%-27s: %s", "\nProduct Asset Tag",fruid->product.asset_tag);
     printf("%-27s: %s", "\nProduct FRU ID",fruid->product.fruid);
-    printf("%-27s: %s", "\nProduct Custom Data",fruid->product.custom);
+    if (fruid->product.custom1 != NULL)
+      printf("%-27s: %s", "\nProduct Custom Data 1",fruid->product.custom1);
+    if (fruid->product.custom2 != NULL)
+      printf("%-27s: %s", "\nProduct Custom Data 2",fruid->product.custom2);
+    if (fruid->product.custom3 != NULL)
+      printf("%-27s: %s", "\nProduct Custom Data 3",fruid->product.custom3);
   }
 
   printf("\n");
@@ -104,6 +119,14 @@ void get_fruid_info(uint8_t fru, char *path, char* name) {
 
 static int
 print_usage() {
+  if (!strncmp(pal_fru_list, "all, ", strlen("all, "))) {
+    printf("Usage: fruid-util [ %s ]\n"
+        "Usage: fruid-util [ %s ] [--dump | --write ] <file>\n",
+        pal_fru_list, pal_fru_list + strlen("all, "));
+
+    return;
+  }
+
   printf("Usage: fruid-util [ %s ]\n"
       "Usage: fruid-util [%s] [--dump | --write ] <file>\n",
       pal_fru_list, pal_fru_list);
@@ -123,6 +146,7 @@ int main(int argc, char * argv[]) {
   char eeprom_path[64] = {0};
   char name[64] = {0};
   char command[128] = {0};
+  uint8_t status;
 
   if (argc != 2 && argc != 4) {
     print_usage();
@@ -135,7 +159,8 @@ int main(int argc, char * argv[]) {
     return ret;
   }
 
-  if (fru == 0 && argc > 2) {
+  if (fru == FRU_ALL && argc > 2) {
+    printf("Cannot dump/write FRUID for \"all\". Please use select individual FRU.\n");
     print_usage();
     exit(-1);
   }
@@ -157,7 +182,23 @@ int main(int argc, char * argv[]) {
       exit(-1);
   }
 
-  if (fru != 0) {
+  if (fru != FRU_ALL) {
+    ret = pal_get_fruid_name(fru, name);
+    if (ret < 0) {
+       return ret;
+    }
+
+    ret = pal_is_fru_prsnt(fru, &status);
+    if (ret < 0) {
+       printf("pal_is_server_fru failed for fru: %d\n", fru);
+       return ret;
+    }
+
+    if (status == 0) {
+      printf("%s is empty!\n\n", name);
+      return ret;
+    }
+
     ret = pal_get_fruid_path(fru, path);
     if (ret < 0) {
       return ret;
@@ -234,11 +275,6 @@ int main(int argc, char * argv[]) {
     } else {
       /* FRUID PRINT ONE FRU */
 
-      ret = pal_get_fruid_name(fru, name);
-      if (ret < 0) {
-        return ret;
-      }
-
       get_fruid_info(fru, path, name);
     }
 
@@ -257,6 +293,19 @@ int main(int argc, char * argv[]) {
       ret = pal_get_fruid_name(fru, name);
       if (ret < 0) {
         return ret;
+      }
+
+      ret = pal_is_fru_prsnt(fru, &status);
+      if (ret < 0) {
+         printf("pal_is_server_fru failed for fru: %d\n", fru);
+         fru++;
+         continue;
+      }
+
+      if (status == 0) {
+         printf("\n%s is empty!\n\n", name);
+         fru++;
+         continue;
       }
 
       get_fruid_info(fru, path, name);

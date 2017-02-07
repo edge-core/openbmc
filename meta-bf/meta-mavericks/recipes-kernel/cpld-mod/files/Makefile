@@ -17,10 +17,12 @@
 
 obj-m := syscpld.o fancpld.o pca9548.o
 
+ccflags-y += -I$(KERNEL_EXTRA_HEADER_PATH)
+
 SRC := $(shell pwd)
 
 all:
-	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) 
+	$(MAKE) -C $(KERNEL_SRC) M=$(SRC)
 
 modules_install:
 	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) modules_install

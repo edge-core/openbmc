@@ -45,6 +45,7 @@ typedef struct _sensor_info_t {
 
 /* Enum for type of Upper and Lower threshold values */
 enum {
+  SENSOR_VALID = 0x0,
   UCR_THRESH = 0x01,
   UNC_THRESH,
   UNR_THRESH,
@@ -138,7 +139,7 @@ enum {
 };
 
 enum{
-  MEZZ_SENSOR_TEMP = 0x01,
+  MEZZ_SENSOR_TEMP = 0x82,
 };
 extern const uint8_t bic_sensor_list[];
 

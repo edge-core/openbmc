@@ -32,6 +32,8 @@
 #define POWER_ON_STR        "on"
 #define POWER_OFF_STR       "off"
 
+#define MAX_RETRIES          10
+
 const char *pwr_option_list = "status, graceful-shutdown, off, on, cycle, "
   "12V-off, 12V-on, 12V-cycle";
 
@@ -86,6 +88,8 @@ power_util(uint8_t fru, uint8_t opt) {
 
   int ret;
   uint8_t status;
+  int retries;
+  char pwr_state[MAX_VALUE_LEN];
 
   switch(opt) {
     case PWR_STATUS:
@@ -94,10 +98,28 @@ power_util(uint8_t fru, uint8_t opt) {
         syslog(LOG_WARNING, "power_util: pal_get_server_power failed for fru %u\n", fru);
         return ret;
       }
-      printf("Power status for fru %u : %s\n", fru, status?"ON":"OFF");
+      //printf("Power status for fru %u : %s\n", fru, status?"ON":"OFF");
+      printf("Power status for fru %u : ", fru);
+      switch(status) {
+        case SERVER_POWER_ON:
+          printf("ON\n");
+          break;
+        case SERVER_POWER_OFF:
+          printf("OFF\n");
+          break;
+        case SERVER_12V_OFF:
+          printf("OFF (12V-OFF)\n");
+          break;
+      }
+
       break;
 
     case PWR_GRACEFUL_SHUTDOWN:
+      if (pal_is_crashdump_ongoing(fru) > 0) {
+         printf("Crashdump for fru %u is ongoing...\n", fru);
+         printf("Please wait for 10 minutes and try again\n");
+         return -1;
+      }
 
       printf("Shutting down fru %u gracefully...\n", fru);
 
@@ -126,6 +148,11 @@ power_util(uint8_t fru, uint8_t opt) {
       break;
 
     case PWR_OFF:
+      if (pal_is_crashdump_ongoing(fru) > 0) {
+         printf("Crashdump for fru %u is ongoing...\n", fru);
+         printf("Please wait for 10 minutes and try again\n");
+         return -1;
+      }
 
       printf("Powering fru %u to OFF state...\n", fru);
 
@@ -158,15 +185,29 @@ power_util(uint8_t fru, uint8_t opt) {
       printf("Powering fru %u to ON state...\n", fru);
 
       ret = pal_set_server_power(fru, SERVER_POWER_ON);
+      if (ret == 1) {
+        printf("fru %u is already powered ON...\n", fru);
+        return 0;
+      }
+      else if (ret == -2) {  //check if fru is not ready
+        syslog(LOG_WARNING, "power_util: pal_set_server_power failed for"
+          " fru %u", fru);
+        return ret;
+      }
+
+      for (retries = 0; retries < MAX_RETRIES; retries++) {
+         sleep(3);
+         ret = pal_get_server_power(fru, &status);
+         if ((ret >= 0) && (status == SERVER_POWER_ON)) {
+           syslog(LOG_CRIT, "SERVER_POWER_ON successful for FRU: %d", fru);
+           break;
+         }
+         ret = pal_set_server_power(fru, SERVER_POWER_ON);
+      }
       if (ret < 0) {
         syslog(LOG_WARNING, "power_util: pal_set_server_power failed for"
           " fru %u", fru);
         return ret;
-      } else if (ret == 1) {
-        printf("fru %u is already powered ON...\n", fru);
-        return 0;
-      } else {
-        syslog(LOG_CRIT, "SERVER_POWER_ON successful for FRU: %d", fru);
       }
 
       ret = pal_set_last_pwr_state(fru, POWER_ON_STR);
@@ -182,7 +223,11 @@ power_util(uint8_t fru, uint8_t opt) {
       break;
 
     case PWR_CYCLE:
-
+      if (pal_is_crashdump_ongoing(fru) > 0) {
+         printf("Crashdump for fru %u is ongoing...\n", fru);
+         printf("Please wait for 10 minutes and try again\n");
+         return -1;
+      }
       printf("Power cycling fru %u...\n", fru);
 
       ret = pal_set_server_power(fru, SERVER_POWER_CYCLE);
@@ -215,6 +260,9 @@ power_util(uint8_t fru, uint8_t opt) {
         syslog(LOG_WARNING, "power_util: pal_set_server_power failed for"
           " fru %u", fru);
         return ret;
+      } else if (ret == 1) {
+        printf("fru %u is already powered 12V-OFF...\n", fru);
+        return 0;
       } else {
         syslog(LOG_CRIT, "SERVER_12V_OFF successful for FRU: %d", fru);
       }
@@ -240,12 +288,18 @@ power_util(uint8_t fru, uint8_t opt) {
         syslog(LOG_WARNING, "power_util: pal_set_server_power failed for"
           " fru %u", fru);
         return ret;
+      } else if (ret == 1) {
+        printf("fru %u is already powered 12V-ON...\n", fru);
+        return 0;
       } else {
         syslog(LOG_CRIT, "SERVER_12V_ON successful for FRU: %d", fru);
       }
       break;
 
     case PWR_12V_CYCLE:
+
+      memset(pwr_state, 0, sizeof(pwr_state));
+      pal_get_last_pwr_state(fru, pwr_state);
 
       printf("12V Power cycling fru %u...\n", fru);
 
@@ -256,21 +310,20 @@ power_util(uint8_t fru, uint8_t opt) {
         return ret;
       } else {
         syslog(LOG_CRIT, "SERVER_12V_CYCLE successful for FRU: %d", fru);
-      }
 
-      ret = pal_set_last_pwr_state(fru, POWER_OFF_STR);
-      if (ret < 0) {
-        return ret;
-      }
-
-      ret = pal_set_led(fru, LED_STATE_OFF);
-      if (ret < 0) {
-        syslog(LOG_WARNING, "power_util: pal_set_led failed for fru %u", fru);
-        return ret;
+        if (!(strcmp(pwr_state, "on"))) {
+          sleep(3);
+          pal_set_server_power(fru, SERVER_POWER_ON);
+        }
       }
       break;
 
     case PWR_SLED_CYCLE:
+      if (pal_is_crashdump_ongoing(fru) > 0) {
+         printf("Crashdump for fru %u is ongoing...\n", fru);
+         printf("Please wait for 10 minutes and try again\n");
+         return -1;
+      }
       syslog(LOG_CRIT, "SLED_CYCLE successful");
       sleep(1);
       pal_sled_cycle();
@@ -320,9 +373,9 @@ main(int argc, char **argv) {
   }
 
   if (argc > 2) {
-    ret = pal_is_server_prsnt(fru, &status);
+    ret = pal_is_fru_prsnt(fru, &status);
     if (ret < 0) {
-      printf("pal_is_server_prsnt failed for fru: %d\n", fru);
+      printf("pal_is_fru_prsnt failed for fru: %d\n", fru);
       print_usage();
       exit(-1);
     }

@@ -17,11 +17,4 @@
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 #
-
-pid="/var/run/dhclient6.${IFACE}.pid"
-
-if [ -f "${pid}" ]; then
-    kill -9 `cat ${pid}` 2>/dev/null
-fi
-
 exit 0
