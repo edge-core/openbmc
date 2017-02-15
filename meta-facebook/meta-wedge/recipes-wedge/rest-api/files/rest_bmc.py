@@ -21,6 +21,21 @@
 
 from subprocess import *
 import re
+import btools
+
+from cStringIO import StringIO
+import sys
+
+class Capturing(list):
+    def __enter__(self):
+        self._stdout = sys.stdout
+        sys.stdout = self._stringio = StringIO()
+        return self
+    def __exit__(self, *args):
+        self.extend(self._stringio.getvalue().splitlines())
+        del self._stringio    # free up some memory
+        sys.stdout = self._stdout
+
 
 # Handler for FRUID resource endpoint
 def get_bmc():
@@ -80,17 +95,17 @@ def find_err_status(data):
     err_status = "exit status"
 
     for item in data.split('\n'):
-   	    if err_status in item:
-	        try:
-	            err = int(item[-1:])
-	            return err
-	        except ValueError:
-		        #default error if i2c failure 2
-		        err = 2
-		        return 2
+        if err_status in item:
+          try:
+              err = int(item[-1:])
+              return err
+          except ValueError:
+            #default error if i2c failure 2
+            err = 2
+            return 2
 
     return err
-	
+
 def get_bmc_tmp(param1):
 
     l = []
@@ -98,67 +113,37 @@ def get_bmc_tmp(param1):
     err = 0
     err_status = "exit status"
 
-    cmd = "btools.py --TMP %s sh" % param1
-    data = Popen(cmd, \
-                       shell=True, stdout=PIPE).stdout.read()
+    arg = ['btools.py', '--TMP', 'Mavericks', 'sh',]
+
+    arg[2] = str(param1);
+
+    with Capturing() as screen_op:
+         btools.main(arg)
+    data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-	    err = find_err_status(data)
+      err = find_err_status(data)
 
     for t in data.split():
         try:
              l.append(float(t))
         except ValueError:
-             pass	
+             pass
 
     output.append(err)
 
     if param1 == "Mavericks" :
-    	for i in range(0, 9):	
-	    output.append(int(l[2*i + 1] * 10))
-		
-	#Max device temperature
-	output.append(int(l[18] * 10))
+      for i in range(0, 9):
+        output.append(int(l[2*i + 1] * 10))
+
+      #Max device temperature
+      output.append(int(l[18] * 10))
 
     if param1 == "Montara" :
-	for i in range(0, 5):
-	    output.append(int(l[2*i + 1] * 10))
+      for i in range(0, 5):
+        output.append(int(l[2*i + 1] * 10))
 
-    result = {
-		        "Information": {"Description": output},
-                "Actions": [],
-                "Resources": [],
-             }
-
-    return result;
-
-def get_bmc_ucd():
-    
-    l = []
-    output = []
-    err = 0
-    err_status = "exit status"
-
-    cmd = "btools.py --UCD sh v"
-    data = Popen(cmd, \
-                       shell=True, stdout=PIPE).stdout.read()
-    
-    # if error while data collection
-    if err_status in data:
-	    err = find_err_status(data)
-
-    for t in data.split():
-        try:
-             l.append(float(t))
-        except ValueError:
-             pass	
-
-    output.append(err)
-
-    for i in range(0, 12):	
-	output.append(int(l[2*i + 1] * 1000))
-    
     result = {
                 "Information": {"Description": output},
                 "Actions": [],
@@ -166,6 +151,60 @@ def get_bmc_ucd():
              }
 
     return result;
+
+def get_bmc_ucd():
+
+    l = []
+    output = []
+    err = 0
+    err_status = "exit status"
+
+    arg = ['btools.py', '--UCD', 'sh', 'v']
+
+    with Capturing() as screen_op:
+         btools.main(arg)
+
+    data = str(screen_op)
+
+    # if error while data collection
+    if err_status in data:
+      err = find_err_status(data)
+
+    t = re.findall('\d+\.\d+', data)
+    for i in range (0, 12):
+        try:
+             l.append(float(t[i]))
+        except ValueError:
+             pass
+
+    output.append(err)
+
+    for i in range(0, 12):
+       output.append(int(l[i] * 1000))
+
+    result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+
+    return result;
+
+def get_bmc_ps_feature(param1, param2):
+
+  output = []
+  if param2 == "presence":
+     r = btools.psu_check_pwr_presence(int(param1))
+     output.append(int(r))
+
+  result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+
+  return result;
+
 
 def get_bmc_ps(param1):
 
@@ -176,111 +215,121 @@ def get_bmc_ps(param1):
     err_status = "exit status"
     not_present = "not_present"
 
+    arg = ['btools.py', '--PSU', '1', 'r', 'v']
+    arg[2] = str(param1)
+
     # input voltage data
-    cmd = "btools.py --PSU %s r v" % param1
-    data = Popen(cmd, \
-                       shell=True, stdout=PIPE).stdout.read()
+    with Capturing() as screen_op:
+         btools.main(arg)
+    data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-	    err[0] = find_err_status(data)
+      err[0] = find_err_status(data)
 
     t = re.findall('\d+\.\d+', data)
     try:
-    	l.append(float(t[0]))
+        l.append(float(t[0]))
     except ValueError:
         l.append(float(0))
         pass
 
     # output voltage
-    cmd = "btools.py --PSU %s r vo" % param1
-    data = Popen(cmd, \
-                       shell=True, stdout=PIPE).stdout.read()
+
+    arg[4] = 'vo'
+    with Capturing() as screen_op:
+         btools.main(arg)
+    data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-	    err[1] = find_err_status(data)
+      err[1] = find_err_status(data)
 
     # ouput voltage data
     t = re.findall('\d+\.\d+', data)
     try:
-    	l.append(float(t[0]))
+      l.append(float(t[0]))
     except ValueError:
         l.append(float(0))
         pass
 
     # input current
-    cmd = "btools.py --PSU %s r i" % param1
-    data = Popen(cmd, \
-                       shell=True, stdout=PIPE).stdout.read()
+    arg[4] = 'i'
+    with Capturing() as screen_op:
+         btools.main(arg)
+    data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-	    err[2] = find_err_status(data)
+      err[2] = find_err_status(data)
 
     t = re.findall('\d+\.\d+', data)
     try:
-    	l.append(float(t[0]))
+      l.append(float(t[0]))
     except ValueError:
         l.append(float(0))
         pass
 
     #  power supply
-    cmd = "btools.py --PSU %s r p" % param1
-    data = Popen(cmd, \
-                       shell=True, stdout=PIPE).stdout.read()
+    arg[4] = 'p'
+    with Capturing() as screen_op:
+         btools.main(arg)
+    data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-	    err[3] = find_err_status(data)
+      err[3] = find_err_status(data)
 
     t = re.findall('\d+\.\d+', data)
     try:
-    	l.append(float(t[0]))
+      l.append(float(t[0]))
     except ValueError:
         l.append(float(0))
         pass
 
-    # fan spped
-    cmd = "btools.py --PSU %s r fspeed" % param1
-    data = Popen(cmd, \
-                       shell=True, stdout=PIPE).stdout.read()
+    # fan speed
+    arg[4] = 'fspeed'
+    with Capturing() as screen_op:
+         btools.main(arg)
+    data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-	    err[4] = find_err_status(data)
+      err[4] = find_err_status(data)
 
     t = re.findall('\d+', data)
     try:
-    	l.append(float(t[0]))
+      l.append(float(t[0]))
     except ValueError:
         l.append(float(0))
         pass
-	
+
     # fan fault
-    cmd = "btools.py --PSU %s r ffault" % param1
-    data = Popen(cmd, \
-                       shell=True, stdout=PIPE).stdout.read()
+    arg[4] = 'ffault'
+    with Capturing() as screen_op:
+         btools.main(arg)
+    data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-	    err[5] = find_err_status(data)
+      err[5] = find_err_status(data)
 
     t = re.findall('\d+', data)
     try:
-    	l.append(float(t[0]))
+      l.append(float(t[0]))
     except ValueError:
         l.append(float(0))
         pass
 
     # presence
-    cmd = "btools.py --PSU %s r presence" % param1
-    data = Popen(cmd, \
-                       shell=True, stdout=PIPE).stdout.read()
+    arg[4] = 'presence'
+    with Capturing() as screen_op:
+         btools.main(arg)
+    data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-	    err[6] = find_err_status(data)
+      err[6] = find_err_status(data)
 
     if not_present in data:
         l.append(float(0))
@@ -288,13 +337,14 @@ def get_bmc_ps(param1):
         l.append(float(1))
 
     #  load sharing
-    cmd = "btools.py --PSU %s r ld" % param1
-    data = Popen(cmd, \
-                       shell=True, stdout=PIPE).stdout.read()
+    arg[4] = 'ld'
+    with Capturing() as screen_op:
+         btools.main(arg)
+    data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-	    err[7] = find_err_status(data)
+      err[7] = find_err_status(data)
 
     t = re.findall('\d+\.\d+', data)
 
@@ -303,20 +353,20 @@ def get_bmc_ps(param1):
     if float(t[0]) > 0.0 and float(t[1]) > 0.0 :
         l.append(float(1))
     else :
-	l.append(float(0))
+        l.append(float(0))
 
     #if err is present append it to output
     a = 0
     for x in err:
-	if x != 0:
-	    a = x
-	    break
+        if x != 0:
+            a = x
+            break
 
     output.append(a)
 
     for x in l:
-	    output.append(int(x))
-	
+      output.append(int(x))
+
     result = {
                 "Information": {"Description": output},
                 "Actions": [],
@@ -344,13 +394,13 @@ def get_bmc_fan(param1):
     t = re.findall('\d+', data)
 
     for x in t:
-	output.append(int(x))
-	
+      output.append(int(x))
+
     cmd = "cat /sys/class/i2c-adapter/i2c-8/8-0033/fantray_present"
     data = Popen(cmd, \
                        shell=True, stdout=PIPE).stdout.read()
 
-        
+
     t = re.findall('\d+', data)
     output.append(int(t[0]))
 
@@ -364,7 +414,7 @@ def get_bmc_fan(param1):
 
 def set_bmc_fan(param1, param2, param3):
 
-    output = []	
+    output = []
     error = ["error", "Error", "ERROR"]
     err = 0
     cmd = "/usr/local/bin/set_fan_speed.sh %s %s %s" % (param3, param2, param1)
@@ -383,3 +433,4 @@ def set_bmc_fan(param1, param2, param3):
              }
 
     return result;
+

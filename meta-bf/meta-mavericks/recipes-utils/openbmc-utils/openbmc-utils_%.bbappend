@@ -20,6 +20,7 @@ FILESEXTRAPATHS_prepend := "${THISDIR}/files:"
 SRC_URI += "file://disable_watchdog.sh \
             file://board-utils.sh \
             file://btools.py \
+            file://rest_mntr.sh \
            "
 
 OPENBMC_UTILS_FILES += " \
@@ -62,8 +63,11 @@ do_install_board() {
 
     install -m 0755 ${WORKDIR}/disable_watchdog.sh ${D}${sysconfdir}/init.d/disable_watchdog.sh
     update-rc.d -r ${D} disable_watchdog.sh start 99 2 3 4 5 .
-    
-    install -m 0755 ${WORKDIR}/btools.py ${D}/usr/local/bin/btools.py
+
+    install -d ${D}/usr/local/fbpackages/rest-api/
+    install -m 0755 ${WORKDIR}/btools.py ${D}/usr/local/fbpackages/rest-api/btools.py
+    ln -snf "/usr/local/fbpackages/rest-api/btools.py" ${D}/usr/local/bin/btools.py
+    install -m 0755 ${WORKDIR}/rest_mntr.sh ${D}/usr/local/bin/rest_mntr.sh
 }
 
 FILES_${PN} += "${sysconfdir}"

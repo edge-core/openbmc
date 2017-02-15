@@ -67,6 +67,11 @@
 #include <facebook/wedge_eeprom.h>
 #endif
 
+#if defined(CONFIG_MAVERICKS)
+#include <fcntl.h>
+#include <facebook/i2c-dev.h>
+#endif
+
 #include "watchdog.h"
 
 /* Sensor definitions */
@@ -108,12 +113,12 @@
 #define PWM_UNIT_MAX 31
 
 #define LM75_DIR "/sys/bus/i2c/drivers/lm75/"
-#define PANTHER_PLUS_DIR "/sys/bus/i2c/drivers/panther_plus/"
+#define COM_E_DIR "/sys/bus/i2c/drivers/com_e_driver/"
 
 #define INTAKE_TEMP_DEVICE LM75_DIR "3-0048"
 #define CHIP_TEMP_DEVICE LM75_DIR "3-004b"
 #define EXHAUST_TEMP_DEVICE LM75_DIR "3-0048"
-#define USERVER_TEMP_DEVICE PANTHER_PLUS_DIR "4-0040"
+#define USERVER_TEMP_DEVICE COM_E_DIR "4-0033"
 
 #define FAN_READ_RPM_FORMAT "fan%d_input"
 
@@ -215,6 +220,14 @@ const char *fan_led[] = {FAN0_LED, FAN1_LED, FAN2_LED, FAN3_LED,
 #define USERVER_LIMIT INTERNAL_TEMPS(90)
 #endif
 
+#if defined(CONFIG_MAVERICKS)
+#define TOFINO_LIMIT  (105)
+#define TOFINO_THRESH (85)
+#define TOFINO_HIGH   (80)
+#define TOFINO_MED    (70)
+#define TOFINO_LOW    (65)
+#endif
+
 #define TEMP_TOP INTERNAL_TEMPS(70)
 #define TEMP_BOTTOM INTERNAL_TEMPS(40)
 
@@ -255,6 +268,10 @@ int fan_to_pwm_map[] = {1, 2, 3, 4, 5};
 #define BACK_TO_BACK_FANS
 
 #elif defined(CONFIG_MAVERICKS)
+#define MAV_FAN_LOW 40
+#define MAV_FAN_MEDIUM 60
+#define MAV_FAN_HIGH 70
+#define MAV_FAN_MAX 100
 /* make upper  fan tray numbers arbitrarily off by 100, more than the largest
  * value
  **/
@@ -453,6 +470,14 @@ int temp_top = TEMP_TOP;
 int report_temp = REPORT_TEMP;
 bool verbose = false;
 
+#if defined(CONFIG_MAVERICKS)
+/* mavericks board types */
+#define BF_BOARD_MAV 1
+#define BF_BOARD_MON 2
+static int total_fans_upper  = 0;
+static int mav_board_type = BF_BOARD_MON;
+#endif
+
 void usage() {
   fprintf(stderr,
           "fand [-v] [-l <low-pct>] [-m <medium-pct>] "
@@ -618,9 +643,6 @@ bool is_two_fan_board(bool verbose) {
 #endif
 
 #if defined(CONFIG_MAVERICKS)
-/* define board types */
-#define BF_BOARD_MAV 1
-#define BF_BOARD_MON 2
 
 /* returns different BF board types */
 static int bf_board_type_get() {
@@ -631,12 +653,12 @@ static int bf_board_type_get() {
     if (verbose) {
       syslog(LOG_INFO, "BF board type is %s", eeprom.fbw_assembly_number);
     }
-    if (!strncasecmp(eeprom.fbw_assembly_number, "13500001102",
-                   sizeof(eeprom.fbw_assembly_number))) {
+    if (!strncasecmp(eeprom.fbw_assembly_number, "015-000001-01",
+                   strlen("015-000001-01"))) {
       syslog(LOG_INFO, "BF board type is Mavericks");
       return BF_BOARD_MAV;
-    } else if (!strncasecmp(eeprom.fbw_assembly_number, "13500001104",
-                           sizeof(eeprom.fbw_assembly_number))) {
+    } else if (!strncasecmp(eeprom.fbw_assembly_number, "015-000003-01",
+                           strlen("015-000003-01"))) {
       syslog(LOG_INFO, "BF board type is Montara");
       return BF_BOARD_MON;
     } else {
@@ -648,6 +670,95 @@ static int bf_board_type_get() {
     return BF_BOARD_MON;
   }
 }
+
+static int fd_tofino_ext_tmp = -1;
+static void mav_read_tofino_temp(int *temp) {
+  uint8_t val;
+  char full_name[LARGEST_DEVICE_NAME];
+  int fd = fd_tofino_ext_tmp;
+  int res;
+
+  *temp = BAD_TEMP;
+  if (fd == -1) {
+    return;
+  }
+  if (mav_board_type == BF_BOARD_MAV) {
+    /* open PCA9548 channel */
+    res = ioctl(fd, I2C_SLAVE_FORCE, 0x70);
+    if (res < 0) {
+      syslog(LOG_CRIT, "Failed to open slave @ address 0x70 error %d", res);
+      return;
+    }
+    res = i2c_smbus_write_byte(fd, 0x10);
+    if (res < 0) {
+      syslog(LOG_CRIT, "Failed to to write slave @ address 0x70");
+      return;
+    }
+  }
+  res = ioctl(fd, I2C_SLAVE_FORCE, 0x4c);
+  if (res < 0) {
+    syslog(LOG_CRIT, "Failed to open slave @ address 0x4c error %d", res);
+    return;
+  }
+  res = i2c_smbus_read_byte_data(fd, 0x1);
+  if (res < 0) {
+    syslog(LOG_CRIT, "Failed to to read slave @ address 0x4c");
+    return;
+  }
+  *temp = res;
+  if (mav_board_type == BF_BOARD_MAV) {
+    /* close PCA9548 channel */
+    res = ioctl(fd, I2C_SLAVE_FORCE, 0x70);
+    if (res < 0) {
+      syslog(LOG_CRIT, "Failed to open slave @ address 0x70 error %d", res);
+      return;
+    }
+    res = i2c_smbus_write_byte(fd, 0x00);
+    if (res < 0) {
+      syslog(LOG_CRIT, "Failed to to write slave @ address 0x70");
+      return;
+    }
+  }
+}
+
+static int mav_open_i2c_dev(int i2c_bus) {
+  char fn[32];
+  int fd;
+  int rc;
+
+  snprintf(fn, sizeof(fn), "/dev/i2c-%d", i2c_bus);
+  fd = open(fn, O_RDWR);
+  if (fd == -1) {
+    syslog(LOG_CRIT, "Failed to open i2c device %s", fn);
+    return -1;
+  }
+  return fd;
+}
+
+static void mav_syscpld_write(int i2c_bus, int i2c_addr, uint8_t reg,
+                              uint8_t val) {
+  int res, fd;
+
+  fd = mav_open_i2c_dev(i2c_bus);
+  if (fd < 0) {
+    return;
+  }
+  res = ioctl(fd, I2C_SLAVE_FORCE, i2c_addr);
+  if (res < 0) {
+    syslog(LOG_CRIT, "Failed to open slave @ address 0x%x error %d",
+           i2c_addr, res);
+    close(fd);
+    return;
+  }
+  res = i2c_smbus_write_byte_data(fd, reg, val);
+  if (res < 0) {
+    syslog(LOG_CRIT, "Failed to to write slave @ address 0x%x", i2c_addr);
+    close(fd);
+    return;
+  }
+  close(fd);
+}
+
 #endif
 
 int read_fan_value(const int fan, const char *device, int *value) {
@@ -906,6 +1017,12 @@ void fand_interrupt(int sig)
     write_fan_speed(fan + fan_offset, fan_max);
   }
 
+#if defined(CONFIG_MAVERICKS)
+  for (fan = total_fans; fan < (total_fans + total_fans_upper); fan++) {
+    write_fan_speed(fan + fan_offset, fan_max);
+  }
+#endif
+
   syslog(LOG_WARNING, "Shutting down fand on signal %s", strsignal(sig));
   if (sig == SIGUSR1) {
     stop_watchdog();
@@ -933,7 +1050,15 @@ int main(int argc, char **argv) {
   int fan_speed_changes = 0;
   int old_speed;
 #if defined(CONFIG_MAVERICKS)
+  int ignore_upper_fan_tray = 0;
+  int tofino_jct_temp;
+  int fan_speed_upper = MAV_FAN_HIGH;
+  int bad_reads_tofino = 0;
+  int fan_failure_upper = 0;
+  int fan_speed_changes_upper = 0;
+  int old_speed_upper;
   int fan_bad[FANS*2];
+  int prev_fans_bad_upper = 0;
 #else
   int fan_bad[FANS];
 #endif
@@ -973,12 +1098,20 @@ int main(int argc, char **argv) {
 #endif
 
 #if defined(CONFIG_MAVERICKS)
-  if (bf_board_type_get() == BF_BOARD_MAV) {
-    total_fans = 10; /* remains 5 for montara */
+  mav_board_type = bf_board_type_get();
+  if (mav_board_type == BF_BOARD_MAV) {
+    total_fans_upper = FANS; /* remains 0 for montara */
+    fd_tofino_ext_tmp = mav_open_i2c_dev(9);
+  } else {
+    fd_tofino_ext_tmp = mav_open_i2c_dev(3);
   }
+  if (fd_tofino_ext_tmp < 0) {
+    syslog (LOG_CRIT, "Error opening Tofino Temp i2c device");
+  }
+
 #endif
 
-  while ((opt = getopt(argc, argv, "l:m:h:b:t:r:v")) != -1) {
+  while ((opt = getopt(argc, argv, "l:m:h:b:t:r:v:d")) != -1) {
     switch (opt) {
     case 'l':
       fan_low = atoi(optarg);
@@ -1001,6 +1134,12 @@ int main(int argc, char **argv) {
     case 'v':
       verbose = true;
       break;
+#if defined(CONFIG_MAVERICKS)
+    case 'd':
+      /* ignore upper fan tray errors */
+      ignore_upper_fan_tray = 1;
+      break;
+#endif
     default:
       usage();
       break;
@@ -1040,6 +1179,19 @@ int main(int argc, char **argv) {
     write_fan_speed(fan + fan_offset, fan_speed);
     write_fan_led(fan + fan_offset, FAN_LED_BLUE);
   }
+
+#if defined(CONFIG_MAVERICKS)
+  /* additional upper fan tray */
+  for (fan = total_fans; fan < (total_fans + total_fans_upper); fan++) {
+    fan_bad[fan] = 0;
+    write_fan_speed(fan + fan_offset, fan_speed_upper);
+    write_fan_led(fan + fan_offset, FAN_LED_BLUE);
+  }
+  if (ignore_upper_fan_tray) {
+    total_fans_upper = 0;
+    syslog(LOG_CRIT, "*** Not accessing upper fan tray anymore ***");
+  }
+#endif
 
 #if defined(CONFIG_YOSEMITE)
   /* Ensure that we can read from sensors before proceeding. */
@@ -1084,6 +1236,13 @@ int main(int argc, char **argv) {
     read_temp(CHIP_TEMP_DEVICE, &switch_temp);
     read_temp(USERVER_TEMP_DEVICE, &userver_temp);
 
+#if defined(CONFIG_MAVERICKS)
+    old_speed_upper = fan_speed_upper;
+    mav_read_tofino_temp(&tofino_jct_temp);
+    if (tofino_jct_temp == BAD_TEMP) {
+      bad_reads_tofino++;
+    }
+#endif
     /*
      * uServer can be powered down, but all of the rest of the sensors
      * should be readable at any time.
@@ -1094,6 +1253,7 @@ int main(int argc, char **argv) {
       bad_reads++;
     }
 #else
+
     intake_temp = exhaust_temp = userver_temp = BAD_TEMP;
     if (yosemite_sensor_read(FRU_SPB, SP_SENSOR_INLET_TEMP, &intake_temp) ||
         yosemite_sensor_read(FRU_SPB, SP_SENSOR_OUTLET_TEMP, &exhaust_temp))
@@ -1122,6 +1282,14 @@ int main(int argc, char **argv) {
       server_shutdown("Some sensors couldn't be read");
     }
 
+#if defined(CONFIG_MAVERICKS)
+    if (bad_reads_tofino > BAD_READ_THRESHOLD) {
+      syslog(LOG_CRIT, "resetting Tofino: bad read");
+      mav_syscpld_write(12, 0x31, 0x32, 0x3);
+      server_shutdown("Tofino sensors couldn't be read");
+    }
+#endif
+
     if (log_count++ % report_temp == 0) {
       syslog(LOG_DEBUG,
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
@@ -1142,6 +1310,10 @@ int main(int argc, char **argv) {
              exhaust_temp,
              fan_speed,
              fan_speed_changes);
+ 
+#if defined(CONFIG_MAVERICKS)
+      syslog(LOG_DEBUG, "Temp Tofino %d ", tofino_jct_temp);
+#endif
     }
 
     /* Protection heuristics */
@@ -1154,6 +1326,14 @@ int main(int argc, char **argv) {
                           || defined(CONFIG_MAVERICKS)
     if (switch_temp > SWITCH_LIMIT) {
       server_shutdown("T2 temp limit reached");
+    }
+#endif
+
+#if defined(CONFIG_MAVERICKS)
+    if (tofino_jct_temp > TOFINO_LIMIT) {
+      syslog(LOG_CRIT, "resetting Tofinodue: high temperature");
+      mav_syscpld_write(12, 0x31, 0x32, 0x3);
+      server_shutdown("Tofino temp limit reached");
     }
 #endif
 
@@ -1216,6 +1396,50 @@ int main(int argc, char **argv) {
         fan_speed = fan_medium;
       }
     }
+
+#if defined(CONFIG_MAVERICKS)
+
+    if (mav_board_type == BF_BOARD_MON) {
+      /* bump up the fan speed if Tofino temp mandates */
+      if (tofino_jct_temp > TOFINO_THRESH) {
+        /* change the lower fan tray speed if Tofino temp is high */
+        fan_speed = fan_max;
+      } else if (tofino_jct_temp > TOFINO_MED) {
+        if (fan_speed < fan_high) {
+          fan_speed = fan_high;
+        }
+      } else if (tofino_jct_temp > TOFINO_LOW) {
+        if (fan_speed < fan_medium) {
+          fan_speed = fan_medium;
+        }
+      }
+    } else { /* mavericks: handle upper fan tray speed */
+      if (tofino_jct_temp > TOFINO_THRESH) {
+        fan_speed_upper = MAV_FAN_MAX;
+      } else if (fan_speed_upper == MAV_FAN_MAX) {
+        if (fan_failure_upper  == 0) {
+          if (tofino_jct_temp < TOFINO_HIGH) {
+            fan_speed_upper = MAV_FAN_HIGH;
+          }
+        }
+      } else if (fan_speed_upper ==  MAV_FAN_HIGH) {
+        if (tofino_jct_temp < TOFINO_MED) {
+          fan_speed_upper = MAV_FAN_MEDIUM;
+        }
+      } else if (fan_speed_upper ==  MAV_FAN_MEDIUM) {
+        if (tofino_jct_temp < TOFINO_LOW) {
+          fan_speed_upper = MAV_FAN_LOW;
+        } else if (tofino_jct_temp > TOFINO_MED) {
+          fan_speed_upper = MAV_FAN_HIGH;
+        }
+      } else if (fan_speed_upper ==  MAV_FAN_LOW) {
+        if (tofino_jct_temp > TOFINO_MED) {
+          fan_speed_upper = MAV_FAN_HIGH;
+        }
+      }
+    }
+#endif
+
 #endif
 
     /*
@@ -1233,6 +1457,20 @@ int main(int argc, char **argv) {
         write_fan_speed(fan + fan_offset, fan_speed);
       }
     }
+
+#if defined(CONFIG_MAVERICKS)
+    if (fan_failure_upper == 0 && total_fans_upper != 0
+        && fan_speed_upper != old_speed_upper) {
+      syslog(LOG_NOTICE,
+             "Upper fan speed changing from %d to %d",
+             old_speed_upper,
+             fan_speed_upper);
+      fan_speed_changes_upper++;
+      for (fan = total_fans; fan < (total_fans + total_fans_upper); fan++) {
+        write_fan_speed(fan + fan_offset, fan_speed_upper);
+      }
+    }
+#endif
 
     /*
      * Wait for some change.  Typical I2C temperature sensors
@@ -1272,9 +1510,6 @@ int main(int argc, char **argv) {
          * so, dont count errors due to absent upper fan tray, for now.
          * at some point, below "#if" construct has to go away.
          */
-#if defined(CONFIG_MAVERICKS)
-        if (fan < 5)
-#endif
         fan_failure++;
         write_fan_led(fan + fan_offset, FAN_LED_RED);
       }
@@ -1331,6 +1566,90 @@ int main(int argc, char **argv) {
 
     /* Suppress multiple warnings for similar number of fan failures. */
     prev_fans_bad = fan_failure;
+
+
+#if defined(CONFIG_MAVERICKS)
+    if (mav_board_type == BF_BOARD_MAV) {
+      /* upper fan tray  on Mavericks */
+      /* Check fan RPMs */
+      for (fan = total_fans; fan < (total_fans + total_fans_upper); fan++) {
+        /*
+         * Make sure that we're within some percentage
+         * of the requested speed.
+         */
+        if (fan_speed_okay(fan + fan_offset, fan_speed_upper,
+                           FAN_FAILURE_OFFSET)) {
+          if (fan_bad[fan] > FAN_FAILURE_THRESHOLD) {
+            write_fan_led(fan + fan_offset, FAN_LED_BLUE);
+            syslog(LOG_CRIT,
+                   "Fan %d has recovered",
+                   fan);
+          }
+          fan_bad[fan] = 0;
+        } else {
+          fan_bad[fan]++;
+        }
+      }
+
+      fan_failure_upper = 0;
+      for (fan = total_fans; fan < (total_fans + total_fans_upper); fan++) {
+        if (fan_bad[fan] > FAN_FAILURE_THRESHOLD) {
+          /* FIXME: Not all mavericks have upper FAN tray always mounted.
+           * so, dont count errors due to absent upper fan tray, for now.
+           * at some point, below "#if" construct has to go away.
+           */
+          fan_failure_upper++;
+          write_fan_led(fan + fan_offset, FAN_LED_RED);
+        }
+      }
+
+      if (fan_failure_upper > 0) {
+        if (prev_fans_bad_upper != fan_failure_upper) {
+          syslog(LOG_CRIT, "%d upper fans failed", fan_failure_upper);
+        }
+
+        /*
+         * If fans are bad, we need to blast all of the
+         * fans at 100%;  we don't bother to turn off
+         * the bad fans, in case they are all that is left.
+         *
+         * Note that we have a temporary bug with setting fans to
+         * 100% so we only do fan_max = 99%.
+         */
+
+        fan_speed_upper = fan_max;
+        for (fan = total_fans; fan < (total_fans + total_fans_upper); fan++) {
+          write_fan_speed(fan + fan_offset, fan_speed_upper);
+        }
+
+        /*
+         * On Wedge, we want to shut down everything if none of the fans
+         * are visible, since there isn't automatic protection to shut
+         * off the server or switch chip.  On other platforms, the CPUs
+         * generating the heat will automatically turn off, so this is
+         * unnecessary.
+         */
+
+        if (fan_failure_upper == total_fans_upper) {
+          int count = 0;
+          for (fan = total_fans; fan < (total_fans + total_fans_upper); fan++) {
+            if (fan_bad[fan] > FAN_SHUTDOWN_THRESHOLD)
+              count++;
+          }
+          if (count == total_fans_upper) {
+            server_shutdown("all upper fans are bad for more than 12 cycles");
+          }
+        }
+      }
+    }
+    /* Suppress multiple warnings for similar number of fan failures. */
+    prev_fans_bad_upper = fan_failure_upper;
+    for (fan = 0; fan < (total_fans + total_fans_upper); fan++) {
+      if (fan_bad[fan] > 0) {
+        syslog(LOG_CRIT,"fan %d bad %d\n", fan, fan_bad[fan]);
+      }
+    }
+#endif
 
     /* if everything is fine, restart the watchdog countdown. If this process
      * is terminated, the persistent watchdog setting will cause the system
