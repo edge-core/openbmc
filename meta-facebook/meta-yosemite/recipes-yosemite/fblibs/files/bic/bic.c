@@ -42,9 +42,6 @@
 #define BIOS_VER_REGION_SIZE (4*1024*1024)
 #define BIOS_VER_STR "F20_"
 
-#define BIOS_VER_REGION_SIZE (4*1024*1024)
-#define BIOS_VER_STR "F20_"
-
 #define BIC_UPDATE_RETRIES 12
 #define BIC_UPDATE_TIMEOUT 500
 
@@ -638,6 +635,7 @@ _update_bic_main(uint8_t slot_id, char *path) {
 
   sleep(2);
 
+  syslog(LOG_CRIT, "bic_update_fw: update bic firmware on slot %d\n", slot_id);
   // Enable Bridge-IC update
   if (!_is_bic_update_ready(slot_id)) {
      _enable_bic_update(slot_id);
@@ -654,6 +652,7 @@ _update_bic_main(uint8_t slot_id, char *path) {
 
   if (i == BIC_UPDATE_RETRIES) {
     printf("bic is NOT ready for update\n");
+    syslog(LOG_CRIT, "bic_update_fw: bic is NOT ready for update\n");
     goto update_done;
   }
 
@@ -834,6 +833,7 @@ update_done:
   system(cmd);
 
 error_exit:
+  syslog(LOG_CRIT, "bic_update_fw: updating firmware is exiting\n");
   if (fd > 0) {
     close(fd);
   }
@@ -1071,7 +1071,6 @@ bic_update_fw(uint8_t slot_id, uint8_t comp, char *path) {
   if (!tbuf) {
     goto error_exit;
   }
-  set_fw_update_ongoing(slot_id, 55);
 
   lseek(fd, 0, SEEK_SET);
   offset = 0;

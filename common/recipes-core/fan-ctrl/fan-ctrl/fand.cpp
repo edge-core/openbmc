@@ -1539,10 +1539,6 @@ int main(int argc, char **argv) {
     fan_failure = 0;
     for (fan = 0; fan < total_fans; fan++) {
       if (fan_bad[fan] > FAN_FAILURE_THRESHOLD) {
-        /* FIXME: Not all mavericks have upper FAN tray always mounted.
-         * so, dont count errors due to absent upper fan tray, for now.
-         * at some point, below "#if" construct has to go away.
-         */
         fan_failure++;
         write_fan_led(fan + fan_offset, FAN_LED_RED);
       }
