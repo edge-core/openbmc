@@ -69,7 +69,7 @@ static i2c_dev_data_st pca9548_data;
  * normal_i2c is used in I2C_CLIENT_INSMOD_1()
  */
 static const unsigned short normal_i2c[] = {
-  0x31, I2C_CLIENT_END
+  0x70, I2C_CLIENT_END
 };
 
 /*

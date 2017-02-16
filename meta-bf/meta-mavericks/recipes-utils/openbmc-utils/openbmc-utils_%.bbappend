@@ -26,6 +26,7 @@ SRC_URI += "file://disable_watchdog.sh \
             file://cp2112_i2c_flush.sh \
             file://reset_qsfp_mux.sh \
             file://btools.py \
+            file://rest_mntr.sh \
            "
 
 OPENBMC_UTILS_FILES += " \
@@ -77,8 +78,11 @@ do_install_board() {
     
     install -m 0755 ${WORKDIR}/enable_watchdog_ext_signal.sh ${D}${sysconfdir}/init.d/enable_watchdog_ext_signal.sh
     update-rc.d -r ${D} enable_watchdog_ext_signal.sh start 99 2 3 4 5 .
-    
-    install -m 0755 ${WORKDIR}/btools.py ${D}/usr/local/bin/btools.py
+
+    install -d ${D}/usr/local/fbpackages/rest-api/
+    install -m 0755 ${WORKDIR}/btools.py ${D}/usr/local/fbpackages/rest-api/btools.py
+    ln -snf "/usr/local/fbpackages/rest-api/btools.py" ${D}/usr/local/bin/btools.py
+    install -m 0755 ${WORKDIR}/rest_mntr.sh ${D}/usr/local/bin/rest_mntr.sh
 }
 
 FILES_${PN} += "${sysconfdir}"

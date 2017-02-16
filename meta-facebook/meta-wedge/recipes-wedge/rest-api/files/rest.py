@@ -131,6 +131,11 @@ def rest_bmc_tmp_hdl(param1):
 def rest_bmc_ps_hdl(param1):
     return rest_bmc.get_bmc_ps(param1)
 
+# Handler for sys/bmc/ps_feature resource endpoint
+@bottle.route('/api/sys/bmc/ps_feature/<param1>/<param2>')
+def rest_bmc_ps_feature_hdl(param1, param2):
+    return rest_bmc.get_bmc_ps_feature(param1, param2)
+
 # Handler for sys/bmc/ucd resource endpoint
 @bottle.route('/api/sys/bmc/ucd')
 def rest_bmc_ucd_hdl():
