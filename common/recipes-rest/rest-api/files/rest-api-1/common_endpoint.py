@@ -77,12 +77,40 @@ def rest_mb_sys():
 def rest_fruid_hdl():
     return rest_fruid.get_fruid()
 
-
 # Handler for sys/bmc resource endpoint
-@commonApp.route('/api/sys/bmc')
+@bottle.route('/api/sys/bmc')
 def rest_bmc_hdl():
     return rest_bmc.get_bmc()
 
+# Handler for sys/bmc/tmp resource endpoint
+@bottle.route('/api/sys/bmc/tmp/<param1>')
+def rest_bmc_tmp_hdl(param1):
+    return rest_bmc.get_bmc_tmp(param1)
+
+# Handler for sys/bmc/ps resource endpoint
+@bottle.route('/api/sys/bmc/ps/<param1>')
+def rest_bmc_ps_hdl(param1):
+    return rest_bmc.get_bmc_ps(param1)
+
+# Handler for sys/bmc/ps_feature resource endpoint
+@bottle.route('/api/sys/bmc/ps_feature/<param1>/<param2>')
+def rest_bmc_ps_feature_hdl(param1, param2):
+    return rest_bmc.get_bmc_ps_feature(param1, param2)
+
+# Handler for sys/bmc/ucd resource endpoint
+@bottle.route('/api/sys/bmc/ucd')
+def rest_bmc_ucd_hdl():
+    return rest_bmc.get_bmc_ucd()
+
+# Handler for sys/bmc/fan/set resource endpoint
+@bottle.route('/api/sys/bmc/fan/set/<param1>/<param2>/<param3>')
+def rest_bmc_fan_set_hdl(param1, param2, param3):
+    return rest_bmc.set_bmc_fan(param1, param2, param3)
+
+# Handler for sys/bmc/fan/get resource endpoint
+@bottle.route('/api/sys/bmc/fan/get/<param1>')
+def rest_bmc_fan_get_hdl(param1):
+    return rest_bmc.get_bmc_fan(param1)
 
 # Handler for sys/server resource endpoint
 @commonApp.route('/api/sys/server')
