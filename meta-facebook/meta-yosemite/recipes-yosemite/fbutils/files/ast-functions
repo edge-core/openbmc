@@ -69,6 +69,16 @@ gpio_export() {
     fi
 }
 
+gpio_export_out() {
+    local gpio
+    gpio=$(gpio_name2value $1)
+    dir=$(gpio_dir $gpio)
+    if [ ! -d ${dir} ]; then
+        echo $gpio > $GPIOEXPORT
+        echo out > ${dir}/direction
+    fi
+}
+
 gpio_set() {
     local gpio
     local val
@@ -97,9 +107,9 @@ gpio_get() {
 # Check to see if BMC power-on-reset
 is_bmc_por() {
     local val
-    # Read the Watch Dog Counter
-    val=$(devmem 0x1e785010 2>/dev/null)
-    if [ "$((val & 0xff00))" == "0" ]; then
+    # Read the Watch Dog Flag
+    val=$(devmem 0x1e6e203c 2>/dev/null)
+    if [ "$((val & 0x6))" == "0" ]; then
         # Power ON Reset
         echo 1
     else
@@ -132,6 +142,34 @@ is_server_prsnt() {
   if [ $prsnt == "0" ]; then
     echo 1
   else                                       
+    echo 0
+  fi
+}
+# Check to see if Bridge-IC is ready in given slot or not
+is_bic_ready() {
+  local ready
+
+  case $1 in
+   1)
+    ready=$(gpio_get N3)
+    ;;
+   2)
+    ready=$(gpio_get N2)
+    ;;
+   3)
+    ready=$(gpio_get N5)
+    ;;
+   4)
+    ready=$(gpio_get N4)
+    ;;
+   *)
+    ready="1"
+    ;;
+  esac
+
+  if [ $ready == "0" ]; then
+    echo 1
+  else
     echo 0
   fi
 }

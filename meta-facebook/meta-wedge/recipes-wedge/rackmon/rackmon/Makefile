@@ -16,10 +16,10 @@
 # Boston, MA 02110-1301 USA
 
 override CFLAGS+=-D_GNU_SOURCE -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=199309 -Wall -Werror -std=c99
-override LDFLAGS+=-pthread
-all: modbuscmd gpiowatch modbussim rackmond rackmondata
+override LDFLAGS+=-pthread -lgpio
+all: modbuscmd gpiowatch modbussim rackmond rackmonctl
 
-rackmondata: rackmondata.c modbus.c
+rackmonctl: rackmonctl.c modbus.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 rackmond: rackmond.c modbus.c
@@ -37,4 +37,4 @@ gpiowatch: gpiowatch.c
 .PHONY: clean
 
 clean:
-	rm -rf *.o modbuscmd gpiowatch modbussim rackmond rackmondata
+	rm -rf *.o modbuscmd gpiowatch modbussim rackmond rackmonctl

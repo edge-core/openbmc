@@ -25,6 +25,7 @@ SRC_URI = "file://src \
           "
 
 DEPENDS += "openbmc-utils libgpio"
+RDEPENDS_${PN} = "libgpio"
 
 S = "${WORKDIR}/src"
 

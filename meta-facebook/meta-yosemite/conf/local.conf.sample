@@ -3,7 +3,7 @@
 #
 
 # Always look for packages first in our own local package mirror
-SOURCE_MIRROR_URL ?= "file://${TOPDIR}/../meta-openbmc/source_mirror/"
+SOURCE_MIRROR_URL ?= "file://${COREBASE}/source_mirrors/"
 INHERIT += "own-mirrors"
 
 # Save local tarballs for all packages we download.
@@ -18,7 +18,7 @@ BB_GENERATE_MIRROR_TARBALLS = "1"
 # However, once you have downloaded the package you should check them into our
 # mirror repository so that other developers will always get it from the mirror
 # repo.
-BB_NO_NETWORK = "fb-only"
+INHERIT += "fb-only-network"
 
 # Parallelism Options
 #

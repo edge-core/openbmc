@@ -32,7 +32,7 @@
 static void
 print_usage_help(void) {
   printf("Usage: fpc-util <slot1|slot2|slot3|slot4> --usb\n");
-  printf("       fpc-util <slot1|slot2|slot3|slot4|all> --identify <on/off>\n");
+  printf("       fpc-util <slot1|slot2|slot3|slot4|sled> --identify <on/off>\n");
 }
 
 int
@@ -53,7 +53,7 @@ main(int argc, char **argv) {
     slot_id = 3;
   } else if (!strcmp(argv[1] , "slot4")) {
     slot_id = 4;
-  } else if (!strcmp(argv[1] , "all")) {
+  } else if (!strcmp(argv[1] , "sled")) {
     slot_id = 0;
   } else {
     goto err_exit;
@@ -63,16 +63,16 @@ main(int argc, char **argv) {
     printf("fpc-util: switching USB channel to slot%d\n", slot_id);
     return pal_switch_usb_mux(slot_id);
   } else if (!strcmp(argv[2], "--identify")) {
-    if (argc != 4) {
+    if (argc != 4 ||
+        (strcmp(argv[3], "on") && strcmp(argv[3], "off"))) {
       goto err_exit;
     }
-    printf("fpc-util: identication for %s is %s\n", argv[1], argv[3]);
+    printf("fpc-util: identification for %s is %s\n", argv[1], argv[3]);
     if (slot_id == 0) {
       sprintf(tstr, "identify_sled");
     } else {
       sprintf(tstr, "identify_slot%d", slot_id);
     }
-
     return pal_set_key_value(tstr, argv[3]);
   } else {
     goto err_exit;

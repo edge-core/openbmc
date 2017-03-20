@@ -34,6 +34,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <openbmc/ipmi.h>
+#include <openbmc/pal.h>
+#include <sys/reboot.h>
 
 #define SIZE_IANA_ID 3
 #define SIZE_SYS_GUID 16
@@ -52,6 +54,7 @@ static sys_info_param_t g_sys_info_params;
 // TODO: Based on performance testing results, might need fine grained locks
 // Since the global data is specific to a NetFunction, adding locs at NetFn level
 static pthread_mutex_t m_chassis;
+static pthread_mutex_t m_sensor;
 static pthread_mutex_t m_app;
 static pthread_mutex_t m_storage;
 static pthread_mutex_t m_transport;
@@ -171,6 +174,58 @@ ipmi_handle_chassis (unsigned char *request, unsigned char req_len,
 }
 
 /*
+ * Function(s) to handle IPMI messages with NetFn: Sensor
+ */
+// Platform Event Message (IPMI/Section 29.3)
+static void
+sensor_plat_event_msg(unsigned char *request, unsigned char req_len,
+                      unsigned char *response, unsigned char *res_len)
+{
+  ipmi_mn_req_t *req = (ipmi_mn_req_t *) request;
+  ipmi_res_t *res = (ipmi_res_t *) response;
+  int record_id;		// Record ID for added entry
+  int ret;
+
+  sel_msg_t entry;
+
+  // Platform event provides only last 7 bytes of SEL's 16-byte entry
+  entry.msg[2] = 0x02;  /* Set Record Type to be system event record.*/
+  memcpy(&entry.msg[9], req->data, 7);
+
+  // Use platform APIs to add the new SEL entry
+  ret = sel_add_entry (req->payload_id, &entry, &record_id);
+  if (ret)
+  {
+    res->cc = CC_UNSPECIFIED_ERROR;
+    return;
+  }
+
+  res->cc = CC_SUCCESS;
+}
+
+// Handle Sensor/Event Commands (IPMI/Section 29)
+static void
+ipmi_handle_sensor(unsigned char *request, unsigned char req_len,
+                   unsigned char *response, unsigned char *res_len)
+{
+  ipmi_mn_req_t *req = (ipmi_mn_req_t *) request;
+  ipmi_res_t *res = (ipmi_res_t *) response;
+  unsigned char cmd = req->cmd;
+
+  pthread_mutex_lock(&m_sensor);
+  switch (cmd)
+  {
+    case CMD_SENSOR_PLAT_EVENT_MSG:
+      sensor_plat_event_msg(request, req_len, response, res_len);
+      break;
+    default:
+      res->cc = CC_INVALID_CMD;
+      break;
+  }
+  pthread_mutex_unlock(&m_sensor);
+}
+
+/*
  * Function(s) to handle IPMI messages with NetFn: Application
  */
 // Get Device ID (IPMI/Section 20.1)
@@ -180,14 +235,25 @@ app_get_device_id (unsigned char *response, unsigned char *res_len)
 
   ipmi_res_t *res = (ipmi_res_t *) response;
   unsigned char *data = &res->data[0];
+  FILE *fp=NULL;
+  int fv_major = 0x01, fv_minor = 0x03;
+  char buffer[32];
+
+  fp = fopen("/etc/issue","r");
+  if (fp != NULL)
+  {
+     if (fgets(buffer, sizeof(buffer), fp))
+         sscanf(buffer, "%*[^v]v%d.%d", &fv_major, &fv_minor);
+     fclose(fp);
+  }
 
   res->cc = CC_SUCCESS;
 
   //TODO: Following data needs to be updated based on platform
   *data++ = 0x20;		// Device ID
   *data++ = 0x81;		// Device Revision
-  *data++ = 0x00;		// Firmware Revision Major
-  *data++ = 0x09;		// Firmware Revision Minor
+  *data++ = fv_major & 0x7f;      // Firmware Revision Major
+  *data++ = ((fv_minor / 10) << 4) | (fv_minor % 10);      // Firmware Revision Minor
   *data++ = 0x02;		// IPMI Version
   *data++ = 0xBF;		// Additional Device Support
   *data++ = 0x15;		// Manufacturer ID1
@@ -203,6 +269,28 @@ app_get_device_id (unsigned char *response, unsigned char *res_len)
   *res_len = data - &res->data[0];
 }
 
+// Cold Reset (IPMI/Section 20.2)
+static void
+app_cold_reset(void)
+{
+  uint8_t slot, num_slots;
+  int ret;
+  pal_get_num_slots(&num_slots);
+  for (slot = 1; slot <= num_slots; slot++) {
+     ret = pal_is_crashdump_ongoing(slot);
+     if (ret > 0) {
+       printf("Crashdump for fru %u is ongoing...\n", slot);
+       printf("Please wait for 10 minutes and try again\n");
+       return;
+    }else {
+       if (ret == -1)
+         printf("Eroor to get crashdump key for fru %u\n", slot);
+    }
+  }
+  reboot(RB_AUTOBOOT);
+}
+
+
 // Get Self Test Results (IPMI/Section 20.4)
 static void
 app_get_selftest_results (unsigned char *response, unsigned char *res_len)
@@ -216,6 +304,28 @@ app_get_selftest_results (unsigned char *response, unsigned char *res_len)
   //TODO: Following data needs to be updated based on self-test results
   *data++ = 0x55;		// Self-Test result
   *data++ = 0x00;		// Extra error info in case of failure
+
+  *res_len = data - &res->data[0];
+}
+
+// Manufacturing Test On (IPMI/Section 20.5)
+static void
+app_manufacturing_test_on (unsigned char *request, unsigned char req_len,
+                           unsigned char *response, unsigned char *res_len)
+{
+
+  ipmi_mn_req_t *req = (ipmi_mn_req_t *) request;
+  ipmi_res_t *res = (ipmi_res_t *) response;
+  unsigned char *data = &res->data[0];
+
+  res->cc = CC_SUCCESS;
+
+  if ((!memcmp(req->data, "sled-cycle", strlen("sled-cycle"))) &&
+      (req_len - ((void*)req->data - (void*)req)) == strlen("sled-cycle")) {
+    system("/usr/local/bin/power-util sled-cycle");
+  } else {
+    res->cc = CC_INVALID_PARAM;
+  }
 
   *res_len = data - &res->data[0];
 }
@@ -250,7 +360,6 @@ app_get_device_guid (unsigned char *response, unsigned char *res_len)
   *res_len = data - &res->data[0];
 }
 
-// Get Device System GUID (IPMI/Section 22.14)
 static void
 app_get_device_sys_guid (unsigned char *request, unsigned char *response,
                          unsigned char *res_len)
@@ -409,8 +518,14 @@ ipmi_handle_app (unsigned char *request, unsigned char req_len,
     case CMD_APP_GET_DEVICE_ID:
       app_get_device_id (response, res_len);
       break;
+    case CMD_APP_COLD_RESET:
+      app_cold_reset ();
+      break;
     case CMD_APP_GET_SELFTEST_RESULTS:
       app_get_selftest_results (response, res_len);
+      break;
+    case CMD_APP_MANUFACTURING_TEST_ON:
+      app_manufacturing_test_on (request, req_len, response, res_len);
       break;
     case CMD_APP_GET_DEVICE_GUID:
       app_get_device_guid (response, res_len);
@@ -439,11 +554,12 @@ ipmi_handle_app (unsigned char *request, unsigned char req_len,
  */
 
 static void
-storage_get_fruid_info(unsigned char *response, unsigned char *res_len)
+storage_get_fruid_info(unsigned char *request, unsigned char *response, unsigned char *res_len)
 {
+  ipmi_mn_req_t *req = (ipmi_mn_req_t *) request;
   ipmi_res_t *res = (ipmi_res_t *) response;
   unsigned char *data = &res->data[0];
-  int size = plat_fruid_size();
+  int size = plat_fruid_size(req->payload_id);
 
   res->cc = CC_SUCCESS;
 
@@ -467,7 +583,7 @@ storage_get_fruid_data(unsigned char *request, unsigned char *response,
   int offset = req->data[1] + (req->data[2] << 8);
   int count = req->data[3];
 
-  int ret = plat_fruid_data(offset, count, &(res->data[1]));
+  int ret = plat_fruid_data(req->payload_id, offset, count, &(res->data[1]));
   if (ret) {
     res->cc = CC_UNSPECIFIED_ERROR;
   } else {
@@ -520,14 +636,15 @@ storage_get_sdr_info (unsigned char *response, unsigned char *res_len)
 }
 
 static void
-storage_rsv_sdr (unsigned char *response, unsigned char *res_len)
+storage_rsv_sdr (unsigned char *request, unsigned char *response, unsigned char *res_len)
 {
+  ipmi_mn_req_t *req = (ipmi_mn_req_t *) request;
   ipmi_res_t *res = (ipmi_res_t *) response;
   unsigned char *data = &res->data[0];
   int rsv_id;			// SDR reservation ID
 
   // Use platform APIs to get a SDR reservation ID
-  rsv_id = sdr_rsv_id ();
+  rsv_id = sdr_rsv_id(req->payload_id);
   if (rsv_id < 0)
   {
       res->cc = CC_UNSPECIFIED_ERROR;
@@ -559,13 +676,13 @@ storage_get_sdr (unsigned char *request, unsigned char *response,
   sdr_rec_t entry;		// SDR record entry
   int ret;
 
-  rsv_id = (req->data[1] >> 8) | req->data[0];
-  read_rec_id = (req->data[3] >> 8) | req->data[2];
+  rsv_id = (req->data[1] << 8) | req->data[0];
+  read_rec_id = (req->data[3] << 8) | req->data[2];
   rec_offset = req->data[4];
   rec_bytes = req->data[5];
 
   // Use platform API to read the record Id and get next ID
-  ret = sdr_get_entry (rsv_id, read_rec_id, &entry, &next_rec_id);
+  ret = sdr_get_entry (req->payload_id, rsv_id, read_rec_id, &entry, &next_rec_id);
   if (ret)
   {
       res->cc = CC_UNSPECIFIED_ERROR;
@@ -661,8 +778,18 @@ storage_get_sel (unsigned char *request, unsigned char *response,
   int next_rec_id;		//record ID for the next msg
   sel_msg_t entry;		// SEL log entry
   int ret;
+  unsigned char offset = req->data[4];
+  unsigned char len = req->data[5];
 
-  read_rec_id = (req->data[3] >> 8) | req->data[2];
+  if (len == 0xFF) {  // FFh means read entire record
+    offset = 0;
+    len = SIZE_SEL_REC;
+  } else if ((offset >= SIZE_SEL_REC) || (len > SIZE_SEL_REC) || ((offset+len) > SIZE_SEL_REC)) {
+    res->cc = CC_PARAM_OUT_OF_RANGE;
+    return;
+  }
+
+  read_rec_id = (req->data[3] << 8) | req->data[2];
 
   // Use platform API to read the record Id and get next ID
   ret = sel_get_entry (req->payload_id, read_rec_id, &entry, &next_rec_id);
@@ -676,8 +803,8 @@ storage_get_sel (unsigned char *request, unsigned char *response,
   *data++ = next_rec_id & 0xFF;	// next record ID
   *data++ = (next_rec_id >> 8) & 0xFF;
 
-  memcpy(data, entry.msg, SIZE_SEL_REC);
-  data += SIZE_SEL_REC;
+  memcpy(data, &entry.msg[offset], len);
+  data += len;
 
   *res_len = data - &res->data[0];
 
@@ -815,7 +942,7 @@ ipmi_handle_storage (unsigned char *request, unsigned char req_len,
   switch (cmd)
   {
     case CMD_STORAGE_GET_FRUID_INFO:
-      storage_get_fruid_info (response, res_len);
+      storage_get_fruid_info (request, response, res_len);
       break;
     case CMD_STORAGE_READ_FRUID_DATA:
       storage_get_fruid_data (request, response, res_len);
@@ -835,9 +962,12 @@ ipmi_handle_storage (unsigned char *request, unsigned char req_len,
     case CMD_STORAGE_CLR_SEL:
       storage_clr_sel (request, response, res_len);
       break;
+#if 0 // To avoid BIOS using this command to update RTC
+      // TBD: Respond only if BMC's time has synced with NTP
     case CMD_STORAGE_GET_SEL_TIME:
       storage_get_sel_time (response, res_len);
       break;
+#endif
     case CMD_STORAGE_GET_SEL_UTC:
       storage_get_sel_utc (response, res_len);
       break;
@@ -845,7 +975,7 @@ ipmi_handle_storage (unsigned char *request, unsigned char req_len,
       storage_get_sdr_info (response, res_len);
       break;
     case CMD_STORAGE_RSV_SDR:
-      storage_rsv_sdr (response, res_len);
+      storage_rsv_sdr (request, response, res_len);
       break;
     case CMD_STORAGE_GET_SDR:
       storage_get_sdr (request, response, res_len);
@@ -1081,9 +1211,37 @@ ipmi_handle_transport (unsigned char *request, unsigned char req_len,
 }
 
 /*
+ * Function(s) to handle IPMI messages with NetFn: DCMI
+ */
+static void
+ipmi_handle_dcmi(unsigned char *request, unsigned char req_len,
+		 unsigned char *response, unsigned char *res_len)
+{
+  int ret;
+  ipmi_mn_req_t *req = (ipmi_mn_req_t *) request;
+  ipmi_res_t *res = (ipmi_res_t *) response;
+
+  // If there is no command to process return
+  if (req->cmd == 0x0) {
+    res->cc = CC_UNSPECIFIED_ERROR;
+    *res_len = 0;
+    return;
+  }
+
+  // Since DCMI handling is specific to platform, call PAL to process
+  ret = pal_handle_dcmi(req->payload_id, &request[1], req_len-1, res->data, res_len);
+  if (ret < 0) {
+    res->cc = CC_UNSPECIFIED_ERROR;
+    *res_len = 0;
+    return;
+  }
+
+  res->cc = CC_SUCCESS;
+}
+
+/*
  * Function(s) to handle IPMI messages with NetFn: OEM
  */
-
 static void
 oem_set_proc_info (unsigned char *request, unsigned char *response,
 		   unsigned char *res_len)
@@ -1139,6 +1297,7 @@ oem_set_post_end (unsigned char *request, unsigned char *response,
   ipmi_mn_req_t *req = (ipmi_mn_req_t *) request;
   ipmi_res_t *res = (ipmi_res_t *) response;
 
+  pal_update_ts_sled();
   // TODO: For now logging the event, need to find usage for this info
   syslog (LOG_INFO, "POST End Event for Payload#%d\n", req->payload_id);
 
@@ -1161,7 +1320,7 @@ oem_get_slot_info(unsigned char *request, unsigned char *response,
   // Bit[7]: Not Present/Present (from pal)
   // Bit[6]: Platform type (TODO from pal)
   // Bit[5-0] : Slot# (payload_id indicates)
-  ret = pal_is_server_prsnt(req->payload_id, &pres);
+  ret = pal_is_fru_prsnt(req->payload_id, &pres);
   if (ret) {
     res->cc = CC_UNSPECIFIED_ERROR;
     *res_len = 0x00;
@@ -1258,14 +1417,12 @@ oem_1s_handle_ipmb_req(unsigned char *request, unsigned char req_len,
   // handle based on Bridge-IC interface
   switch(req->data[3]) {
     case BIC_INTF_ME:
-      // TODO: Need to call ME command handler
 #ifdef DEBUG
       syslog(LOG_INFO, "oem_1s_handle_ipmb_req: Command received from ME for "
                   "payload#%d\n", req->payload_id);
 #endif
-      memcpy(res->data, req->data, 4); //IANA ID + Interface type
-      res->cc = CC_SUCCESS;
-      *res_len = 4;
+      oem_1s_handle_ipmb_kcs(request, req_len, response, res_len);
+
       break;
     case BIC_INTF_SOL:
       // TODO: Need to call Optional SoL message handler
@@ -1318,7 +1475,8 @@ ipmi_handle_oem_1s(unsigned char *request, unsigned char req_len,
       break;
     case CMD_OEM_1S_POST_BUF:
       // Skip the first 3 bytes of IANA ID and one byte of length field
-      for (i = SIZE_IANA_ID+1; i <= req->data[3]; i++) {
+      req->data[SIZE_IANA_ID] += SIZE_IANA_ID;
+      for (i = SIZE_IANA_ID+1; i <= req->data[SIZE_IANA_ID]; i++) {
         pal_post_handle(req->payload_id, req->data[i]);
       }
 
@@ -1356,16 +1514,18 @@ ipmi_handle_oem_1s(unsigned char *request, unsigned char req_len,
       syslog(LOG_INFO, "ipmi_handle_oem_1s: BIC Update Mode received "
                 "for payload#%d\n", req->payload_id);
 #endif
-      if (req->data[3] == 0x0) {
-         syslog(LOG_INFO, "Normal Mode\n");
+      if (req->data[3] == 0x1) {
+         syslog(LOG_INFO, "BIC Mode: Normal\n");
          res->cc = CC_SUCCESS;
       } else if (req->data[3] == 0x0F) {
-         syslog(LOG_INFO, "Update Mode\n");
+         syslog(LOG_INFO, "BIC Mode: Update\n");
          res->cc = CC_SUCCESS;
       } else {
          syslog(LOG_WARNING, "Error\n");
          res->cc = CC_INVALID_PARAM;
       }
+
+      pal_inform_bic_mode(req->payload_id, req->data[3]);
 
       memcpy(res->data, req->data, SIZE_IANA_ID); //IANA ID
       *res_len = 3;
@@ -1404,6 +1564,10 @@ ipmi_handle (unsigned char *request, unsigned char req_len,
       res->netfn_lun = NETFN_CHASSIS_RES << 2;
       ipmi_handle_chassis (request, req_len, response, res_len);
       break;
+    case NETFN_SENSOR_REQ:
+      res->netfn_lun = NETFN_SENSOR_RES << 2;
+      ipmi_handle_sensor (request, req_len, response, res_len);
+      break;
     case NETFN_APP_REQ:
       res->netfn_lun = NETFN_APP_RES << 2;
       ipmi_handle_app (request, req_len, response, res_len);
@@ -1415,6 +1579,10 @@ ipmi_handle (unsigned char *request, unsigned char req_len,
     case NETFN_TRANSPORT_REQ:
       res->netfn_lun = NETFN_TRANSPORT_RES << 2;
       ipmi_handle_transport (request, req_len, response, res_len);
+      break;
+    case NETFN_DCMI_REQ:
+      res->netfn_lun = NETFN_DCMI_RES << 2;
+      ipmi_handle_dcmi(request, req_len, response, res_len);
       break;
     case NETFN_OEM_REQ:
       res->netfn_lun = NETFN_OEM_RES << 2;
@@ -1483,8 +1651,8 @@ main (void)
   int *p_s2;
   int rc = 0;
 
-  daemon(1, 1);
-  openlog("ipmid", LOG_CONS, LOG_DAEMON);
+  //daemon(1, 1);
+  //openlog("ipmid", LOG_CONS, LOG_DAEMON);
 
 
   plat_fruid_init();
@@ -1495,6 +1663,7 @@ main (void)
   sel_init();
 
   pthread_mutex_init(&m_chassis, NULL);
+  pthread_mutex_init(&m_sensor, NULL);
   pthread_mutex_init(&m_app, NULL);
   pthread_mutex_init(&m_storage, NULL);
   pthread_mutex_init(&m_transport, NULL);
@@ -1552,6 +1721,7 @@ main (void)
   close(s);
 
   pthread_mutex_destroy(&m_chassis);
+  pthread_mutex_destroy(&m_sensor);
   pthread_mutex_destroy(&m_app);
   pthread_mutex_destroy(&m_storage);
   pthread_mutex_destroy(&m_transport);

@@ -33,13 +33,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <sys/types.h>
-
-
-#if defined(CONFIG_YOSEMITE)
-#define MAX_NODES 4
-#else
-#define MAX_NODES 1
-#endif
+#include <time.h>
+#include <openbmc/pal.h>
 
 // SEL File.
 #define SEL_LOG_FILE  "/mnt/data/sel%d.bin"
@@ -223,57 +218,94 @@ dump_sel_syslog(int fru, sel_msg_t *data) {
   sprintf(temp_str, "%02X", data->msg[15]);
   strcat(str, temp_str);
 
-  syslog(LOG_CRIT, "SEL Entry, FRU: %d, Content: %s\n", fru, str);
+  syslog(LOG_WARNING, "SEL Entry, FRU: %d, Content: %s\n", fru, str);
 }
 
+/* Parse SEL Log based on IPMI v2.0 Section 32.1 & 32.2*/
 static void
 parse_sel(uint8_t fru, sel_msg_t *data) {
   int i = 0;
   uint32_t timestamp;
   char *sel = data->msg;
-  uint8_t sensor_type;
   uint8_t sensor_num;
-  uint8_t event_dir;
-  uint8_t type_num;
-  uint8_t event_data[3];
+  uint8_t record_type;
   char sensor_name[32];
-  char error_log[64];
+  char error_log[128];
   char error_type[64];
-  char status[16];
+  char oem_data[32];
   int ret;
+  struct tm ts;
+  char time[64];
 
-  //memcpy(timestamp, (uint8_t *) &sel[3], 4);
-  timestamp = 0;
-  timestamp |= sel[3];
-  timestamp |= sel[4] << 8;
-  timestamp |= sel[5] << 16;
-  timestamp |= sel[6] << 24;
-
-  sensor_type = (uint8_t) sel[10];
-  sensor_num = (uint8_t) sel[11];
-  event_dir = ((uint8_t) sel[12] & (1 << 7)) >> 7; /* Bit 7 of sel[12] */
-  type_num = (uint8_t) sel[12]; /* Bits 6:0 */
-  memcpy(event_data, (uint8_t *) &sel[13], 3);
-
-  sprintf(status, event_dir ? "DEASSERT" : "ASSERT");
-
-  if (type_num == 0x1) {
-    sprintf(error_type, "Threshold");
-  } else if (type_num >= 0x2 || type_num <= 0xC || type_num == 0x6F) {
-    sprintf(error_type, "Discrete");
-  } else if (type_num >= 0x70 || type_num <= 0x7F) {
+  /* Record Type (Byte 2) */
+  record_type = (uint8_t) sel[2];
+  if (record_type == 0x02) {
+    sprintf(error_type, "System Event Record");
+  } else if (record_type >= 0xC0 && record_type <= 0xDF) {
     sprintf(error_type, "OEM");
+  } else if (record_type >= 0xE0 && record_type <= 0xFF) {
+    sprintf(error_type, "OEM non-timestamped");
   } else {
     sprintf(error_type, "Unknown");
   }
 
-  ret = pal_get_event_sensor_name(fru, sensor_num, sensor_name);
-  ret = pal_parse_sel(fru, sensor_num, event_data, error_log);
-  ret = pal_sel_handler(fru, sensor_num);
+  if (record_type < 0xE0) {
+    /* Convert Timestamp from Unix time (Byte 6:3) to Human readable format */
+    timestamp = 0;
+    timestamp |= sel[3];
+    timestamp |= sel[4] << 8;
+    timestamp |= sel[5] << 16;
+    timestamp |= sel[6] << 24;
+    sprintf(time, "%u", timestamp);
+    memset(&ts, 0, sizeof(struct tm));
+    strptime(time, "%s", &ts);
+    memset(&time, 0, sizeof(time));
+    strftime(time, sizeof(time), "%Y-%m-%d %H:%M:%S", &ts);
 
-  syslog(LOG_CRIT, "SEL Entry, %s: FRU: %d, Sensor: 0x%X, Name: %s,"
-      " Timestamp: %u, Event Type: %s, Event Data: %s",
-      status, fru, sensor_num, sensor_name, timestamp, error_type, error_log);
+    /* OEM Data (Byte 10:15) */
+    sprintf(oem_data, "%02X%02X%02X%02X%02X%02X", sel[10], sel[11], sel[12], sel[13],
+        sel[14], sel[15]);
+  }
+
+  if (record_type < 0xC0) {
+    /* Sensor num (Byte 11) */
+    sensor_num = (uint8_t) sel[11];
+    ret = pal_get_event_sensor_name(fru, sensor_num, sensor_name);
+
+    /* Event Data (Byte 13:15) */
+    ret = pal_parse_sel(fru, sensor_num, &sel[10], error_log);
+
+    /* Check if action needs to be taken based on the SEL message */
+    if (!ret)
+      ret = pal_sel_handler(fru, sensor_num, &sel[10]);
+
+    syslog(LOG_CRIT, "SEL Entry: FRU: %d, Record: %s (0x%02X), Time: %s, "
+        "Sensor: %s (0x%02X), Raw data: (%s) %s ",
+        fru,
+        error_type, record_type,
+        time,
+        sensor_name, sensor_num,
+        oem_data, error_log);
+  } else if (record_type < 0xE0) {
+    syslog(LOG_CRIT, "SEL Entry: FRU: %d, Record: %s (0x%02X), Time: %s, "
+        "Raw data: (%s) ",
+        fru,
+        error_type, record_type,
+        time,
+        oem_data);
+  } else {
+    /* OEM Data (Byte 3:15) */
+    sprintf(oem_data, "%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X", sel[3], sel[4], sel[5],
+        sel[6], sel[7], sel[8], sel[9], sel[10], sel[11], sel[12], sel[13], sel[14], sel[15]);
+
+    syslog(LOG_CRIT, "SEL Entry: FRU: %d, Record: %s (0x%02X), "
+        "Raw data: (%s) ",
+        fru,
+        error_type, record_type,
+        oem_data);
+  }
+
+  pal_update_ts_sled();
 }
 
 // Platform specific SEL API entry points
@@ -401,7 +433,8 @@ sel_add_entry(int node, sel_msg_t *msg, int *rec_id) {
   }
 
   // Update message's time stamp starting at byte 4
-  time_stamp_fill(&msg->msg[3]);
+  if (msg->msg[2] < 0xE0)
+    time_stamp_fill(&msg->msg[3]);
 
   // Add the enry at end
   memcpy(g_sel_data[node][g_sel_hdr[node].end].msg, msg->msg, sizeof(sel_msg_t));

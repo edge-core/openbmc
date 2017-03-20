@@ -1,0 +1,251 @@
+diff --git a/arch/arm/mach-aspeed/Kconfig b/arch/arm/mach-aspeed/Kconfig
+index a394597..4e8272d 100644
+--- a/arch/arm/mach-aspeed/Kconfig
++++ b/arch/arm/mach-aspeed/Kconfig
+@@ -218,6 +218,9 @@ config YOSEMITE
+ config LIGHTNING
+ 	bool "Facebook Platform1"
+ 
++config MAVERICKS
++  bool "Barefoot Mavericks"
++
+ # Support PCIE
+ config PCIE
+         bool "ASPEED PCIE support"
+diff --git a/arch/arm/mach-aspeed/include/mach/platform.h b/arch/arm/mach-aspeed/include/mach/platform.h
+index bb9199b..aa0ef7a 100644
+--- a/arch/arm/mach-aspeed/include/mach/platform.h
++++ b/arch/arm/mach-aspeed/include/mach/platform.h
+@@ -70,6 +70,8 @@
+ #define AST_UART_BASE AST_UART3_BASE
+ #elif defined(CONFIG_WEDGE100)
+ #define AST_UART_BASE AST_UART3_BASE
++#elif defined(CONFIG_MAVERICKS)
++#define AST_UART_BASE AST_UART3_BASE
+ #elif defined(CONFIG_GALAXY100)
+ #define AST_UART_BASE AST_UART0_BASE
+ #elif defined(CONFIG_YOSEMITE)
+diff --git a/arch/arm/plat-aspeed/dev-eth.c b/arch/arm/plat-aspeed/dev-eth.c
+index 2e29737..b470df8 100644
+--- a/arch/arm/plat-aspeed/dev-eth.c
++++ b/arch/arm/plat-aspeed/dev-eth.c
+@@ -136,7 +136,8 @@ void __init ast_add_device_gmac(void)
+ 	// MAC0.  Older drivers would drop interfaces without PHYs, but
+ 	// the latest open source drivers do not, so we drop the first
+ 	// MAC specs.
+-#if !defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100) && !defined(CONFIG_GALAXY100)
++#if !defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100) && !defined(CONFIG_GALAXY100) \
++    && !defined(CONFIG_MAVERICKS)
+ 	ast_scu_init_eth(0);
+ 	ast_scu_multi_func_eth(0);
+ 
+diff --git a/arch/arm/plat-aspeed/dev-i2c.c b/arch/arm/plat-aspeed/dev-i2c.c
+index fc1a0d6..59dab85 100644
+--- a/arch/arm/plat-aspeed/dev-i2c.c
++++ b/arch/arm/plat-aspeed/dev-i2c.c
+@@ -1,4 +1,5 @@
+ /********************************************************************************
++*
+ * File Name     : linux/arch/arm/plat-aspeed/dev-i2c.c
+ * Author        : Ryan chen
+ * Description   : ASPEED I2C Device
+@@ -1051,6 +1052,118 @@ static struct i2c_board_info __initdata ast_i2c_board_info_14[] = {
+ 
+ /* end of defined(CONFIG_LIGHTNING) */
+ 
++#elif defined(CONFIG_MAVERICKS)
++
++static struct i2c_board_info __initdata mavericks_i2c_bus1[] = {
++  /* shared NIC, no kernel driver */
++};
++
++static struct i2c_board_info __initdata mavericks_i2c_bus2[] = {
++  /* TODO: one IR3581 and two IR3584 */
++};
++
++static struct i2c_board_info __initdata mavericks_i2c_bus3[] = {
++  /* TODO: one PWR1014A */
++};
++
++static struct i2c_board_info __initdata mavericks_i2c_bus4[] = {
++  {
++    I2C_BOARD_INFO("tmp75", 0x48),
++  },
++  {
++    I2C_BOARD_INFO("tmp75", 0x49),
++  },
++  {
++    I2C_BOARD_INFO("tmp75", 0x4a),
++  },
++  {
++    I2C_BOARD_INFO("tmp75", 0x4b),
++  },
++  {
++    I2C_BOARD_INFO("tmp75", 0x4c),
++  },
++};
++
++static struct i2c_board_info __initdata mavericks_i2c_bus5[] = {
++  /* COMe microserver */
++  {
++     I2C_BOARD_INFO("com_e_driver", 0x33),
++  }
++};
++
++static struct i2c_board_info __initdata mavericks_i2c_bus6[] = {
++  /* TODO: USB hub */
++};
++
++static struct i2c_board_info __initdata mavericks_i2c_bus7[] = {
++  {
++    I2C_BOARD_INFO("pcf8574", 0x2f),
++  },
++  {
++    I2C_BOARD_INFO("24c64", 0x51),
++  }
++};
++
++static struct i2c_board_info __initdata mavericks_i2c_bus8[] = {
++  /* BMC PHY EEPROM */
++  {
++    I2C_BOARD_INFO("24c02", 0x50),
++  },
++  // EEPROM on the pfe1100 power supplies
++  {
++    I2C_BOARD_INFO("24c64", 0x51),
++  },
++  {
++    I2C_BOARD_INFO("24c64", 0x52),
++  },
++  /* PSU driver */
++  {
++    I2C_BOARD_INFO("pfe1100", 0x59),
++  },
++  {
++    I2C_BOARD_INFO("pfe1100", 0x5a),
++  },
++  {
++    I2C_BOARD_INFO("ltc4151", 0x6f),
++  }
++};
++
++static struct i2c_board_info __initdata mavericks_i2c_bus9[] = {
++  {
++    I2C_BOARD_INFO("fancpld", 0x33),
++  },
++  {
++    I2C_BOARD_INFO("tmp75", 0x48),
++  },
++  {
++    I2C_BOARD_INFO("tmp75", 0x49),
++  },
++};
++
++static struct i2c_board_info __initdata mavericks_i2c_bus10[] = {
++  {
++    I2C_BOARD_INFO("fancpld", 0x33),
++  },
++  {
++      I2C_BOARD_INFO("pca9548", 0x70),
++  },
++};
++
++/* i2c bus 11,12 on mavericks are not connected as i2c bus */
++
++static struct i2c_board_info __initdata mavericks_i2c_bus13[] = {
++  {
++    I2C_BOARD_INFO("syscpld", 0x30),
++  },
++  {
++    I2C_BOARD_INFO("syscpld", 0x31),
++  },
++};
++
++/* i2c bus 14 on mavericks are not connected as i2c bus */
++
++/* end of defined(CONFIG_MAVERICKS) */
++
+ #else
+ 
+ /* wedge */
+@@ -1386,6 +1499,48 @@ void __init ast_add_device_i2c(void)
+ 
+ 	platform_device_register(&ast_i2c_dev14_device);
+ 	i2c_register_board_info(13, ast_i2c_board_info_14, ARRAY_SIZE(ast_i2c_board_info_14));
++
++#elif defined(CONFIG_MAVERICKS)
++
++  platform_device_register(&ast_i2c_dev1_device);
++  i2c_register_board_info(0, mavericks_i2c_bus1, ARRAY_SIZE(mavericks_i2c_bus1));
++
++  platform_device_register(&ast_i2c_dev2_device);
++  i2c_register_board_info(1, mavericks_i2c_bus2, ARRAY_SIZE(mavericks_i2c_bus2));
++
++  platform_device_register(&ast_i2c_dev3_device);
++  i2c_register_board_info(2, mavericks_i2c_bus3, ARRAY_SIZE(mavericks_i2c_bus3));
++
++  platform_device_register(&ast_i2c_dev4_device);
++  i2c_register_board_info(3, mavericks_i2c_bus4, ARRAY_SIZE(mavericks_i2c_bus4));
++
++  platform_device_register(&ast_i2c_dev5_device);
++  i2c_register_board_info(4, mavericks_i2c_bus5, ARRAY_SIZE(mavericks_i2c_bus5));
++
++  platform_device_register(&ast_i2c_dev6_device);
++  i2c_register_board_info(5, mavericks_i2c_bus6, ARRAY_SIZE(mavericks_i2c_bus6));
++
++  platform_device_register(&ast_i2c_dev7_device);
++  i2c_register_board_info(6, mavericks_i2c_bus7, ARRAY_SIZE(mavericks_i2c_bus7));
++
++  platform_device_register(&ast_i2c_dev8_device);
++  i2c_register_board_info(7, mavericks_i2c_bus8, ARRAY_SIZE(mavericks_i2c_bus8));
++
++  platform_device_register(&ast_i2c_dev9_device);
++  i2c_register_board_info(8, mavericks_i2c_bus9, ARRAY_SIZE(mavericks_i2c_bus9));
++
++	platform_device_register(&ast_i2c_dev10_device);
++	i2c_register_board_info(9, mavericks_i2c_bus10, ARRAY_SIZE(mavericks_i2c_bus10));
++
++  /* i2c bus 11, 12 are not used as i2c on mavericks */
++
++  platform_device_register(&ast_i2c_dev13_device);
++  i2c_register_board_info(12, mavericks_i2c_bus13, ARRAY_SIZE(mavericks_i2c_bus13));
++
++  /* i2c bug 14 is not used as i2c on mavericks */
++
++  /* end of defined(CONFIG_MAVERICKS) */
++
+ #else
+ 	platform_device_register(&ast_i2c_dev1_device);
+ 	i2c_register_board_info(0, ast_i2c_board_info_1, ARRAY_SIZE(ast_i2c_board_info_1));
+diff --git a/arch/arm/plat-aspeed/dev-spi.c b/arch/arm/plat-aspeed/dev-spi.c
+index a05d0fb..5dcc031a 100644
+--- a/arch/arm/plat-aspeed/dev-spi.c
++++ b/arch/arm/plat-aspeed/dev-spi.c
+@@ -389,6 +389,14 @@ static struct spi_board_info ast_spi_devices[] = {
+         .bus_num    = 5,
+         .mode = SPI_MODE_0,
+     },
++#elif defined(CONFIG_MAVERICKS)
++    {
++        .modalias    = "spidev",
++        .chip_select    = 0,
++        .max_speed_hz    = 33 * 1000 * 1000,
++        .bus_num    = 5,
++        .mode = SPI_MODE_0,
++    },
+ #endif
+     {
+         .modalias    = "m25p80",
+diff --git a/drivers/net/ftgmac100_26.c b/drivers/net/ftgmac100_26.c
+index 7c71526..9ec6dd4 100644
+--- a/drivers/net/ftgmac100_26.c
++++ b/drivers/net/ftgmac100_26.c
+@@ -120,7 +120,7 @@
+ #err "Not define include for GMAC"
+ #endif
+ 
+-#if defined(CONFIG_WEDGE100) || defined(CONFIG_GALAXY100)
++#if defined(CONFIG_WEDGE100) || defined(CONFIG_GALAXY100) || defined(CONFIG_MAVERICKS)
+ #define PHY_DEFAULT_ADDR 0x18
+ #else
+ /* wedge */

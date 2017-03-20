@@ -23,7 +23,7 @@
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/i2c.h>
-#include <linux/i2c_dev_sysfs.h>
+#include <i2c_dev_sysfs.h>
 
 #ifdef DEBUG
 
@@ -42,19 +42,12 @@ static ssize_t pca9548_set_mux(struct device *dev,
                                struct device_attribute *attr,
                                const char *buf, size_t count)
 {
-  struct i2c_client *client = to_i2c_client(dev);
-  i2c_dev_data_st *data = i2c_get_clientdata(client);
   int  err;
 
-  if ((char)(data->ida_priv_data) == *buf) {
-    /* nothing to be dobe */
-    return 0;
-  }
   err = i2c_dev_send_byte(dev, attr, (uint8_t)*buf);
   if (err < 0) {
     return err;
   }
-  data->ida_priv_data = (uint32_t)*buf; /* set it to current */
   return 0;
 }
 
@@ -106,7 +99,6 @@ static int pca9548_probe(struct i2c_client *client,
                          const struct i2c_device_id *id)
 {
   int n_attrs = sizeof(pca9548_attr_table) / sizeof(pca9548_attr_table[0]);
-  pca9548_data.ida_priv_data = 0;
   return i2c_dev_sysfs_data_init(client, &pca9548_data,
                                  pca9548_attr_table, n_attrs);
 

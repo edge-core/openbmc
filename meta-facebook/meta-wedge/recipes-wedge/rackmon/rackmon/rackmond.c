@@ -16,8 +16,10 @@
 #include <syslog.h>
 #include <signal.h>
 
-#define MAX_ACTIVE_ADDRS 12
+#define MAX_ACTIVE_ADDRS 24
 #define REGISTER_PSU_STATUS 0x68
+
+#define READ_ERROR_RESPONSE -2
 
 struct _lock_holder {
   pthread_mutex_t *lock;
@@ -47,7 +49,7 @@ typedef struct _rs485_dev {
   // hold this for the duration of a command
   pthread_mutex_t lock;
   int tty_fd;
-  int gpio_fd;
+  gpio_st gpio;
 } rs485_dev;
 
 typedef struct _register_req {
@@ -63,6 +65,8 @@ typedef struct register_range_data {
 
 typedef struct monitoring_data {
   uint8_t addr;
+  uint32_t crc_errors;
+  uint32_t timeout_errors;
   register_range_data range_data[1];
 } monitoring_data;
 
@@ -88,6 +92,95 @@ typedef struct _rackmond_data {
   rs485_dev rs485;
 } rackmond_data;
 
+typedef struct _write_buffer {
+  char* buffer;
+  size_t len;
+  size_t pos;
+  int fd;
+} write_buffer;
+
+int buf_open(write_buffer* buf, int fd, size_t len) {
+  int error = 0;
+  char* bufmem = malloc(len);
+  if(!bufmem) {
+    BAIL("Couldn't allocate write buffer of len %d for fd %d\n", len, fd);
+  }
+  buf->buffer = bufmem;
+  buf->pos = 0;
+  buf->len = len;
+  buf->fd = fd;
+cleanup:
+  return error;
+}
+
+ssize_t buf_flush(write_buffer* buf) {
+  int ret;
+  ret = write(buf->fd, buf->buffer, buf->pos);
+  if(ret > 0) {
+    memmove(buf->buffer, buf->buffer + ret, buf->pos - ret);
+    buf->pos -= ret;
+  }
+  return ret;
+}
+
+ssize_t buf_write(write_buffer* buf, void* from, size_t len) {
+  int ret;
+  // write will not fill buffer, only memcpy
+  if((buf->pos + len) < buf->len) {
+    memcpy(buf->buffer + buf->pos, from, len);
+    buf->pos += len;
+    return len;
+  }
+
+  // write would exceed buffer, flush first
+  ret = buf_flush(buf);
+  if (buf->pos != 0) {
+    if(ret < 0) {
+      return ret;
+    }
+    // write() was interrupted but partially succeeded -- the buffer partially
+    // flushed but no bytes of the requested buf_write went through
+    return 0;
+  }
+
+  if(len > buf->len) {
+    // write is larger than buffer, skip buffer
+    return write(buf->fd, from, len);
+  } else {
+    return buf_write(buf, from, len);
+  }
+}
+
+int bprintf(write_buffer* buf, const char* format, ...) {
+  // eh.
+  char tmpbuf[512];
+  int error = 0;
+  int ret;
+  va_list args;
+  va_start(args, format);
+  ret = vsnprintf(tmpbuf, sizeof(tmpbuf), format, args);
+  CHECK(ret);
+  if(ret > sizeof(tmpbuf)) {
+    BAIL("truncated bprintf (%d bytes truncated to %d)", ret, sizeof(tmpbuf));
+  }
+  CHECK(buf_write(buf, tmpbuf, ret));
+cleanup:
+  va_end(args);
+  return error;
+}
+
+int buf_close(write_buffer* buf) {
+  int error = 0;
+  int fret = buf_flush(buf);
+  int cret = close(buf->fd);
+  free(buf->buffer);
+  buf->buffer = NULL;
+  CHECK(fret);
+  CHECKP(close, cret);
+cleanup:
+  return error;
+}
+
 rackmond_data world;
 
 char psu_address(int rack, int shelf, int psu) {
@@ -102,7 +195,7 @@ int modbus_command(rs485_dev* dev, int timeout, char* command, size_t len, char*
   lock_holder(devlock, &dev->lock);
   modbus_req req;
   req.tty_fd = dev->tty_fd;
-  req.gpio_fd = dev->gpio_fd;
+  req.gpio = &dev->gpio;
   req.modbus_cmd = command;
   req.cmd_len = len;
   req.dest_buf = destbuf;
@@ -131,9 +224,9 @@ int read_registers(rs485_dev *dev, int timeout, uint8_t addr, uint16_t begin, ui
   char response[sizeof(addr) + 1 + 1 + (2 * num) + 2];
   command[0] = addr;
   command[1] = MODBUS_READ_HOLDING_REGISTERS;
-  command[2] = begin << 8;
+  command[2] = begin >> 8;
   command[3] = begin & 0xFF;
-  command[4] = num << 8;
+  command[4] = num >> 8;
   command[5] = num & 0xFF;
 
   int dest_len =
@@ -153,6 +246,12 @@ int read_registers(rs485_dev *dev, int timeout, uint8_t addr, uint16_t begin, ui
   if (response[0] != addr) {
     log("Got response for addr %02x when expected %02x\n", response[0], addr);
     error = -1;
+    goto cleanup;
+  }
+  if (response[1] != MODBUS_READ_HOLDING_REGISTERS) {
+    // got an error response instead of a read regsiters response
+    // likely because the requested registers aren't available on this model (e.g. stingray)
+    error = READ_ERROR_RESPONSE;
     goto cleanup;
   }
   if (response[2] != (num * 2)) {
@@ -184,7 +283,6 @@ int check_active_psus() {
   world.num_active_addrs = 0;
 
   scanning = 1;
-  //fprintf(stderr, "Begin presence check: ");
   for(int rack = 0; rack < 3; rack++) {
     for(int shelf = 0; shelf < 2; shelf++) {
       for(int psu = 0; psu < 3; psu++) {
@@ -194,7 +292,6 @@ int check_active_psus() {
         if (err == 0) {
           world.active_addrs[world.num_active_addrs] = addr;
           world.num_active_addrs++;
-          //fprintf(stderr, "%02x - active (%04x) ", addr, status);
         } else {
           dbg("%02x - %d; ", addr, err);
         }
@@ -225,6 +322,8 @@ monitoring_data* alloc_monitoring_data(uint8_t addr) {
     return NULL;
   }
   d->addr = addr;
+  d->crc_errors = 0;
+  d->timeout_errors = 0;
   void* mem = d;
   mem = mem + (sizeof(monitoring_data) +
     sizeof(register_range_data) * world.config->num_intervals);
@@ -259,6 +358,8 @@ int sub_storeptrs(const void* va, const void *vb) {
 
 int alloc_monitoring_datas() {
   int error = 0;
+  lock_holder(worldlock, &world.lock);
+  lock_take(worldlock);
   if (world.config == NULL) {
     goto cleanup;
   }
@@ -273,7 +374,8 @@ int alloc_monitoring_datas() {
     }
     if (world.stored_data[data_pos] == NULL) {
       log("Detected PSU at address 0x%02x\n", addr);
-      //syslog(LOG_INFO, "Detected PSU at address 0x%02x", addr);
+      // this will only be logged once per address
+      syslog(LOG_INFO, "Detected PSU at address 0x%02x", addr);
       world.stored_data[data_pos] = alloc_monitoring_data(addr);
       if (world.stored_data[data_pos] == NULL) {
         BAIL("allocation failed\n");
@@ -288,6 +390,7 @@ int alloc_monitoring_datas() {
     BAIL("shouldn't get here!\n");
   }
 cleanup:
+  lock_release(worldlock);
   return error;
 }
 
@@ -329,8 +432,16 @@ int fetch_monitored_data() {
       int err = read_registers(&world.rs485,
           world.modbus_timeout, addr, i->begin, i->len, regs);
       if (err) {
-        log("Error %d reading %02x registers at %02x from %02x\n",
-            err, i->len, i->begin, addr);
+        if (err != READ_ERROR_RESPONSE) {
+          log("Error %d reading %02x registers at %02x from %02x\n",
+              err, i->len, i->begin, addr);
+          if(err == MODBUS_BAD_CRC) {
+            world.stored_data[data_pos]->crc_errors++;
+          }
+          if(err == MODBUS_RESPONSE_TIMEOUT) {
+            world.stored_data[data_pos]->timeout_errors++;
+          }
+        }
         continue;
       }
       struct timespec ts;
@@ -373,19 +484,20 @@ cleanup:
   return error;
 }
 
-// check for new psus every N rounds of sensor reads
-#define SEARCH_PSUS_EVERY 200
+// check for new psus every N seconds
+static int search_at = 0;
+#define SEARCH_PSUS_EVERY 120
 void* monitoring_loop(void* arg) {
   (void) arg;
-  int until_search = 0;
   world.status_log = fopen("/var/log/psu-status.log", "a+");
   while(1) {
-    if (until_search == 0) {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    if (search_at < ts.tv_sec) {
       check_active_psus();
       alloc_monitoring_datas();
-      until_search = SEARCH_PSUS_EVERY;
-    } else {
-      until_search--;
+      clock_gettime(CLOCK_REALTIME, &ts);
+      search_at = ts.tv_sec + SEARCH_PSUS_EVERY;
     }
     fetch_monitored_data();
   }
@@ -394,19 +506,17 @@ void* monitoring_loop(void* arg) {
 
 int open_rs485_dev(const char* tty_filename, int gpio_num, rs485_dev *dev) {
   int error = 0;
-  int tty_fd, gpio_fd;
-  char gpio_filename[128];
+  int tty_fd;
   dbg("[*] Opening TTY\n");
   tty_fd = open(tty_filename, O_RDWR | O_NOCTTY);
   CHECK(tty_fd);
 
   dbg("[*] Opening GPIO %d\n", gpio_num);
-  snprintf(gpio_filename, sizeof(gpio_filename), "/sys/class/gpio/gpio%d/value", gpio_num);
-  gpio_fd = open(gpio_filename, O_WRONLY | O_SYNC);
-  CHECK(gpio_fd);
+  gpio_open(&dev->gpio, gpio_num);
+  dbg("[*] Set GPIO %d dir to out\n", gpio_num);
+  gpio_change_direction(&dev->gpio, GPIO_DIRECTION_OUT);
 
   dev->tty_fd = tty_fd;
-  dev->gpio_fd = gpio_fd;
   pthread_mutex_init(&dev->lock, NULL);
 cleanup:
   return error;
@@ -414,6 +524,9 @@ cleanup:
 
 int do_command(int sock, rackmond_command* cmd) {
   int error = 0;
+  write_buffer wb;
+  //128k write buffer
+  buf_open(&wb, sock, 128*1000);
   lock_holder(worldlock, &world.lock);
   switch(cmd->type) {
     case COMMAND_TYPE_RAW_MODBUS:
@@ -436,12 +549,12 @@ int do_command(int sock, rackmond_command* cmd) {
         if(response_len < 0) {
           uint16_t error = -response_len;
           response_len_wire = 0;
-          send(sock, &response_len_wire, sizeof(uint16_t), 0);
-          send(sock, &error, sizeof(uint16_t), 0);
+          buf_write(&wb, &response_len_wire, sizeof(uint16_t));
+          buf_write(&wb, &error, sizeof(uint16_t));
           break;
         }
-        send(sock, &response_len_wire, sizeof(uint16_t), 0);
-        send(sock, response, response_len, 0);
+        buf_write(&wb, &response_len_wire, sizeof(uint16_t));
+        buf_write(&wb, response, response_len);
         break;
       }
     case COMMAND_TYPE_SET_CONFIG:
@@ -455,6 +568,53 @@ int do_command(int sock, rackmond_command* cmd) {
         world.config = calloc(1, config_size);
         memcpy(world.config, &cmd->set_config.config, config_size);
         syslog(LOG_INFO, "got configuration");
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        uint32_t now = ts.tv_sec;
+        search_at = now;
+        lock_release(worldlock);
+        break;
+      }
+    case COMMAND_TYPE_DUMP_STATUS:
+      {
+        lock_take(worldlock);
+        if (world.config == NULL) {
+          bprintf(&wb, "Unconfigured\n");
+        } else {
+          struct timespec ts;
+          clock_gettime(CLOCK_REALTIME, &ts);
+          uint32_t now = ts.tv_sec;
+          int data_pos = 0;
+          bprintf(&wb, "Monitored PSUs:\n");
+          while(world.stored_data[data_pos] != NULL && data_pos < MAX_ACTIVE_ADDRS) {
+            bprintf(&wb, "PSU addr %02x - crc errors: %d, timeouts: %d\n",
+                world.stored_data[data_pos]->addr,
+                world.stored_data[data_pos]->crc_errors,
+                world.stored_data[data_pos]->timeout_errors);
+            data_pos++;
+          }
+          bprintf(&wb, "Active on last scan: ");
+          for(int i = 0; i < world.num_active_addrs; i++) {
+            bprintf(&wb, "%02x ", world.active_addrs[i]);
+          }
+          bprintf(&wb, "\n");
+          bprintf(&wb, "Next scan in %d seconds.\n", search_at - now);
+        }
+        lock_release(worldlock);
+        break;
+      }
+    case COMMAND_TYPE_FORCE_SCAN:
+      {
+        lock_take(worldlock);
+        if (world.config == NULL) {
+          bprintf(&wb, "Unconfigured\n");
+        } else {
+          struct timespec ts;
+          clock_gettime(CLOCK_REALTIME, &ts);
+          uint32_t now = ts.tv_sec;
+          search_at = now;
+          bprintf(&wb, "Triggering PSU scan...\n");
+        }
         lock_release(worldlock);
         break;
       }
@@ -462,53 +622,56 @@ int do_command(int sock, rackmond_command* cmd) {
       {
         lock_take(worldlock);
         if (world.config == NULL) {
-          send(sock, "[]", 2, 0);
+          buf_write(&wb, "[]", 2);
         } else {
           struct timespec ts;
           clock_gettime(CLOCK_REALTIME, &ts);
           uint32_t now = ts.tv_sec;
-          send(sock, "[", 1, 0);
+          buf_write(&wb, "[", 1);
           int data_pos = 0;
           while(world.stored_data[data_pos] != NULL && data_pos < MAX_ACTIVE_ADDRS) {
-            dprintf(sock, "{\"addr\":%d,\"now\":%d,\"ranges\":[",
-                    world.stored_data[data_pos]->addr, now);
+            bprintf(&wb, "{\"addr\":%d,\"crc_fails\":%d,\"timeouts\":%d,"
+                         "\"now\":%d,\"ranges\":[",
+                    world.stored_data[data_pos]->addr,
+                    world.stored_data[data_pos]->crc_errors,
+                    world.stored_data[data_pos]->timeout_errors, now);
             for(int i = 0; i < world.config->num_intervals; i++) {
               uint32_t time;
               register_range_data *rd = &world.stored_data[data_pos]->range_data[i];
               char* mem_pos = rd->mem_begin;
-              dprintf(sock,"{\"begin\":%d,\"readings\":[", rd->i->begin);
+              bprintf(&wb,"{\"begin\":%d,\"readings\":[", rd->i->begin);
               // want to cut the list off early just before
               // the first entry with time == 0
               memcpy(&time, mem_pos, sizeof(time));
               for(int j = 0; j < rd->i->keep && time != 0; j++) {
                 mem_pos += sizeof(time);
-                dprintf(sock, "{\"time\":%d,\"data\":\"", time);
+                bprintf(&wb, "{\"time\":%d,\"data\":\"", time);
                 for(int c = 0; c < rd->i->len * 2; c++) {
-                  dprintf(sock, "%02x", *mem_pos);
+                  bprintf(&wb, "%02x", *mem_pos);
                   mem_pos++;
                 }
-                send(sock, "\"}", 2, 0);
+                buf_write(&wb, "\"}", 2);
                 memcpy(&time, mem_pos, sizeof(time));
                 if (time == 0) {
                   break;
                 }
                 if ((j+1) < rd->i->keep) {
-                  send(sock, ",", 1, 0);
+                  buf_write(&wb, ",", 1);
                 }
               }
-              send(sock, "]}", 2, 0);
+              buf_write(&wb, "]}", 2);
               if ((i+1) < world.config->num_intervals) {
-                send(sock, ",", 1, 0);
+                buf_write(&wb, ",", 1);
               }
             }
             data_pos++;
             if (data_pos < MAX_ACTIVE_ADDRS && world.stored_data[data_pos] != NULL) {
-              send(sock, "]},", 3, 0);
+              buf_write(&wb, "]},", 3);
             } else {
-              send(sock, "]}", 2, 0);
+              buf_write(&wb, "]}", 2);
             }
           }
-          send(sock, "]", 1, 0);
+          buf_write(&wb, "]", 1);
         }
         lock_release(worldlock);
         break;
@@ -518,7 +681,7 @@ int do_command(int sock, rackmond_command* cmd) {
         lock_take(worldlock);
         uint8_t was_paused = world.paused;
         world.paused = 1;
-        send(sock, &was_paused, sizeof(was_paused), 0);
+        buf_write(&wb, &was_paused, sizeof(was_paused));
         lock_release(worldlock);
         break;
       }
@@ -527,15 +690,16 @@ int do_command(int sock, rackmond_command* cmd) {
         lock_take(worldlock);
         uint8_t was_started = !world.paused;
         world.paused = 0;
-        send(sock, &was_started, sizeof(was_started), 0);
+        buf_write(&wb, &was_started, sizeof(was_started));
         lock_release(worldlock);
         break;
       }
     default:
-      CHECK(-1);
+      BAIL("Unknown command type %d\n", cmd->type);
   }
 cleanup:
   lock_release(worldlock);
+  buf_close(&wb);
   return error;
 }
 

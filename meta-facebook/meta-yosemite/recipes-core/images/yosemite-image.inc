@@ -27,6 +27,8 @@ PYTHON_PKGS = " \
   python-pickle \
   python-misc \
   python-netserver \
+  python-syslog \
+  python-ply \
   "
 
 NTP_PKGS = " \
@@ -43,11 +45,11 @@ IMAGE_INSTALL += " \
   u-boot-fw-utils \
   healthd \
   fbutils \
-  fan-ctrl \
+  fan-util \
+  fscd \
   watchdog-ctrl \
   i2c-tools \
   sensor-setup \
-  usb-console \
   lmsensors-sensors \
   rest-api \
   bottle \
@@ -74,7 +76,11 @@ IMAGE_INSTALL += " \
   log-util \
   cherryPy \
   lldp-util \
+  fan-util \
   spatula \
+  passwd-util \
+  logrotate \
+  conf-util \
   "
 
 IMAGE_FEATURES += " \

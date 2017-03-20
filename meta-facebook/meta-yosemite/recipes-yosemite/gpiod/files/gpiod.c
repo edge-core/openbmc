@@ -44,6 +44,8 @@
 #define DELAY_GPIOD_READ    500000 // Polls each slot gpio values every 4*x usec
 #define SOCK_PATH_GPIO      "/tmp/gpio_socket"
 
+#define GPIO_BMC_READY_N    28
+
 /* To hold the gpio info and status */
 typedef struct {
   uint8_t flag;
@@ -202,6 +204,7 @@ static int
 gpio_monitor_poll(uint8_t fru_flag) {
   int i, ret;
   uint8_t fru;
+  uint8_t slot_12v[MAX_NUM_SLOTS + 1];
   uint32_t revised_pins, n_pin_val, o_pin_val[MAX_NUM_SLOTS + 1] = {0};
   gpio_pin_t *gpios;
   char pwr_state[MAX_VALUE_LEN];
@@ -213,6 +216,9 @@ gpio_monitor_poll(uint8_t fru_flag) {
   for (fru = 1; fru <= MAX_NUM_SLOTS; fru++) {
     if (GETBIT(fru_flag, fru) == 0)
       continue;
+
+    // Inform BIOS that BMC is ready
+    bic_set_gpio(fru, GPIO_BMC_READY_N, 0);
 
     ret = bic_get_gpio(fru, &gpio);
     if (ret) {
@@ -232,6 +238,7 @@ gpio_monitor_poll(uint8_t fru_flag) {
 
     memcpy(&status, (uint8_t *) &gpio, sizeof(status));
 
+    slot_12v[fru] = 1;
     o_pin_val[fru] = 0;
 
     for (i = 0; i < MAX_GPIO_PINS; i++) {
@@ -243,11 +250,6 @@ gpio_monitor_poll(uint8_t fru_flag) {
 
       if (gpios[i].status)
         o_pin_val[fru] = SETBIT(o_pin_val[fru], i);
-
-      if (gpios[i].status == gpios[i].ass_val) {
-          syslog(LOG_CRIT, "ASSERT: fru: %u, num: %d, gpio pin: %-20s",
-              fru, i, gpios[i].name);
-      }
     }
   }
 
@@ -255,6 +257,11 @@ gpio_monitor_poll(uint8_t fru_flag) {
   while(1) {
     for (fru = 1; fru <= MAX_NUM_SLOTS; fru++) {
       if (!(GETBIT(fru_flag, fru))) {
+        usleep(DELAY_GPIOD_READ);
+        continue;
+      }
+      if (slot_12v[fru] == 0) {  // workaround, may get fake PWRGOOD_CPU status when slot12V is just turned on
+        pal_is_server_12v_on(fru, &slot_12v[fru]);
         usleep(DELAY_GPIOD_READ);
         continue;
       }
@@ -278,11 +285,15 @@ gpio_monitor_poll(uint8_t fru_flag) {
               " fru %u", fru);
 #endif
         }
-        continue;
+
+        if ((pal_is_server_12v_on(fru, &slot_12v[fru]) != 0) || slot_12v[fru]) {
+          usleep(DELAY_GPIOD_READ);
+          continue;
+        }
+        n_pin_val = CLEARBIT(o_pin_val[fru], PWRGOOD_CPU);
       }
 
       if (o_pin_val[fru] == n_pin_val) {
-        o_pin_val[fru] = n_pin_val;
         usleep(DELAY_GPIOD_READ);
         continue;
       }
@@ -299,18 +310,19 @@ gpio_monitor_poll(uint8_t fru_flag) {
              * GPIO - PWRGOOD_CPU assert indicates that the CPU is turned off or in a bad shape.
              * Raise an error and change the LPS from on to off or vice versa for deassert.
              */
-            if (!(strcmp(pwr_state, "on")))
+            if (strcmp(pwr_state, "off"))
               pal_set_last_pwr_state(fru, "off");
 
-            syslog(LOG_CRIT, "ASSERT: fru: %u, num: %d, gpio pin: %-20s",
-                fru, i, gpios[i].name);
+            syslog(LOG_CRIT, "FRU: %d, System powered OFF", fru);
+
+            // Inform BIOS that BMC is ready
+            bic_set_gpio(fru, GPIO_BMC_READY_N, 0);
           } else {
 
-            if (!(strcmp(pwr_state, "off")))
+            if (strcmp(pwr_state, "on"))
               pal_set_last_pwr_state(fru, "on");
 
-            syslog(LOG_CRIT, "DEASSERT: fru: %u, num: %d, gpio pin: %-20s",
-                  fru, i, gpios[i].name);
+            syslog(LOG_CRIT, "FRU: %d, System powered ON", fru);
           }
         }
       }

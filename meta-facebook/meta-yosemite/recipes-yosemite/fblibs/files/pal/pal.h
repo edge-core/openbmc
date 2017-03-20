@@ -29,9 +29,14 @@ extern "C" {
 #include <facebook/yosemite_common.h>
 #include <facebook/yosemite_fruid.h>
 #include <facebook/yosemite_sensor.h>
+#include <openbmc/kv.h>
 
 #define MAX_KEY_LEN     64
-#define MAX_VALUE_LEN   64
+#define MAX_VALUE_LEN   128
+#define MAX_NUM_FAN     2
+
+#define FRU_STATUS_GOOD   1
+#define FRU_STATUS_BAD    0
 
 #define KV_STORE "/mnt/data/kv_store/%s"
 #define KV_STORE_PATH "/mnt/data/kv_store"
@@ -41,7 +46,13 @@ extern "C" {
 #define CLEARBIT(x, y)      (x & (~(1 << y)))
 #define GETMASK(y)          (1 << y)
 
+#define MAX_NODES 4
+
 extern char * key_list[];
+extern size_t pal_pwm_cnt;
+extern size_t pal_tach_cnt;
+extern const char pal_pwm_list[];
+extern const char pal_tach_list[];
 extern const char pal_fru_list[];
 extern const char pal_server_list[];
 
@@ -63,6 +74,7 @@ enum {
   SERVER_12V_OFF,
   SERVER_12V_ON,
   SERVER_12V_CYCLE,
+  SERVER_GLOBAL_RESET,
 };
 
 enum {
@@ -86,12 +98,28 @@ enum {
   MEMORY_ECC_ERR = 0X63,
   PROCHOT_EXT = 0X51,
   PWR_ERR = 0X56,
-  CATERR= 0xEB,
+  CATERR = 0xEB,
+  CPU_DIMM_HOT = 0xB3,
+  CPU0_THERM_STATUS = 0x1C,
+  SPS_FW_HEALTH = 0x17,
+  NM_EXCEPTION = 0x18,
+  PWR_THRESH_EVT = 0x3B,
+};
+
+enum {
+  BIC_MODE_NORMAL = 0x01,
+  BIC_MODE_UPDATE = 0x0F,
+};
+
+enum {
+  FAN_0 = 0,
+  FAN_1,
 };
 
 int pal_get_platform_name(char *name);
 int pal_get_num_slots(uint8_t *num);
-int pal_is_server_prsnt(uint8_t slot_id, uint8_t *status);
+int pal_is_fru_prsnt(uint8_t fru, uint8_t *status);
+int pal_is_fru_ready(uint8_t fru, uint8_t *status);
 int pal_get_server_power(uint8_t slot_id, uint8_t *status);
 int pal_set_server_power(uint8_t slot_id, uint8_t cmd);
 int pal_sled_cycle(void);
@@ -109,6 +137,7 @@ int pal_set_rst_btn(uint8_t slot, uint8_t status);
 int pal_set_led(uint8_t slot, uint8_t status);
 int pal_set_hb_led(uint8_t status);
 int pal_set_id_led(uint8_t slot, uint8_t status);
+int pal_get_fru_list(char *list);
 int pal_get_fru_id(char *fru_str, uint8_t *fru);
 int pal_get_fru_name(uint8_t fru, char *name);
 int pal_get_fruid_path(uint8_t fru, char *path);
@@ -120,6 +149,8 @@ int pal_get_fru_sensor_list(uint8_t fru, uint8_t **sensor_list, int *cnt);
 int pal_get_fru_discrete_list(uint8_t fru, uint8_t **sensor_list, int *cnt);
 int pal_sensor_sdr_init(uint8_t fru, sensor_info_t *sinfo);
 int pal_sensor_read(uint8_t fru, uint8_t sensor_num, void *value);
+int pal_sensor_read_raw(uint8_t fru, uint8_t sensor_num, void *value);
+int pal_sensor_threshold_flag(uint8_t fru, uint8_t snr_num, uint16_t *flag);
 int pal_get_sensor_name(uint8_t fru, uint8_t sensor_num, char *name);
 int pal_get_sensor_threshold(uint8_t fru, uint8_t sensor_num, uint8_t thresh,
     void *value);
@@ -140,7 +171,22 @@ int pal_sensor_discrete_check(uint8_t fru, uint8_t snr_num, char *snr_name,
 int pal_get_event_sensor_name(uint8_t fru, uint8_t snr_num, char *name);
 int pal_parse_sel(uint8_t fru, uint8_t snr_num, uint8_t *event_data,
     char *error_log);
-int pal_sel_handler(uint8_t fru, uint8_t snr_num);
+int pal_sel_handler(uint8_t fru, uint8_t snr_num, uint8_t *event_data);
+void msleep(int msec);
+int pal_set_sensor_health(uint8_t fru, uint8_t value);
+int pal_get_fru_health(uint8_t fru, uint8_t *value);
+int pal_set_fan_speed(uint8_t fan, uint8_t pwm);
+int pal_get_fan_speed(uint8_t fan, int *rpm);
+int pal_get_fan_name(uint8_t num, char *name);
+void pal_inform_bic_mode(uint8_t fru, uint8_t mode);
+void pal_update_ts_sled();
+int pal_handle_dcmi(uint8_t fru, uint8_t *tbuf, uint8_t tlen, uint8_t *rbuf, uint8_t *rlen);
+int pal_get_pwm_value(uint8_t fan_num, uint8_t *value);
+int pal_fan_dead_handle(int fan_num);
+int pal_fan_recovered_handle(int fan_num);
+int pal_is_crashdump_ongoing(uint8_t slot);
+int pal_is_fw_update_ongoing(uint8_t fru);
+int pal_init_sensor_check(uint8_t fru, uint8_t snr_num, void *snr);
 
 #ifdef __cplusplus
 } // extern "C"

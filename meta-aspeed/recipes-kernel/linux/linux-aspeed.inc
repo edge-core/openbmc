@@ -15,8 +15,8 @@ KERNEL_MODULE_AUTOLOAD += "                     \
  adm1275                                        \
  ads7828                                        \
  at24                                           \
- fb_panther_plus                                \
  max127                                         \
+ rtc-pcf8563                                    \
  pcf8574                                        \
  pfe1100                                        \
  pmbus_core                                     \

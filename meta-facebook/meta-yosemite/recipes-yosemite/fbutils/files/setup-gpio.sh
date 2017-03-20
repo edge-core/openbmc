@@ -144,7 +144,7 @@ gpio_set E5 0
 # BMC_HEARTBEAT_N, heartbeat LED, GPIO Q7(135)
 devmem_clear_bit $(scu_addr 90) 28
 
-gpio_export Q7
+gpio_set Q7 0
 
 # USB_OC_N, resettable fuse tripped, GPIO Q6
 devmem_clear_bit $(scu_addr 90) 28
@@ -171,23 +171,23 @@ devmem_clear_bit $(scu_addr 80) 16
 devmem_clear_bit $(scu_addr 8C) 12
 devmem_clear_bit $(scu_addr 70) 22
 
-gpio_set E0 0
+gpio_export_out E0
 
 # To enable GPIOE1, SCU80[17], SCU8C[12], and SCU70[22] must be 0
 devmem_clear_bit $(scu_addr 80) 17
 
-gpio_set E1 0
+gpio_export_out E1
 
 # To enable GPIOE2, SCU80[18], SCU8C[13], and SCU70[22] must be 0
 devmem_clear_bit $(scu_addr 80) 18
 devmem_clear_bit $(scu_addr 8C) 13
 
-gpio_set E2 1
+gpio_export_out E2
 
 # To enable GPIOE3, SCU80[19], SCU8C[13], and SCU70[22] must be 0
 devmem_clear_bit $(scu_addr 80) 19
 
-gpio_set E3 1
+gpio_export_out E3
 
 # Enable GPIOY3: BoardId(Yosemite or Test system)
 devmem_clear_bit $(scu_addr a4) 11
@@ -394,8 +394,17 @@ gpio_export P3
 devmem_clear_bit $(scu_addr 88) 18
 gpio_export P2
 
-# TODO: Enable this pin after the HW issue is fixed
 # Enable the the EXTRST functionality of GPIOB7
-#devmem_set_bit $(scu_addr 80) 15
-#devmem_clear_bit $(scu_addr 90) 31
-#devmem_set_bit $(scu_addr 3c) 3
+devmem_set_bit $(scu_addr 80) 15
+devmem_clear_bit $(scu_addr 90) 31
+devmem_set_bit $(scu_addr 3c) 3
+
+# Enable GPIO pins: I2C_SLOTx_ALERT_N pins for BIC firmware update
+devmem_clear_bit $(scu_addr 88) 2
+gpio_export N2
+devmem_clear_bit $(scu_addr 88) 3
+gpio_export N3
+devmem_clear_bit $(scu_addr 88) 4
+gpio_export N4
+devmem_clear_bit $(scu_addr 88) 5
+gpio_export N5

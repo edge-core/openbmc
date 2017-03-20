@@ -34,6 +34,13 @@
 #define CRASHDUMP_BIN       "/usr/local/bin/dump.sh"
 #define CRASHDUMP_FILE      "/mnt/data/crashdump_"
 
+struct threadinfo {
+  uint8_t is_running;
+  pthread_t pt;
+};
+
+static struct threadinfo t_dump[MAX_NUM_FRUS] = {0, };
+
 int
 yosemite_common_fru_name(uint8_t fru, char *str) {
 
@@ -105,6 +112,14 @@ generate_dump(void *arg) {
   uint8_t fru = *(uint8_t *) arg;
   char cmd[128];
   char fruname[16];
+  int tmpf;
+  int rc;
+
+
+  // Usually the pthread cancel state are enable by default but
+  // here we explicitly would like to enable them
+  rc = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+  rc = pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
 
   yosemite_common_fru_name(fru, fruname);
 
@@ -115,34 +130,57 @@ generate_dump(void *arg) {
 
   // COREID dump
   memset(cmd, 0, 128);
-  sprintf(cmd, "%s %s 48 coreid >> %s%s", CRASHDUMP_BIN, fruname,
-      CRASHDUMP_FILE, fruname);
+  sprintf(cmd, "%s %s coreid >> %s%s", CRASHDUMP_BIN, fruname, CRASHDUMP_FILE, fruname);
   system(cmd);
 
   // MSR dump
   memset(cmd, 0, 128);
-  sprintf(cmd, "%s %s 48 msr >> %s%s", CRASHDUMP_BIN, fruname,
-      CRASHDUMP_FILE, fruname);
+  sprintf(cmd, "%s %s msr >> %s%s", CRASHDUMP_BIN, fruname, CRASHDUMP_FILE, fruname);
   system(cmd);
 
   syslog(LOG_CRIT, "Crashdump for FRU: %d is generated.", fru);
+
+  t_dump[fru-1].is_running = 0;
 }
+
 
 int
 yosemite_common_crashdump(uint8_t fru) {
 
+  int ret;
+  char cmd[100];
+
+  // Check if the crashdump script exist
   if (access(CRASHDUMP_BIN, F_OK) == -1) {
     syslog(LOG_CRIT, "Crashdump for FRU: %d failed : "
         "crashdump binary is not preset", fru);
     return 0;
   }
 
-  pthread_t t_dump;
+  // Check if a crashdump for that fru is already running.
+  // If yes, kill that thread and start a new one.
+  if (t_dump[fru-1].is_running) {
+    ret = pthread_cancel(t_dump[fru-1].pt);
+    if (ret == ESRCH) {
+      syslog(LOG_INFO, "yosemite_common_crashdump: No Crashdump pthread exists");
+    } else {
+      pthread_join(t_dump[fru-1].pt, NULL);
+      sprintf(cmd, "ps | grep '{dump.sh}' | grep 'slot%d' | awk '{print $1}'| xargs kill", fru);
+      system(cmd);
+#ifdef DEBUG
+      syslog(LOG_INFO, "yosemite_common_crashdump: Previous crashdump thread is cancelled");
+#endif
+    }
+  }
 
-  if (pthread_create(&t_dump, NULL, generate_dump, (void*) &fru) < 0) {
+  // Start a thread to generate the crashdump
+  if (pthread_create(&(t_dump[fru-1].pt), NULL, generate_dump, (void*) &fru) < 0) {
     syslog(LOG_WARNING, "pal_store_crashdump: pthread_create for"
         " FRU %d failed\n", fru);
+    return -1;
   }
+
+  t_dump[fru-1].is_running = 1;
 
   syslog(LOG_INFO, "Crashdump for FRU: %d is being generated.", fru);
 

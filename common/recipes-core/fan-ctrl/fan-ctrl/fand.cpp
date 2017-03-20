@@ -44,10 +44,11 @@
 /* XXX:  Both CONFIG_WEDGE and CONFIG_MAVERICKS are defined for MAVERICKS */
 
 #if !defined(CONFIG_YOSEMITE) && !defined(CONFIG_WEDGE) && \
-    !defined(CONFIG_WEDGE100) && !defined(CONFIG_MAVERICKS)
+    !defined(CONFIG_WEDGE100) && !defined(CONFIG_MAVERICKS) && \
+    !defined(CONFIG_LIGHTNING)
 #error "No hardware platform defined!"
 #endif
-#if defined(CONFIG_YOSEMITE) && defined(CONFIG_WEDGE)
+#if defined(CONFIG_YOSEMITE) && defined(CONFIG_WEDGE) && defined(CONFIG_LIGHTNING)
 #error "Two hardware platforms defined!"
 #endif
 
@@ -74,12 +75,14 @@
 
 #include "watchdog.h"
 
+#if !defined(CONFIG_LIGHTNING)
 /* Sensor definitions */
 
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
                           || defined(CONFIG_MAVERICKS)
 #define INTERNAL_TEMPS(x) ((x) * 1000) // stored as C * 1000
 #define EXTERNAL_TEMPS(x) ((x) / 1000)
+#define WEDGE100_COME_DIMM 100000 // 100C
 #elif defined(CONFIG_YOSEMITE)
 #define INTERNAL_TEMPS(x) (x)
 #define EXTERNAL_TEMPS(x) (x)
@@ -502,7 +505,6 @@ void usage() {
 }
 
 /* We need to open the device each time to read a value */
-
 int read_device(const char *device, int *value) {
   FILE *fp;
   int rc;
@@ -510,7 +512,6 @@ int read_device(const char *device, int *value) {
   fp = fopen(device, "r");
   if (!fp) {
     int err = errno;
-
     syslog(LOG_INFO, "failed to open device %s", device);
     return err;
   }
@@ -560,7 +561,14 @@ int read_temp(const char *device, int *value) {
   *value = BAD_TEMP;
   snprintf(
       full_name, LARGEST_DEVICE_NAME, "%s/temp1_input", device);
-  return read_device(full_name, value);
+
+  int rc = read_device(full_name, value);
+#if defined(CONFIG_WEDGE100)
+  if ((rc || *value > WEDGE100_COME_DIMM) && (strstr(device, COM_E_DIR))) {
+    *value = BAD_TEMP;
+  }
+#endif
+  return rc;
 }
 #endif
 
@@ -1030,8 +1038,14 @@ void fand_interrupt(int sig)
   exit(3);
 }
 
+#endif
+
 int main(int argc, char **argv) {
   /* Sensor values */
+
+#if defined(CONFIG_LIGHTNING)
+  return 0;
+#else
 
 #if defined(CONFIG_WEDGE)
   int intake_temp;
@@ -1248,6 +1262,7 @@ int main(int argc, char **argv) {
      * should be readable at any time.
      */
 
+    /* TODO(vineelak) : Add userver_temp too , in case we fail to read temp */
     if ((intake_temp == BAD_TEMP || exhaust_temp == BAD_TEMP ||
          switch_temp == BAD_TEMP)) {
       bad_reads++;
@@ -1294,7 +1309,7 @@ int main(int argc, char **argv) {
       syslog(LOG_DEBUG,
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
                           || defined(CONFIG_MAVERICKS)
-             "Temp intake %d, t2 %d, "
+             "Temp intake %d, switch %d, "
              " userver %d, exhaust %d, "
              "fan speed %d, speed changes %d",
 #else
@@ -1338,6 +1353,24 @@ int main(int argc, char **argv) {
 #endif
 
     if (userver_temp + USERVER_TEMP_FUDGE > USERVER_LIMIT) {
+      syslog(LOG_DEBUG,
+#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100)
+             "Temp intake %d, switch %d, "
+             " userver %d, exhaust %d, "
+             "fan speed %d, speed changes %d",
+#else
+             "Temp intake %f, max server %f, exhaust %f, "
+             "fan speed %d, speed changes %d",
+#endif
+             intake_temp,
+#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100)
+             switch_temp,
+#endif
+             userver_temp,
+             exhaust_temp,
+             fan_speed,
+             fan_speed_changes);
+
       server_shutdown("uServer temp limit reached");
     }
 
@@ -1506,10 +1539,6 @@ int main(int argc, char **argv) {
     fan_failure = 0;
     for (fan = 0; fan < total_fans; fan++) {
       if (fan_bad[fan] > FAN_FAILURE_THRESHOLD) {
-        /* FIXME: Not all mavericks have upper FAN tray always mounted.
-         * so, dont count errors due to absent upper fan tray, for now.
-         * at some point, below "#if" construct has to go away.
-         */
         fan_failure++;
         write_fan_led(fan + fan_offset, FAN_LED_RED);
       }
@@ -1656,4 +1685,5 @@ int main(int argc, char **argv) {
      * to reboot after the watchdog timeout. */
     kick_watchdog();
   }
+#endif
 }

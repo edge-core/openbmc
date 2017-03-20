@@ -23,6 +23,10 @@ LIC_FILES_CHKSUM = "file://modbus.c;beginline=4;endline=16;md5=da35978751a9d71b7
 
 DEPENDS_append = " update-rc.d-native"
 
+DEPENDS += "libgpio"
+
+RDEPENDS_${PN} = "libgpio"
+
 SRC_URI = "file://Makefile \
            file://modbuscmd.c \
            file://modbussim.c \
@@ -31,11 +35,13 @@ SRC_URI = "file://Makefile \
            file://gpiowatch.c \
            file://rackmond.c \
            file://rackmond.h \
-           file://rackmondata.c \
+           file://rackmonctl.c \
            file://setup-rackmond.sh \
+           file://run-rackmond.sh \
            file://rackmon-config.py \
            file://rackmond.py \
            file://psu-update-delta.py \
+           file://psu-update-bel.py \
            file://hexfile.py \
           "
 
@@ -45,8 +51,9 @@ binfiles = "modbuscmd \
             modbussim \
             gpiowatch \
             rackmond \
-            rackmondata \
+            rackmonctl \
             psu-update-delta.py \
+            psu-update-bel.py \
             hexfile.py \
            "
 
@@ -63,12 +70,18 @@ do_install() {
     install -m 755 $f ${dst}/$f
     ln -snf ../fbpackages/${pkgdir}/$f ${bin}/$f
   done
+  ln -snf ../fbpackages/${pkgdir}/rackmonctl ${bin}/rackmondata
+  ln -snf ../fbpackages/${pkgdir}/rackmonctl ${bin}/rackmonstatus
+  ln -snf ../fbpackages/${pkgdir}/rackmonctl ${bin}/rackmonscan
   install -d ${D}${sysconfdir}/init.d
   install -d ${D}${sysconfdir}/rcS.d
-  install -m 755 setup-rackmond.sh ${D}${sysconfdir}/init.d/setup-rackmond.sh
+  install -d ${D}${sysconfdir}/sv
+  install -d ${D}${sysconfdir}/sv/rackmond
+  install -m 755 run-rackmond.sh ${D}${sysconfdir}/sv/rackmond/run
+  install -m 755 setup-rackmond.sh ${D}${sysconfdir}/init.d/rackmond
   install -m 755 rackmon-config.py ${D}${sysconfdir}/rackmon-config.py
   install -m 755 rackmond.py ${D}${sysconfdir}/rackmond.py
-  update-rc.d -r ${D} setup-rackmond.sh start 95 2 3 4 5  .
+  update-rc.d -r ${D} rackmond start 95 2 3 4 5  .
 }
 
 FBPACKAGEDIR = "${prefix}/local/fbpackages"

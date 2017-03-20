@@ -28,29 +28,58 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#include <pthread.h>
 #include <openbmc/pal.h>
+#include "watchdog.h"
 
 static void
 initilize_all_kv() {
   pal_set_def_key_value();
 }
 
-static void
-check_all_daemon_health() {
+static void *
+hb_led_handler() {
+
+  while(1) {
+    /* Turn ON the HB Led*/
+    pal_set_hb_led(1);
+    msleep(500);
+
+    /* Turn OFF the HB led */
+    pal_set_hb_led(0);
+    msleep(500);
+  }
+}
+
+static void *
+watchdog_handler() {
+
+  /* Start watchdog in manual mode */
+  start_watchdog(0);
+
+  /* Set watchdog to persistent mode so timer expiry will happen independent
+   * of this process's liveliness.
+   */
+  set_persistent_watchdog(WATCHDOG_SET_PERSISTENT);
+
   while(1) {
 
+    sleep(5);
+
     /*
-     * TODO: Check if all the daemons are running fine
-     * TODO: Move the HB led control to this daemon
-     * TODO: Move the watchdog timer to this daemon
+     * Restart the watchdog countdown. If this process is terminated,
+     * the persistent watchdog setting will cause the system to reboot after
+     * the watchdog timeout.
      */
-    sleep(10);
+    kick_watchdog();
   }
 }
 
 int
 main(int argc, void **argv) {
   int dev, rc, pid_file;
+  pthread_t tid_watchdog;
+  pthread_t tid_hb_led;
 
   if (argc > 1) {
     exit(1);
@@ -65,13 +94,31 @@ main(int argc, void **argv) {
     }
   } else {
 
-    daemon(0,1);
+    daemon(1,1);
+
     openlog("healthd", LOG_CONS, LOG_DAEMON);
     syslog(LOG_INFO, "healthd: daemon started");
   }
 
   initilize_all_kv();
-  check_all_daemon_health();
+
+// For current platforms, we are using WDT from either fand or fscd
+// TODO: keeping this code until we make healthd as central daemon that
+//  monitors all the important daemons for the platforms.
+  if (pthread_create(&tid_watchdog, NULL, watchdog_handler, NULL) < 0) {
+    syslog(LOG_WARNING, "pthread_create for watchdog error\n");
+    exit(1);
+  }
+
+  if (pthread_create(&tid_hb_led, NULL, hb_led_handler, NULL) < 0) {
+    syslog(LOG_WARNING, "pthread_create for heartbeat error\n");
+    exit(1);
+  }
+
+  pthread_join(tid_watchdog, NULL);
+
+  pthread_join(tid_hb_led, NULL);
+
   return 0;
 }
 

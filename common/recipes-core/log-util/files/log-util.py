@@ -21,30 +21,53 @@
 import re
 from datetime import datetime
 import sys
+import os
 from ctypes import *
 from lib_pal import *
 
-SYSLOGFILE = '/mnt/data/logfile'
+syslogfiles = ['/mnt/data/logfile.0', '/mnt/data/logfile']
+cmdlist = ['--print', '--clear']
 APPNAME = 'log-util'
+frulist = ''
 
 def print_usage():
-    print 'Usage: %s --show' % (APPNAME)
+    global frulist
+
+    print 'Usage: %s [ %s ] %s' % (APPNAME, ' | '.join(frulist), cmdlist[0])
+    print '       %s [ %s ] %s' % (APPNAME, ' | '.join(frulist), cmdlist[1])
+
 
 def log_main():
 
-    if len(sys.argv) is not 2:
+    global frulist
+
+    # Get the list of frus from PAL library
+    frus = pal_get_fru_list()
+    frulist = re.split(r',\s', frus)
+    frulist.append('sys')
+
+    if len(sys.argv) is not 3:
         print_usage()
         return -1
 
-    if sys.argv[1] != '--show':
+    fru = sys.argv[1]
+    cmd = sys.argv[2]
+
+    # Check if the fru passed in as argument exists in the fru list
+    if fru not in frulist:
+        print "Error: Fru not in the list [ %s ] \n" % ' | '.join(frulist)
         print_usage()
         return -1
 
-    fd = open(SYSLOGFILE, 'r')
-    syslog = fd.readlines()
-    fd.close()
+    # Check if the cmd passed in as argument exists in the cmd list
+    if cmd not in cmdlist:
+        print "Unknown command: %s \n" % cmd
+        print_usage()
+        return -1
 
-    print '%-4s %-8s %-22s %-16s %s' % (
+    # Print cmd
+    if cmd == cmdlist[0]:
+        print '%-4s %-8s %-22s %-16s %s' % (
             "FRU#",
             "FRU_NAME",
             "TIME_STAMP",
@@ -52,42 +75,130 @@ def log_main():
             "MESSAGE"
             )
 
-    for log in syslog:
-        if not (re.search(r' bmc [a-z]*.crit ', log)):
+    for logfile in syslogfiles:
+
+        try:
+            fd = open(logfile, 'r')
+            syslog = fd.readlines()
+            fd.close()
+        except IOError:
             continue
-        if re.search(r'FRU: [0-9]{1,2}', log, re.IGNORECASE):
-            fru = ''.join(re.findall(r'FRU: [0-9]{1,2}', log, re.IGNORECASE))
-            # fru is in format "FRU: X"
-            fru = fru[5]
 
-            # Name of the FRU from the PAL library
-            name = pal_get_fru_name(int(fru))
-        else :
-            fru = '0'
+        # Clear cmd
+        if cmd == cmdlist[1]:
 
-            name = 'all'
+            newlog = ''
 
+            for log in syslog:
+                # Print only critical logs
+                if not (re.search(r' bmc [a-z]*.crit ', log) or re.search(r'log-util:', log)):
+                    continue
 
-        temp = re.split(r' bmc [a-z]*.crit ', log)
+                # Find the FRU number
+                if re.search(r'FRU: [0-9]{1,2}', log, re.IGNORECASE):
+                    fru_num = ''.join(re.findall(r'FRU: [0-9]{1,2}', log, re.IGNORECASE))
+                    # FRU is in format "FRU: X"
+                    fru_num = fru_num[5]
+                else:
+                    fru_num = '0'
 
-        # Time format Sep 28 22:10:50
-        ts = temp[0]
-        currtime = datetime.now()
-        ts = '%d %s' % (currtime.year, ts)
-        time = datetime.strptime(ts, '%Y %b %d %H:%M:%S')
-        time = time.strftime('%Y-%m-%d %H:%M:%S')
+                # FRU # is always aligned with indexing of fru list
+                if fru == 'sys' and fru_num == '0':
+                    fruname = 'sys'
+                else:
+                    fruname = frulist[int(fru_num)]
 
-        temp2 = re.split(r': ', temp[1], 1)
-        app = temp2[0]
-        message = temp2[1]
+                # Clear the log is the argument fru matches the log fru
+                if fru == 'all' or fru == fruname:
+                    # Drop this log line
+                    continue
+                else:
+                    newlog = newlog + log
 
-        print '%-4s %-8s %-22s %-16s %s' % (
-                    fru,
-                    name,
+            # Dump the new log in a tmp file
+            if logfile == syslogfiles[1] and fru != 'sys':
+               if fru == 'all':
+                  temp = 'all'
+               else:
+                  fru_num = str(frulist.index(fru))
+                  temp = 'FRU: ' + fru_num
+               time = datetime.now()
+               newlog = newlog + time.strftime('%b %d %H:%M:%S') + ' log-util: User cleared ' + temp + ' logs\n'
+            curpid = os.getpid()
+            tmpfd = open('%s.tmp%d' % (logfile, curpid), 'w')
+            tmpfd.write(newlog)
+            tmpfd.close()
+            # Rename the tmp file to original syslog file
+            os.rename('%s.tmp%d' % (logfile, curpid), logfile)
+
+        # Print cmd
+        if cmd == cmdlist[0]:
+
+            for log in syslog:
+                # Print only critical logs
+                if not (re.search(r' bmc [a-z]*.crit ', log) or re.search(r'log-util:', log)):
+                    continue
+
+                # Find the FRU number
+                if re.search(r'FRU: [0-9]{1,2}', log, re.IGNORECASE):
+                    fru_num = ''.join(re.findall(r'FRU: [0-9]{1,2}', log, re.IGNORECASE))
+                    # FRU is in format "FRU: X"
+                    fru_num = fru_num[5]
+                else:
+                    fru_num = '0'
+
+                # FRU # is always aligned with indexing of fru list
+                if fru == 'sys' and fru_num == '0':
+                    fruname = 'sys'
+                else:
+                    fruname = frulist[int(fru_num)]
+
+                # Print only if the argument fru matches the log fru
+                if re.search(r'log-util:', log):
+                   if re.search(r'all logs', log):
+                     print (log)
+                     continue
+
+                if fru != 'all' and fru != fruname:
+                    continue
+
+                if re.search(r'log-util:', log):
+                     print (log)
+                     continue
+                # Time format Sep 28 22:10:50
+                temp = re.split(r' bmc [a-z]*.crit ', log)
+                ts = temp[0]
+                currtime = datetime.now()
+                ts = '%d %s' % (currtime.year, ts)
+                time = datetime.strptime(ts, '%Y %b %d %H:%M:%S')
+                time = time.strftime('%Y-%m-%d %H:%M:%S')
+
+                temp2 = re.split(r': ', temp[1], 1)
+                app = temp2[0]
+                message = temp2[1].rstrip('\n')
+
+                print '%-4s %-8s %-22s %-16s %s' % (
+                    fru_num,
+                    fruname,
                     time,
                     app,
                     message
                     )
+
+    if cmd == cmdlist[1]:
+        if fru == 'all':
+           for i in range (1, len(frulist)):
+               fruname = frulist[i] + '_sensor_health'
+               pal_set_key_value(fruname)
+           for i in range (1, len(frulist)):
+               fruname = frulist[i] + '_sel_error'
+               pal_set_key_value(fruname)
+        else:
+           fruname = fru + '_sensor_health'
+           pal_set_key_value(fruname)
+           if fru != 'nic' and fru != 'spb':
+               fruname = fru + '_sel_error'
+               pal_set_key_value(fruname)
 
 
 if __name__ == '__main__':

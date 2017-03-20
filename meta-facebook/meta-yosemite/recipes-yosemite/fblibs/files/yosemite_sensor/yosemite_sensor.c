@@ -28,6 +28,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <syslog.h>
+#include <facebook/i2c-dev.h>
 #include "yosemite_sensor.h"
 
 #define LARGEST_DEVICE_NAME 120
@@ -49,12 +50,13 @@
 #define HSC_IN_VOLT "in1_input"
 #define HSC_OUT_CURR "curr1_input"
 #define HSC_TEMP "temp1_input"
+#define HSC_IN_POWER "power1_input"
 
 #define UNIT_DIV 1000
 
-#define MEZZ_SENSOR_I2CBUS        "11"
-#define MEZZ_SENSOR_I2C_BUS_ADDR  "0x1f"
-#define MEZZ_SENSOR_TEMP_REGISTER "0x01"
+#define I2C_DEV_NIC "/dev/i2c-11"
+#define I2C_NIC_ADDR 0x1f
+#define I2C_NIC_SENSOR_TEMP_REG 0x01
 
 #define BIC_SENSOR_READ_NA 0x20
 
@@ -156,9 +158,9 @@ sensor_thresh_array_init() {
 
   spb_sensor_threshold[SP_SENSOR_INLET_TEMP][UCR_THRESH] = 40;
   spb_sensor_threshold[SP_SENSOR_OUTLET_TEMP][UCR_THRESH] = 70;
-  spb_sensor_threshold[SP_SENSOR_FAN0_TACH][UCR_THRESH] = 10000;
+  spb_sensor_threshold[SP_SENSOR_FAN0_TACH][UCR_THRESH] = 11000;
   spb_sensor_threshold[SP_SENSOR_FAN0_TACH][LCR_THRESH] = 500;
-  spb_sensor_threshold[SP_SENSOR_FAN1_TACH][UCR_THRESH] = 10000;
+  spb_sensor_threshold[SP_SENSOR_FAN1_TACH][UCR_THRESH] = 11000;
   spb_sensor_threshold[SP_SENSOR_FAN1_TACH][LCR_THRESH] = 500;
   //spb_sensor_threshold[SP_SENSOR_AIR_FLOW][UCR_THRESH] =  {75.0, 0, 0, 0, 0, 0, 0, 0};
   spb_sensor_threshold[SP_SENSOR_P5V][UCR_THRESH] = 5.493;
@@ -183,7 +185,7 @@ sensor_thresh_array_init() {
   spb_sensor_threshold[SP_SENSOR_HSC_TEMP][UCR_THRESH] = 120;
   spb_sensor_threshold[SP_SENSOR_HSC_IN_POWER][UCR_THRESH] = 525;
 
-  nic_sensor_threshold[MEZZ_SENSOR_TEMP][UCR_THRESH] = 80;
+  nic_sensor_threshold[MEZZ_SENSOR_TEMP][UCR_THRESH] = 95;
 
   init_done = true;
 }
@@ -326,17 +328,34 @@ read_hsc_value(const char *device, float *value) {
 static int
 read_nic_temp(uint8_t snr_num, float *value) {
   char command[64];
-  char tmp[8];
+  int dev;
+  int ret;
+  uint8_t tmp_val;
 
   if (snr_num == MEZZ_SENSOR_TEMP) {
-    sprintf(command, "i2cget -y %s %s %s b", MEZZ_SENSOR_I2CBUS,
-        MEZZ_SENSOR_I2C_BUS_ADDR, MEZZ_SENSOR_TEMP_REGISTER);
+    dev = open(I2C_DEV_NIC, O_RDWR);
+    if (dev < 0) {
+      syslog(LOG_ERR, "open() failed for read_nic_temp");
+      return -1;
+    }
+    /* Assign the i2c device address */
+    ret = ioctl(dev, I2C_SLAVE, I2C_NIC_ADDR);
+    if (ret < 0) {
+      syslog(LOG_ERR, "read_nic_temp: ioctl() assigning i2c addr failed");
+    }
 
-    FILE *fp = popen(command, "r");
-    fscanf(fp, "%s", tmp);
-    pclose(fp);
+    tmp_val = i2c_smbus_read_byte_data(dev, I2C_NIC_SENSOR_TEMP_REG);
 
-    *value = (float) strtol(tmp, NULL, 16);
+    close(dev);
+
+    // TODO: This is a HACK till we find the actual root cause
+    // This condition implies that the I2C bus is busy
+    if (tmp_val == 0xFF) {
+      syslog(LOG_INFO, "read_nic_temp: value 0xFF - i2c bus is busy");
+      return -1;
+    }
+
+    *value = (float) tmp_val;
   }
 
   return 0;
@@ -860,14 +879,7 @@ yosemite_sensor_read(uint8_t fru, uint8_t sensor_num, void *value) {
         case SP_SENSOR_HSC_TEMP:
           return read_hsc_value(HSC_TEMP, (float*) value);
         case SP_SENSOR_HSC_IN_POWER:
-          if (read_hsc_value(HSC_IN_VOLT, &volt)) {
-            return -1;
-          }
-          if (read_hsc_value(HSC_OUT_CURR, &curr)) {
-            return -1;
-          }
-          * (float*) value = volt * curr;
-          return 0;
+          return read_hsc_value(HSC_IN_POWER, (float*) value);
       }
       break;
 
