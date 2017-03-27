@@ -59,6 +59,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <syslog.h>
+#include <sys/stat.h>
 #if defined(CONFIG_YOSEMITE)
 #include <openbmc/ipmi.h>
 #include <facebook/bic.h>
@@ -679,38 +680,71 @@ static int bf_board_type_get() {
   }
 }
 
+static bool file_exists(const char *file_name) {
+
+  struct stat buffer;
+  return (stat(file_name, &buffer) == 0);
+}
+
 static int fd_tofino_ext_tmp = -1;
 static void mav_read_tofino_temp(int *temp) {
   uint8_t val;
   char full_name[LARGEST_DEVICE_NAME];
   int fd = fd_tofino_ext_tmp;
   int res;
+  const char *lock_file_name = "/tmp/btools_lock";
+  FILE *lock_file_fp;
+  int timeout_counter = 0;
 
   *temp = BAD_TEMP;
   if (fd == -1) {
     return;
   }
+  
+  /* Acquire the file lock */
+  while (file_exists(lock_file_name) == true) {
+    timeout_counter++;
+    if (timeout_counter >= 10) {
+      /* It's possible that the other process using the lock might have
+   	 malfunctioned. Hence explicitly delete the file and proceed*/
+      syslog(LOG_CRIT, "Some process (btools) didn't clean up the lock file. Hence explicitly cleaning it up and proceeding");
+      remove(lock_file_name);
+    }
+    sleep(1);
+  }
+
+  lock_file_fp = fopen(lock_file_name, "w+");
+
   if (mav_board_type == BF_BOARD_MAV) {
+
     /* open PCA9548 channel */
     res = ioctl(fd, I2C_SLAVE_FORCE, 0x70);
     if (res < 0) {
       syslog(LOG_CRIT, "Failed to open slave @ address 0x70 error %d", res);
+      fclose(lock_file_fp);
+      remove(lock_file_name);
       return;
     }
     res = i2c_smbus_write_byte(fd, 0x10);
     if (res < 0) {
       syslog(LOG_CRIT, "Failed to to write slave @ address 0x70");
+      fclose(lock_file_fp);
+      remove(lock_file_name);
       return;
     }
   }
   res = ioctl(fd, I2C_SLAVE_FORCE, 0x4c);
   if (res < 0) {
     syslog(LOG_CRIT, "Failed to open slave @ address 0x4c error %d", res);
+    fclose(lock_file_fp);
+    remove(lock_file_name);
     return;
   }
   res = i2c_smbus_read_byte_data(fd, 0x1);
   if (res < 0) {
     syslog(LOG_CRIT, "Failed to to read slave @ address 0x4c");
+    fclose(lock_file_fp);
+    remove(lock_file_name);
     return;
   }
   *temp = res;
@@ -719,14 +753,20 @@ static void mav_read_tofino_temp(int *temp) {
     res = ioctl(fd, I2C_SLAVE_FORCE, 0x70);
     if (res < 0) {
       syslog(LOG_CRIT, "Failed to open slave @ address 0x70 error %d", res);
+      fclose(lock_file_fp);
+      remove(lock_file_name);
       return;
     }
     res = i2c_smbus_write_byte(fd, 0x00);
     if (res < 0) {
       syslog(LOG_CRIT, "Failed to to write slave @ address 0x70");
+      fclose(lock_file_fp);
+      remove(lock_file_name);
       return;
     }
   }
+  fclose(lock_file_fp);
+  remove(lock_file_name);
 }
 
 static int mav_open_i2c_dev(int i2c_bus) {

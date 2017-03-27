@@ -1304,6 +1304,7 @@ def error_usage():
 def main(argv):
 
     lock_file = "/tmp/btools_lock"
+    timeout_counter = 0
 
     try:
         opts, args = getopt.getopt(argv[1:], "hP:U:I:T:", ["help", "PSU=", "UCD=", "IR=", "TMP="])
@@ -1319,7 +1320,13 @@ def main(argv):
         return
 
     while os.path.isfile(lock_file):
-       sleep(0.5)                  
+        timeout_counter = timeout_counter + 1
+        if timeout_counter >= 20:
+	    # It's possible that the other process using the lock might have 
+	    # malfunctioned. Hence explicitly delete the file and proceed
+	    print "Some process (fand) didn't clean up the lock file. Hence explicitly cleaning it up and proceeding"
+	    os.remove(lock_file)
+        sleep(0.5)                  
                                     
     open(lock_file, "w+") 
 
