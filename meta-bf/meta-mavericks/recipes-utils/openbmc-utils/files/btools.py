@@ -1324,7 +1324,7 @@ def main(argv):
         if timeout_counter >= 20:
 	    # It's possible that the other process using the lock might have 
 	    # malfunctioned. Hence explicitly delete the file and proceed
-	    print "Some process (fand) didn't clean up the lock file. Hence explicitly cleaning it up and proceeding"
+	    print "Some process didn't clean up the lock file. Hence explicitly cleaning it up and proceeding"
 	    os.remove(lock_file)
         sleep(0.5)                  
                                     

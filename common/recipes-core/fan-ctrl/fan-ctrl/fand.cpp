@@ -707,7 +707,7 @@ static void mav_read_tofino_temp(int *temp) {
     if (timeout_counter >= 10) {
       /* It's possible that the other process using the lock might have
    	 malfunctioned. Hence explicitly delete the file and proceed*/
-      syslog(LOG_CRIT, "Some process (btools) didn't clean up the lock file. Hence explicitly cleaning it up and proceeding");
+      syslog(LOG_CRIT, "Some process didn't clean up the lock file. Hence explicitly cleaning it up and proceeding");
       remove(lock_file_name);
     }
     sleep(1);
