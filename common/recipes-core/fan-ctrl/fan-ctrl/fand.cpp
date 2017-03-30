@@ -704,13 +704,15 @@ static void mav_read_tofino_temp(int *temp) {
   /* Acquire the file lock */
   while (file_exists(lock_file_name) == true) {
     timeout_counter++;
-    if (timeout_counter >= 10) {
+    if (timeout_counter >= 5) {
       /* It's possible that the other process using the lock might have
    	 malfunctioned. Hence explicitly delete the file and proceed*/
       syslog(LOG_CRIT, "Some process didn't clean up the lock file. Hence explicitly cleaning it up and proceeding");
       remove(lock_file_name);
+      break;
     }
     sleep(1);
+    kick_watchdog();
   }
 
   lock_file_fp = fopen(lock_file_name, "w+");

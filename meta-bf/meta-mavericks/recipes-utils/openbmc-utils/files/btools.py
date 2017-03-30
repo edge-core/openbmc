@@ -1321,11 +1321,12 @@ def main(argv):
 
     while os.path.isfile(lock_file):
         timeout_counter = timeout_counter + 1
-        if timeout_counter >= 20:
+        if timeout_counter >= 10:
 	    # It's possible that the other process using the lock might have 
 	    # malfunctioned. Hence explicitly delete the file and proceed
 	    print "Some process didn't clean up the lock file. Hence explicitly cleaning it up and proceeding"
 	    os.remove(lock_file)
+	    break
         sleep(0.5)                  
                                     
     open(lock_file, "w+") 
