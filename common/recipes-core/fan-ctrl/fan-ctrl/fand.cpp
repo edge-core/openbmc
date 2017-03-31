@@ -686,6 +686,12 @@ static bool file_exists(const char *file_name) {
   return (stat(file_name, &buffer) == 0);
 }
 
+static void close_and_remove_file(FILE *fp, const char *file_name) {
+
+  fclose(fp);
+  remove(file_name);
+}
+
 static int fd_tofino_ext_tmp = -1;
 static void mav_read_tofino_temp(int *temp) {
   uint8_t val;
@@ -712,10 +718,16 @@ static void mav_read_tofino_temp(int *temp) {
       break;
     }
     sleep(1);
+    /* Periodically kick the watch dog while trying to acquire the file lock */
     kick_watchdog();
   }
 
   lock_file_fp = fopen(lock_file_name, "w+");
+
+  /* file_exists() and fopen() can sometimes take a very long time. Hence 
+     kick the watch dog so that the delay introduced by us is nullified
+     and the timer doesn't go off */
+  kick_watchdog();
 
   if (mav_board_type == BF_BOARD_MAV) {
 
@@ -723,30 +735,26 @@ static void mav_read_tofino_temp(int *temp) {
     res = ioctl(fd, I2C_SLAVE_FORCE, 0x70);
     if (res < 0) {
       syslog(LOG_CRIT, "Failed to open slave @ address 0x70 error %d", res);
-      fclose(lock_file_fp);
-      remove(lock_file_name);
+      close_and_remove_file(lock_file_fp, lock_file_name);
       return;
     }
     res = i2c_smbus_write_byte(fd, 0x10);
     if (res < 0) {
       syslog(LOG_CRIT, "Failed to to write slave @ address 0x70");
-      fclose(lock_file_fp);
-      remove(lock_file_name);
+      close_and_remove_file(lock_file_fp, lock_file_name);
       return;
     }
   }
   res = ioctl(fd, I2C_SLAVE_FORCE, 0x4c);
   if (res < 0) {
     syslog(LOG_CRIT, "Failed to open slave @ address 0x4c error %d", res);
-    fclose(lock_file_fp);
-    remove(lock_file_name);
+    close_and_remove_file(lock_file_fp, lock_file_name);
     return;
   }
   res = i2c_smbus_read_byte_data(fd, 0x1);
   if (res < 0) {
     syslog(LOG_CRIT, "Failed to to read slave @ address 0x4c");
-    fclose(lock_file_fp);
-    remove(lock_file_name);
+    close_and_remove_file(lock_file_fp, lock_file_name);
     return;
   }
   *temp = res;
@@ -755,20 +763,17 @@ static void mav_read_tofino_temp(int *temp) {
     res = ioctl(fd, I2C_SLAVE_FORCE, 0x70);
     if (res < 0) {
       syslog(LOG_CRIT, "Failed to open slave @ address 0x70 error %d", res);
-      fclose(lock_file_fp);
-      remove(lock_file_name);
+      close_and_remove_file(lock_file_fp, lock_file_name);
       return;
     }
     res = i2c_smbus_write_byte(fd, 0x00);
     if (res < 0) {
       syslog(LOG_CRIT, "Failed to to write slave @ address 0x70");
-      fclose(lock_file_fp);
-      remove(lock_file_name);
+      close_and_remove_file(lock_file_fp, lock_file_name);
       return;
     }
   }
-  fclose(lock_file_fp);
-  remove(lock_file_name);
+  close_and_remove_file(lock_file_fp, lock_file_name);
 }
 
 static int mav_open_i2c_dev(int i2c_bus) {
@@ -1297,6 +1302,9 @@ int main(int argc, char **argv) {
     mav_read_tofino_temp(&tofino_jct_temp);
     if (tofino_jct_temp == BAD_TEMP) {
       bad_reads_tofino++;
+    }
+    else {
+      bad_reads_tofino = 0;
     }
 #endif
     /*
