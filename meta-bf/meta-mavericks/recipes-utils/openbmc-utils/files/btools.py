@@ -987,7 +987,7 @@ def set_ir_voltage(mod, i2c_bus, i2c_addr, margin_cmd, margin_apply, voltage):
 
   return
 
-def fix_montara_ir_pmbus():
+def fix_montara_vdd_core_ir_pmbus():
 
   try:
     # Fix VDD CORE to pmbus
@@ -995,6 +995,15 @@ def fix_montara_ir_pmbus():
     o = subprocess.check_output([set_cmd, "-f", "-y",
                                 "1", "0x8", "0x2B", "0x80"])
 
+  except subprocess.CalledProcessError as e:
+    print e
+    print "Error occured while shifting baxter/IR to PMBUS"
+
+  return
+
+def fix_montara_avdd_ir_pmbus():
+
+  try:
     # Fix AVDD to pmbus
     set_cmd = "i2cset"
     o = subprocess.check_output([set_cmd, "-f", "-y",
@@ -1004,10 +1013,7 @@ def fix_montara_ir_pmbus():
     print e
     print "Error occured while shifting baxter/IR to PMBUS"
 
-  #read_vout(mod, i2c_bus, i2c_addr)
-
   return
-
 
 def ir_voltage_set_montara(arg_ir):
 
@@ -1024,10 +1030,10 @@ def ir_voltage_set_montara(arg_ir):
     IR_VOUT_MARGIN_LOW = "0x26"
     IR_VOUT_CMD = "0x21"
 
-    fix_montara_ir_pmbus()
-
     if arg_ir[3] == "AVDD":
 
+      # keep this command for few boards
+      #fix_montara_avdd_ir_pmbus()
       # voltage +3% -3%
       VOLT_MARGIN_HIGH = "0x1DB"
       VOLT_MARGIN_LOW = "0x1BF"
@@ -1052,6 +1058,9 @@ def ir_voltage_set_montara(arg_ir):
       set_ir_voltage(arg_ir[3], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     elif arg_ir[3] == "VDD_CORE":
+
+      # keep this command for few boards
+      #fix_montara_vdd_core_ir_pmbus()
 
       # voltage +2% -2%
       VOLT_MARGIN_HIGH = "0x1B6"
