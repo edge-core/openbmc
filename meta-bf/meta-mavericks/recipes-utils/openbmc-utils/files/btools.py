@@ -317,16 +317,16 @@ def error_ucd_usage():
 
     print " "
     print "Usage:"
-    print "./btools.py --UCD sh v     => Show Voltage of all rails"
+    print "./btools.py --UCD sh v <mavericks/montara>    => Show Voltage of all rails"
     print "                  fault    => Show Voltage fault/warnings of all rails"
-    print "                  set_margin  <rail number> <margin>"
+    print "                  set_margin  <rail number> <margin> <mavericks/montara>"
     print "                                 <1 - 12>    l /h /n"
     print "                                             l => low"
     print "                                             h => high"
     print "                                             n => none"
 
-    print "./btools.py --UCD sh v"
-    print "./btools.py --UCD set_margin 5 l"
+    print "./btools.py --UCD sh v mavericks"
+    print "./btools.py --UCD set_margin 5 l montara"
     print " "
 
 #
@@ -394,10 +394,11 @@ def ucd_rail_voltage_fault():
 
     return
 
+
 #
-# Displays all rails voltages
+# Displays all rails voltages mavericks
 #
-def ucd_rail_voltage():
+def ucd_rail_voltage_mavericks():
 
     i = 1
 
@@ -408,9 +409,88 @@ def ucd_rail_voltage():
     UCD_VOUT_MODE_OP = "0x20"
 
     print " "
-    print " RAIL      Voltage(V)"
+    print " RAIL                          Voltage(V)"
 
-    # Parse 1 to 12 voltage rails
+    string = {1: "01** - VDD12V", 2: "02** - VDD5V_IR", 3: "03 - VDD5V_stby",
+               4: "04 - VDD3_3V_iso", 5: "05 - VDD3_3V_stby", 6: "06*- VDD3_3V_lower",
+               7: "07*- VDD3_3V_upper", 8: "08- VDD2_5V_stby", 9: "09*- VDD2_5V_rptr",
+               10: "10- VDD2_5V_tf", 11: "11- VDD1_8V_stby", 12: "12- VDD1_5V_stby",
+               13: "13- VDD1_2V_stby", 14: "14*- VDD0_9V_anlg", 15: "15*- VDD_core"}
+
+# Parse 1 to 15 voltage rails
+    for i in range(0, 15):
+
+        try:
+            # i2cset -f -y 2 0x34 0x00 i
+            set_cmd = "i2cset"
+            output = subprocess.check_output([set_cmd, "-f", "-y", UCD_I2C_BUS,
+                                     UCD_I2C_ADDR, UCD_PAGE_OP, str(hex(i))])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing i2cset for rail %.2d " % i
+            continue
+
+        try:
+            # i2cget -f -y 2 0x34 w
+            get_cmd = "i2cget"
+            mantissa = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
+                                               UCD_I2C_ADDR, UCD_READ_OP, "w"])
+
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing i2cget for rail %.2d " % i
+            continue
+
+        try:
+            # i2cget -f -y 2 0x34 0x20
+            get_cmd = "i2cget"
+            exponent = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
+                                               UCD_I2C_ADDR, UCD_VOUT_MODE_OP])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing i2cget for rail %.2d " % i
+            continue
+
+        # 2 ^ exponent
+        # exponent is 5 bit signed value. Thus calculating first exponent.
+        # It is based on UCD90120A device spec section 2.2
+        exp = int(exponent, 16) | ~0x1f
+        exp = ~exp + 1
+        div = 1 << exp
+
+        mantissa = int(mantissa, 16)
+
+        print "  %-*s          %.3f" % (20, string.get(i + 1), float(mantissa) / float(div))
+
+    print "  "
+    print "* voltages can be margined by IR CLI only "
+    print "** voltages cannot be margined "
+    print "  "
+
+    return
+
+#
+# Displays all rails voltages montara
+#
+def ucd_rail_voltage_montara():
+
+    i = 1
+
+    UCD_I2C_BUS = "2"
+    UCD_I2C_ADDR = "0x34"
+    UCD_READ_OP = "0x8b"
+    UCD_PAGE_OP = "0x00"
+    UCD_VOUT_MODE_OP = "0x20"
+
+    print " "
+    print " RAIL                          Voltage(V)"
+
+    string = {1: "01-  VDD12V", 2: "02-  VDD5V_stby", 3: "03-  VDD3_3V_iso",
+	      4: "04*- VDD3_3V", 5: "05-  VDD3_3V_stby", 6: "06-  VDD2_5V_stby",
+              7: "07-  VDD2_5V_tf", 8: "08-  VDD1_8V_stby", 9: "09-  VDD1_5V_stby",
+              10: "10-  VDD1_2V_stby", 11: "11*-  VDD0_9V_anlg", 12: "12*-  VDD_core"}
+
+# Parse 1 to 12 voltage rails
     for i in range(0, 12):
 
         try:
@@ -453,9 +533,11 @@ def ucd_rail_voltage():
 
         mantissa = int(mantissa, 16)
 
-        print "  %.2d         %.3f" % (i + 1, float(mantissa) / float(div))
+        print "  %-*s          %.3f" % (20, string.get(i + 1), float(mantissa) / float(div))
 
-    print " "
+    print "  "
+    print "* voltages can be margined by IR CLI only "
+    print "  "
 
     return
 
@@ -472,11 +554,18 @@ def ucd_voltage_margin(arg):
     UCD_PAGE_OP = "0x00"
     UCD_MARGIN_OP = "0x01"
 
-    if len(arg) is not 3:
+    if len(arg) is not 4:
         error_ucd_usage()
         return
-
-    if not 1 <= int(arg[1]) <= 12:
+    if arg[3] == "mavericks":
+    	if not 1 <= int(arg[1]) <= 15:
+             error_ucd_usage()
+             return
+    elif arg[3] == "montara":
+    	if not 1 <= int(arg[1]) <= 12:
+             error_ucd_usage()
+             return
+    else:
         error_ucd_usage()
         return
 
@@ -538,14 +627,21 @@ def ucd(argv):
 
     arg_ucd = argv[2:]
 
-    if arg_ucd[0] == "help" or arg_ucd[0] == "h":
+    if arg_ucd[0] == "help" or arg_ucd[0] == "h" or len(arg_ucd) < 3:
         error_ucd_usage()
         return
 
     if arg_ucd[0] == "sh":
-        ucd_rail_voltage()
+        if arg_ucd[2] == "Mavericks" or arg_ucd[2] == "mavericks" :
+            ucd_rail_voltage_mavericks()
+        elif arg_ucd[2] == "Montara" or arg_ucd[2] == "montara" :
+            ucd_rail_voltage_montara()
+        else :
+            error_ucd_usage()
+            return
     elif arg_ucd[0] == "set_margin":
         ucd_voltage_margin(arg_ucd)
+	#ucd_ir_voltage_margin(argv)
     elif arg_ucd[0] == "fault":
         ucd_rail_voltage_fault()
     else:
@@ -557,11 +653,11 @@ def ucd(argv):
 def ir_voltage_show_montara():
 
     IR_I2C_BUS = "0x1"
-    IR_PMBUS_ADDR = {1: "0x70", 2: "0x72", 3: "0x77"}
+    IR_PMBUS_ADDR = {1: "0x70", 2: "0x72", 3: "0x75"}
     IR_VOUT_MODE_OP = "0x20"
     IR_READ_VOUT_OP = "0x8b"
     IR_READ_IOUT_OP = "0x8c"
-    string ={1: "VDD", 2: "AVDD", 3: "QSFP"}
+    string ={1: "VDD_CORE", 2: "AVDD", 3: "QSFP"}
 
     for i in range(1, 4):
 
@@ -824,9 +920,13 @@ def error_ir_usage():
     print "./btools.py --IR set <mavericks/montara> <margin>        <voltage rail>  => Set IR voltages margin"
     print "                                           l = low margin       AVDD                   "
     print "                                           h = high margin      VDD_CORE               "
-    print "                                           n = normal           QSFP_UPPER             "
+    print "                                           n = normal           QSFP_UPPER  (QSFP for Montara)"
     print "                                                                QSFP_LOWER             "
     print "                                                                REPEATER               "
+    print ""
+    print "./btools.py --IR set_vdd_core <mavericks> <voltage> <= Set IR voltages margin for VDD_CORE"
+    print "                                                       <voltage> must be in range of .75-.9V else discarded"
+    print " eg: ./btools.py --IR set_vdd_core mavericks .80 "
     return
 
 def read_vout(rail, I2C_BUS, I2C_ADDR):
@@ -846,7 +946,7 @@ def read_vout(rail, I2C_BUS, I2C_ADDR):
     try:
       # i2cget -f -y 1 0x70 0x8b w
       get_cmd = "i2cget"
-      mantissa = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
+      mantissa = subprocess.check_output([get_cmd, "-f", "-y", I2C_BUS,
                                          I2C_ADDR, IR_READ_VOUT_OP, "w"])
     except subprocess.CalledProcessError as e:
       print e
@@ -862,7 +962,10 @@ def read_vout(rail, I2C_BUS, I2C_ADDR):
 
     v = (float(mantissa)/float(div))
 
-    print ("IR %s       %.3f V" % rail, v)
+    if not (rail == "VDD_CORE" or rail == "AVDD"):
+	v = v * 2
+
+    print ("IR %s       %.3f V" % (rail, v))
 
     return
 
@@ -881,22 +984,184 @@ def set_ir_voltage(mod, i2c_bus, i2c_addr, margin_cmd, margin_apply, voltage):
     set_cmd = "i2cset"
     o = subprocess.check_output([set_cmd, "-f", "-y",
                                 i2c_bus, i2c_addr,
-                                IR_OPERATION, margin_apply, 'w'])
+                                IR_OPERATION, margin_apply])
 
   except subprocess.CalledProcessError as e:
     print e
-    print "Error occured while setting %s voltage low margin" % mod
+    print "Error occured while setting %s voltage" % mod
 
   read_vout(mod, i2c_bus, i2c_addr)
 
   return
+
+
+def fix_montara_vdd_core_ir_pmbus():
+
+  try:
+    # Fix VDD CORE to pmbus
+    set_cmd = "i2cset"
+    o = subprocess.check_output([set_cmd, "-f", "-y",
+                                "1", "0x8", "0x2B", "0x80"])
+
+  except subprocess.CalledProcessError as e:
+    print e
+    print "Error occured while shifting baxter/IR to PMBUS"
+
+  return
+
+def fix_montara_avdd_ir_pmbus():
+
+  try:
+    # Fix AVDD to pmbus
+    set_cmd = "i2cset"
+    o = subprocess.check_output([set_cmd, "-f", "-y",
+                                "1", "0xA", "0x2B", "0x80"])
+
+  except subprocess.CalledProcessError as e:
+    print e
+    print "Error occured while shifting baxter/IR to PMBUS"
+
+  return
+
+def ir_voltage_set_montara(arg_ir):
+
+    IR_I2C_BUS = "0x1"
+    IR_PMBUS_ADDR = {1: "0x70", 2: "0x72", 3: "0x75"}
+    string_upper = {1: "VDD_CORE", 2: "AVDD", 3: "QSFP"}
+
+    IR_MARGIN_LOW_AOF_OP = "0x98"
+    IR_MARGIN_HIGH_AOF_OP = "0xA8"
+    IR_MARGIN_OFF = "0x80"
+    IR_OPERATION = "0x1"
+
+    IR_VOUT_MARGIN_HIGH = "0x25"
+    IR_VOUT_MARGIN_LOW = "0x26"
+    IR_VOUT_CMD = "0x21"
+
+    if arg_ir[3] == "AVDD":
+
+      # keep this command for few boards
+      #fix_montara_avdd_ir_pmbus()
+      # voltage +3% -3%
+      VOLT_MARGIN_HIGH = "0x1DB"
+      VOLT_MARGIN_LOW = "0x1BF"
+      VOLT_NORMAL = "0x1CE"
+      i2c_addr = IR_PMBUS_ADDR.get(2)
+
+      if arg_ir[2] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW
+
+      elif arg_ir[2] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+
+      else:
+        margin_cmd = IR_VOUT_CMD
+        margin_apply = IR_MARGIN_OFF
+        voltage = VOLT_NORMAL
+
+      set_ir_voltage(arg_ir[3], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+
+    elif arg_ir[3] == "VDD_CORE":
+
+      # keep this command for few boards
+      #fix_montara_vdd_core_ir_pmbus()
+
+      # voltage +2% -2%
+      VOLT_MARGIN_HIGH = "0x1B6"
+      VOLT_MARGIN_LOW = "0x1A5"
+      VOLT_NORMAL = "0x1AE"
+      i2c_addr = IR_PMBUS_ADDR.get(1)
+
+      if arg_ir[2] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW
+
+      elif arg_ir[2] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+
+      else:
+        margin_cmd = IR_VOUT_CMD
+        margin_apply = IR_MARGIN_OFF
+        voltage = VOLT_NORMAL
+
+      set_ir_voltage(arg_ir[3], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+
+    elif arg_ir[3] == "QSFP":
+
+      VOLT_MARGIN_HIGH = "0x361"
+      VOLT_MARGIN_LOW = "0x323"
+      VOLT_NORMAL =  "0x34D"
+      i2c_addr = IR_PMBUS_ADDR.get(3)
+
+      if arg_ir[2] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW
+
+      elif arg_ir[2] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+
+      else:
+        margin_cmd = IR_VOUT_CMD
+        margin_apply = IR_MARGIN_OFF
+        voltage = VOLT_NORMAL
+
+      set_ir_voltage(arg_ir[3], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+
+    else:
+        error_ir_usage()
+
+    return
+
+# Only available for Part SKEW Need by hardware
+def ir_set_vdd_core_dynamic_range(arg_ir):
+      
+    a = ir_open_i2c_switch()
+
+    VDD_CORE_IR_I2C_BUS = "0x9"
+    VDD_CORE_IR_PMBUS_ADDR = "0x40"
+    IR_MARGIN_OFF = "0x80"
+    IR_VOUT_CMD = "0x21"
+
+    if len(arg_ir) != 3:
+        error_ir_usage()
+	return
+
+    v = float(arg_ir[2])
+
+    if v < 0.75 or v > 0.90:
+	print "Volatge value not in range .75 - .90"
+	return
+    voltage_scale = {0: "0xC0", 1: "0xc2", 2: "0xC5", 3: "0xC8", 4: "0xCA", 5: "0xCD",
+               6: "0xCF", 7: "0xD2", 8: "0xD4", 9: "0xD7", 10: "0xD9", 11: "0xDC",
+	       12: "0xDF", 13: "0xE1", 14: "0xE4", 15: "0xE6"}
+
+    # Convert to mv with -8 exponent
+    i = (v * 100) % 75
+    voltage = voltage_scale.get(i)
+ 
+    margin_cmd = IR_VOUT_CMD
+    margin_apply = IR_MARGIN_OFF
+    set_ir_voltage("VDD_CORE", VDD_CORE_IR_I2C_BUS, VDD_CORE_IR_PMBUS_ADDR, margin_cmd, margin_apply, voltage)
+  
+    ir_restore_i2c_switch(a)
+    return 
 
 def ir_voltage_set_mavericks(arg_ir):
 
     a = ir_open_i2c_switch()
 
     UPPER_IR_I2C_BUS = "0x9"
-    UPPER_IR_PMBUS_ADDR = {1: "0x40", 2: "0x72", 3: "0x75"}
+    UPPER_IR_PMBUS_ADDR = {1: "0x40", 2: "0x74", 3: "0x71"}
     string_upper = {1: "VDD_CORE", 2: "AVDD", 3: "QSFP_UPPER"}
     LOWER_IR_I2C_BUS = "0x1"
     LOWER_IR_PMBUS_ADDR = {1: "0x71", 2: "0x72"}
@@ -914,9 +1179,10 @@ def ir_voltage_set_mavericks(arg_ir):
 
     if arg_ir[3] == "AVDD":
 
-      VOLT_MARGIN_HIGH = "0x1E4"
-      VOLT_MARGIN_LOW = "0x1B6"
-      VOLT_NORMAL = "0x1B6"
+      # voltage +3% -3%  0x1b6=>438
+      VOLT_MARGIN_HIGH = "0x1DB"
+      VOLT_MARGIN_LOW = "0x1BF"
+      VOLT_NORMAL = "0x1CE"
       i2c_addr = UPPER_IR_PMBUS_ADDR.get(2)
 
       if arg_ir[2] == "l":
@@ -930,17 +1196,18 @@ def ir_voltage_set_mavericks(arg_ir):
         voltage = VOLT_MARGIN_HIGH
 
       else:
-        margin_cmd = VOLT_NORMAL
+        margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
-        voltage = IR_VOUT_CMD
+        voltage = VOLT_NORMAL
 
       set_ir_voltage(arg_ir[3], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     elif arg_ir[3] == "VDD_CORE":
 
-      VOLT_MARGIN_HIGH = "0x1A5"
-      VOLT_MARGIN_LOW = "0x1B6"
-      VOLT_NORMAL =  "0x1AE"
+      # voltage +2% -2%  0x1AE=>430
+      VOLT_MARGIN_HIGH = "0x0DB"
+      VOLT_MARGIN_LOW = "0x0D3"
+      VOLT_NORMAL =  "0x0D7"
       i2c_addr = UPPER_IR_PMBUS_ADDR.get(1)
 
       if arg_ir[2] == "l":
@@ -954,17 +1221,17 @@ def ir_voltage_set_mavericks(arg_ir):
         voltage = VOLT_MARGIN_HIGH
 
       else:
-        margin_cmd = VOLT_NORMAL
+        margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
-        voltage = IR_VOUT_CMD
+        voltage = VOLT_NORMAL
 
       set_ir_voltage(arg_ir[3], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     elif arg_ir[3] == "QSFP_UPPER":
 
-      VOLT_MARGIN_HIGH = "0x376"
+      VOLT_MARGIN_HIGH = "0x361"
       VOLT_MARGIN_LOW = "0x323"
-      VOLT_NORMAL =  "0x34d"
+      VOLT_NORMAL =  "0x34D"
       i2c_addr = UPPER_IR_PMBUS_ADDR.get(3)
 
       if arg_ir[2] == "l":
@@ -978,17 +1245,17 @@ def ir_voltage_set_mavericks(arg_ir):
         voltage = VOLT_MARGIN_HIGH
 
       else:
-        margin_cmd = VOLT_NORMAL
+        margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
-        voltage = IR_VOUT_CMD
+        voltage = VOLT_NORMAL
 
       set_ir_voltage(arg_ir[3], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     elif arg_ir[3] == "QSFP_LOWER":
 
-      VOLT_MARGIN_HIGH = "0x376"
+      VOLT_MARGIN_HIGH = "0x361"
       VOLT_MARGIN_LOW = "0x323"
-      VOLT_NORMAL =  "0x34d"
+      VOLT_NORMAL =  "0x34D"
       i2c_addr = LOWER_IR_PMBUS_ADDR.get(1)
 
       if arg_ir[2] == "l":
@@ -1002,9 +1269,9 @@ def ir_voltage_set_mavericks(arg_ir):
         voltage = VOLT_MARGIN_HIGH
 
       else:
-        margin_cmd = VOLT_NORMAL
+        margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
-        voltage = IR_VOUT_CMD
+        voltage = VOLT_NORMAL
 
       set_ir_voltage(arg_ir[3], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
@@ -1026,9 +1293,9 @@ def ir_voltage_set_mavericks(arg_ir):
         voltage = VOLT_MARGIN_HIGH
 
       else:
-        margin_cmd = VOLT_NORMAL
+        margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
-        voltage = IR_VOUT_CMD
+        voltage = VOLT_NORMAL
 
       set_ir_voltage(arg_ir[3], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
@@ -1043,7 +1310,7 @@ def ir(argv):
 
     arg_ir = argv[2:]
 
-    if arg_ir[0] == "help" or arg_ir[0] == "h" or len(arg_ir) != 3:
+    if arg_ir[0] == "help" or arg_ir[0] == "h" or (len(arg_ir) != 3 and len(arg_ir) != 4):
         error_ir_usage()
         return
 
@@ -1063,12 +1330,22 @@ def ir(argv):
         else :
             error_ir_usage()
             return
+    elif arg_ir[0] == "set_vdd_core":
+        if arg_ir[1] == "Mavericks" or arg_ir[1] == "mavericks" :
+	     ir_set_vdd_core_dynamic_range(arg_ir)
+        else :
+	    print "Dynamic VDD_CORE change not available on Montara"
+            error_ir_usage()
+            return
     else:
         error_ir_usage()
         return
 
     return
 
+def ucd_ir_voltage_margin(argv):
+
+    return
 #
 # Temperature utility usage
 #
@@ -1322,14 +1599,14 @@ def main(argv):
     while os.path.isfile(lock_file):
         timeout_counter = timeout_counter + 1
         if timeout_counter >= 10:
-	    # It's possible that the other process using the lock might have 
+	    # It's possible that the other process using the lock might have
 	    # malfunctioned. Hence explicitly delete the file and proceed
 	    print "Some process didn't clean up the lock file. Hence explicitly cleaning it up and proceeding"
 	    os.remove(lock_file)
 	    break
-        sleep(0.5)                  
-                                    
-    open(lock_file, "w+") 
+        sleep(0.5)
+
+    open(lock_file, "w+")
 
     for opt, arg in opts:
         if opt in ("-h", "--help"):
@@ -1345,10 +1622,10 @@ def main(argv):
         else:
             error_usage()
 
-    try:                            
-         os.remove(lock_file)         
-    except OSError:                      
-         pass 
+    try:
+         os.remove(lock_file)
+    except OSError:
+         pass
 
     return
 
