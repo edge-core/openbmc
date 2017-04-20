@@ -778,7 +778,7 @@ def ir_voltage_show_mavericks():
     a = ir_open_i2c_switch()
 
     UPPER_IR_I2C_BUS = "0x9"
-    UPPER_IR_PMBUS_ADDR = {1: "0x40", 2: "0x72", 3: "0x75"}
+    UPPER_IR_PMBUS_ADDR = {1: "0x40", 2: "0x74", 3: "0x71"}
     IR_VOUT_MODE_OP = "0x20"
     IR_READ_VOUT_OP = "0x8b"
     IR_READ_IOUT_OP = "0x8c"
@@ -923,6 +923,10 @@ def error_ir_usage():
     print "                                           n = normal           QSFP_UPPER  (QSFP for Montara)"
     print "                                                                QSFP_LOWER             "
     print "                                                                REPEATER               "
+    print ""
+    print "./btools.py --IR set_vdd_core <mavericks> <voltage> <= Set IR voltages margin for VDD_CORE"
+    print "                                                       <voltage> must be in range of .75-.9V else discarded"
+    print " eg: ./btools.py --IR set_vdd_core mavericks .80 "
     return
 
 def read_vout(rail, I2C_BUS, I2C_ADDR):
@@ -958,6 +962,9 @@ def read_vout(rail, I2C_BUS, I2C_ADDR):
 
     v = (float(mantissa)/float(div))
 
+    if not (rail == "VDD_CORE" or rail == "AVDD"):
+	v = v * 2
+
     print ("IR %s       %.3f V" % (rail, v))
 
     return
@@ -983,9 +990,10 @@ def set_ir_voltage(mod, i2c_bus, i2c_addr, margin_cmd, margin_apply, voltage):
     print e
     print "Error occured while setting %s voltage" % mod
 
-  #read_vout(mod, i2c_bus, i2c_addr)
+  read_vout(mod, i2c_bus, i2c_addr)
 
   return
+
 
 def fix_montara_vdd_core_ir_pmbus():
 
@@ -1114,12 +1122,46 @@ def ir_voltage_set_montara(arg_ir):
 
     return
 
+# Only available for Part SKEW Need by hardware
+def ir_set_vdd_core_dynamic_range(arg_ir):
+      
+    a = ir_open_i2c_switch()
+
+    VDD_CORE_IR_I2C_BUS = "0x9"
+    VDD_CORE_IR_PMBUS_ADDR = "0x40"
+    IR_MARGIN_OFF = "0x80"
+    IR_VOUT_CMD = "0x21"
+
+    if len(arg_ir) != 3:
+        error_ir_usage()
+	return
+
+    v = float(arg_ir[2])
+
+    if v < 0.75 or v > 0.90:
+	print "Volatge value not in range .75 - .90"
+	return
+    voltage_scale = {0: "0xC0", 1: "0xc2", 2: "0xC5", 3: "0xC8", 4: "0xCA", 5: "0xCD",
+               6: "0xCF", 7: "0xD2", 8: "0xD4", 9: "0xD7", 10: "0xD9", 11: "0xDC",
+	       12: "0xDF", 13: "0xE1", 14: "0xE4", 15: "0xE6"}
+
+    # Convert to mv with -8 exponent
+    i = (v * 100) % 75
+    voltage = voltage_scale.get(i)
+ 
+    margin_cmd = IR_VOUT_CMD
+    margin_apply = IR_MARGIN_OFF
+    set_ir_voltage("VDD_CORE", VDD_CORE_IR_I2C_BUS, VDD_CORE_IR_PMBUS_ADDR, margin_cmd, margin_apply, voltage)
+  
+    ir_restore_i2c_switch(a)
+    return 
+
 def ir_voltage_set_mavericks(arg_ir):
 
     a = ir_open_i2c_switch()
 
     UPPER_IR_I2C_BUS = "0x9"
-    UPPER_IR_PMBUS_ADDR = {1: "0x40", 2: "0x72", 3: "0x75"}
+    UPPER_IR_PMBUS_ADDR = {1: "0x40", 2: "0x74", 3: "0x71"}
     string_upper = {1: "VDD_CORE", 2: "AVDD", 3: "QSFP_UPPER"}
     LOWER_IR_I2C_BUS = "0x1"
     LOWER_IR_PMBUS_ADDR = {1: "0x71", 2: "0x72"}
@@ -1286,6 +1328,13 @@ def ir(argv):
         elif arg_ir[1] == "Montara" or arg_ir[1] == "montara" :
             ir_voltage_set_montara(arg_ir)
         else :
+            error_ir_usage()
+            return
+    elif arg_ir[0] == "set_vdd_core":
+        if arg_ir[1] == "Mavericks" or arg_ir[1] == "mavericks" :
+	     ir_set_vdd_core_dynamic_range(arg_ir)
+        else :
+	    print "Dynamic VDD_CORE change not available on Montara"
             error_ir_usage()
             return
     else:
