@@ -32,6 +32,9 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 # make power button high to prepare for power on sequence
 gpio_set BMC_PWR_BTN_OUT_N 1
 
+#switch COMe tty to dbg port
+mav_tty_switch_delay.sh 1
+
 # First power on TH, and if Panther+ is used,
 # provide standby power to Panther+.
 wedge_power_on_board
@@ -49,3 +52,7 @@ if [ $on -eq 0 ]; then
     # Power on now
     wedge_power.sh on -f
 fi
+
+#switch COMe tty to BMC UART after 45 seconds
+echo "wait for 45 seconds before connecting to COMe..."
+mav_tty_switch_delay.sh 0 45 &
