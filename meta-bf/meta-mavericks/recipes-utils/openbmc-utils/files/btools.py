@@ -86,7 +86,7 @@ def psu_cpld_features(power_supply, feature):
 
     try:
         output = subprocess.check_output([cmd, path])
-    except subprocess.CallProcessError as e:
+    except subprocess.CalledProcessError as e:
         print e
         print "Error while executing psu cpld feature commands"
         return
@@ -189,7 +189,8 @@ def psu_read_load_sharing():
 def psu_init():
 
     #check if pfe1100 driver is loaded properly
-    if os.path.isfile("/sys/class/i2c-adapter/i2c-7/7-0059/in1_input"):
+    if os.path.isfile("/sys/class/i2c-adapter/i2c-7/7-0059/in1_input") \
+       and os.path.isfile("/sys/class/i2c-adapter/i2c-7/7-005a/in1_input"):
         return
 
     try:
@@ -201,9 +202,13 @@ def psu_init():
         # Open I2C swtich for PFE devices
         #i2cset -f -y 7 0x70 0x3
         subprocess.check_output([cmd, "-f", "-y", I2C_BUS, I2C_ADDR, OPCODE])
+        
+	# load driver for both devices
+        o = subprocess.check_output(["lsmod", "pfe1100"])
 
-        # remove pfe1100 driver
-        subprocess.check_output(["rmmod", "pfe1100"])
+	if len(o) != 0:
+            # load driver for both devices
+            subprocess.check_output(["rmmod", "pfe1100"])
 
         # load driver for both devices
         subprocess.check_output(["modprobe", "pfe1100"])
@@ -292,8 +297,17 @@ def psu(argv):
     path = i2c_dev + ps + val
 
     try:
+        I2C_ADDR = "0x70"
+        I2C_BUS = "7"
+        OPCODE = "0x3"
+
+        # Force Open I2C swtich for PFE devices. Facebook psu mon messes up i2c mux
+        #i2cset -f -y 7 0x70 0x3
+        subprocess.check_output(["i2cset", "-f", "-y", I2C_BUS, I2C_ADDR, OPCODE])
+
+
         output = subprocess.check_output([cmd, path])
-    except subprocess.CallProcessError as e:
+    except subprocess.CalledProcessError as e:
         print e
         print "Error while executing psu i2c command "
         return
@@ -924,9 +938,10 @@ def error_ir_usage():
     print "                                                                QSFP_LOWER             "
     print "                                                                REPEATER               "
     print ""
-    print "./btools.py --IR set_vdd_core <mavericks> <voltage> <= Set IR voltages margin for VDD_CORE"
-    print "                                                       <voltage> must be in range of .75-.9V else discarded"
-    print " eg: ./btools.py --IR set_vdd_core mavericks .80 "
+    # Commenting this part as nobody other than Barefoot Hardware team should touch this functionality
+    #print "./btools.py --IR set_vdd_core <mavericks> <voltage> <= Set IR voltages margin for VDD_CORE"
+    #print "                                                       <voltage> must be in range of .75-.9V else discarded"
+    #print " eg: ./btools.py --IR set_vdd_core mavericks .80 "
     return
 
 def read_vout(rail, I2C_BUS, I2C_ADDR):

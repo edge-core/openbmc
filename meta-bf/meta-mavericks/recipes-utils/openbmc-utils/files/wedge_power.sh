@@ -28,6 +28,7 @@ PWR_BTN_GPIO="BMC_PWR_BTN_OUT_N"
 PWR_SYSTEM_SYSFS="${SYSCPLD_SYSFS_DIR}/pwr_cyc_all_n"
 PWR_USRV_RST_SYSFS="${SYSCPLD_SYSFS_DIR}/usrv_rst_n"
 PWR_TH_RST_SYSFS="${SYSCPLD_SYSFS_DIR}/th_sys_rst_n"
+PWR_USRV_SYSFS="${SYSCPLD_SYSFS_DIR}/pwr_main_n"
 
 usage() {
     echo "Usage: $prog <command> [command options]"
