@@ -111,7 +111,7 @@
 #define FAN_SHUTDOWN_THRESHOLD 20 /* How long fans can be failed before */
                                   /* we just shut down the whole thing. */
 
-#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
+#if defined(CONFIG_WEDGE100)
 #define PWM_DIR "/sys/bus/i2c/drivers/fancpld/8-0033/"
 
 #define PWM_UNIT_MAX 31
@@ -132,14 +132,40 @@
 #define FAN3_LED PWM_DIR "fantray4_led_ctrl"
 #define FAN4_LED PWM_DIR "fantray5_led_ctrl"
 
-#if defined(CONFIG_MAVERICKS)
+#define FAN_LED_BLUE "0x1"
+#define FAN_LED_RED "0x2"
+
+#define MAIN_POWER "/sys/bus/i2c/drivers/syscpld/12-0031/pwr_main_n"
+#define USERVER_POWER "/sys/bus/i2c/drivers/syscpld/12-0031/pwr_usrv_en"
+
+#elif defined(CONFIG_MAVERICKS)
+
+#define PWM_DIR "/sys/bus/i2c/drivers/fancpld/8-0033/"
+
+#define PWM_UNIT_MAX 31
+
+#define LM75_DIR "/sys/bus/i2c/drivers/lm75/"
+#define COM_E_DIR "/sys/bus/i2c/drivers/com_e_driver/"
+
+#define INTAKE_TEMP_DEVICE LM75_DIR "3-004b"
+#define CHIP_TEMP_DEVICE LM75_DIR "3-0048"
+#define EXHAUST_TEMP_DEVICE LM75_DIR "3-004a"
+#define USERVER_TEMP_DEVICE COM_E_DIR "4-0033"
+
+#define FAN_READ_RPM_FORMAT "fan%d_input"
+
+#define FAN0_LED PWM_DIR "fantray1_led_ctrl"
+#define FAN1_LED PWM_DIR "fantray2_led_ctrl"
+#define FAN2_LED PWM_DIR "fantray3_led_ctrl"
+#define FAN3_LED PWM_DIR "fantray4_led_ctrl"
+#define FAN4_LED PWM_DIR "fantray5_led_ctrl"
+
 #define PWM_UPPER_DIR "/sys/bus/i2c/drivers/fancpld/9-0033/"
 #define FAN5_LED PWM_UPPER_DIR "fantray1_led_ctrl"
 #define FAN6_LED PWM_UPPER_DIR "fantray2_led_ctrl"
 #define FAN7_LED PWM_UPPER_DIR "fantray3_led_ctrl"
 #define FAN8_LED PWM_UPPER_DIR "fantray4_led_ctrl"
 #define FAN9_LED PWM_UPPER_DIR "fantray5_led_ctrl"
-#endif
 
 #define FAN_LED_BLUE "0x1"
 #define FAN_LED_RED "0x2"
