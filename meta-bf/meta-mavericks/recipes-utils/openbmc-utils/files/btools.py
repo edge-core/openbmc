@@ -1138,7 +1138,39 @@ def ir_voltage_set_montara(arg_ir):
     return
 
 # Only available for Part SKEW Need by hardware
-def ir_set_vdd_core_dynamic_range(arg_ir):
+def ir_set_vdd_core_dynamic_range_montara(arg_ir):
+
+    VDD_CORE_IR_I2C_BUS = "0x1"
+    VDD_CORE_IR_PMBUS_ADDR = "0x70"
+    IR_MARGIN_OFF = "0x80"
+    IR_VOUT_CMD = "0x21"
+
+    if len(arg_ir) != 3:
+        error_ir_usage()
+	return
+
+    v = float(arg_ir[2])
+
+    if v < 0.75 or v > 0.90:
+	print "Volatge value not in range .75 - .90"
+	return
+    voltage_scale = {0: "0x180", 1: "0x185", 2: "0x18A", 3: "0x18F", 4: "0x194",
+                     5: "0x19A", 6: "0x19F", 7: "0x1A4", 8: "0x1A9", 9: "0x1AE",
+                     10: "0x1B3", 11: "0x1B8", 12: "0x1BD", 13: "0x1C3",
+                     14: "0x1C8", 15: "0x1CD"}
+
+    # Convert to mv with -9 exponent
+    i = (v * 100) % 75
+    voltage = voltage_scale.get(i)
+
+    margin_cmd = IR_VOUT_CMD
+    margin_apply = IR_MARGIN_OFF
+    set_ir_voltage("VDD_CORE", VDD_CORE_IR_I2C_BUS, VDD_CORE_IR_PMBUS_ADDR, margin_cmd, margin_apply, voltage)
+
+    return
+
+# Only available for Part SKEW Need by hardware
+def ir_set_vdd_core_dynamic_range_mavericks(arg_ir):
       
     a = ir_open_i2c_switch()
 
@@ -1347,9 +1379,10 @@ def ir(argv):
             return
     elif arg_ir[0] == "set_vdd_core":
         if arg_ir[1] == "Mavericks" or arg_ir[1] == "mavericks" :
-	     ir_set_vdd_core_dynamic_range(arg_ir)
+	     ir_set_vdd_core_dynamic_range_mavericks(arg_ir)
+        elif arg_ir[1] == "Montara" or arg_ir[1] == "montara" :
+            ir_set_vdd_core_dynamic_range_montara(arg_ir)
         else :
-	    print "Dynamic VDD_CORE change not available on Montara"
             error_ir_usage()
             return
     else:
