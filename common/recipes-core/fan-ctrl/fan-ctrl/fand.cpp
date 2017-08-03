@@ -681,6 +681,18 @@ bool is_two_fan_board(bool verbose) {
 
 /* returns different BF board types */
 static int bf_board_type_get() {
+#if 1 /* determine based on presence of upper fan tray */
+  char device_name[100];
+  int present;
+  snprintf(device_name, sizeof(device_name), "%s%s", PWM_UPPER_DIR, "fantray_present");
+  if (read_device(device_name, &present) == 0) {
+    syslog(LOG_NOTICE, "BF board type is Mavericks");
+    return BF_BOARD_MAV;
+  } else {
+    syslog(LOG_NOTICE, "BF board type is Montara");
+    return BF_BOARD_MON;
+  }
+#else  /* old way of doing it based on eeprom board ID */
   struct wedge_eeprom_st eeprom;
   /* Retrieve the board type from EEPROM . We support Rev2 upward EEPROM map */
   if (wedge_eeprom_parse(NULL, &eeprom) == 0) {
@@ -704,6 +716,7 @@ static int bf_board_type_get() {
     syslog(LOG_WARNING, "BF error reading eeprom. defaulting to Montara");
     return BF_BOARD_MON;
   }
+#endif
 }
 
 static bool file_exists(const char *file_name) {
@@ -849,7 +862,7 @@ int read_fan_value(const int fan, const char *device, int *value) {
 #if defined(CONFIG_MAVERICKS)
   if (fan >= 100) {
     snprintf(device_name, LARGEST_DEVICE_NAME, device, fan-100);
-    snprintf(full_name, LARGEST_DEVICE_NAME, "%s/%s",PWM_UPPER_DIR,device_name);
+    snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s",PWM_UPPER_DIR,device_name);
   } else {
     snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
     snprintf(full_name, LARGEST_DEVICE_NAME, "%s/%s", PWM_DIR, device_name);
@@ -869,7 +882,7 @@ int write_fan_value(const int fan, const char *device, const int value) {
 #if defined(CONFIG_MAVERICKS)
   if (fan >= 100) {
     snprintf(device_name, LARGEST_DEVICE_NAME, device, fan -100);
-    snprintf(full_name, LARGEST_DEVICE_NAME, "%s/%s",PWM_UPPER_DIR,device_name);
+    snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s",PWM_UPPER_DIR,device_name);
   } else {
     snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
     snprintf(full_name, LARGEST_DEVICE_NAME, "%s/%s", PWM_DIR, device_name);

@@ -787,7 +787,7 @@ def ir_restore_i2c_switch(res):
 
     return
 
-def ir_voltage_show_mavericks():
+def ir_voltage_show_mavericks(poc):
 
     a = ir_open_i2c_switch()
 
@@ -862,10 +862,18 @@ def ir_voltage_show_mavericks():
     ir_restore_i2c_switch(a)
 
     LOWER_IR_I2C_BUS = "0x1"
-    LOWER_IR_PMBUS_ADDR = {1: "0x71", 2: "0x72"}
-    lower_string = {1: "QSFP_LOWER", 2: "REPEATER"}
+# for Mavericks-P0C
+    if (poc == 1):
+      LOWER_IR_PMBUS_ADDR = {1: "0x71", 2: "0x72", 3: "0x70"}
+      lower_string = {1: "QSFP_LOWER", 2: "RETIMER_VDDA", 3:"RETIMER_VDD"}
+      range_p0c = 4;
+#for MAvericks-P0A/P0B
+    else:
+      LOWER_IR_PMBUS_ADDR = {1: "0x71", 2: "0x72"}
+      lower_string = {1: "QSFP_LOWER", 2: "REPEATER"}
+      range_p0c = 3;
 
-    for i in range(1, 3):
+    for i in range(1, range_p0c):
 
         try:
             # i2cget -f -y 1 0x70 0x8b w
@@ -894,8 +902,12 @@ def ir_voltage_show_mavericks():
         div = 1 << exp
 
         mantissa = int(mantissa, 16)
-
-        v = (float(mantissa)/float(div)) * 2
+        if (poc == 1):
+          v = (float(mantissa)/float(div))
+          if (i == 1):
+            v = v * 2
+        else:
+          v = (float(mantissa)/float(div)) * 2
 
         # find current
         try:
@@ -930,7 +942,7 @@ def error_ir_usage():
 
     print ""
     print "Usage:"
-    print "./btools.py --IR sh v <mavericks/montara>         => Show IR voltages "
+    print "./btools.py --IR sh v <mavericks/mavericks-poc/montara>         => Show IR voltages "
     print "./btools.py --IR set <mavericks/montara> <margin>        <voltage rail>  => Set IR voltages margin"
     print "                                           l = low margin       AVDD                   "
     print "                                           h = high margin      VDD_CORE               "
@@ -1363,7 +1375,9 @@ def ir(argv):
 
     if arg_ir[0] == "sh":
         if arg_ir[2] == "Mavericks" or arg_ir[2] == "mavericks" :
-            ir_voltage_show_mavericks()
+            ir_voltage_show_mavericks(0)
+        elif arg_ir[2] == "Mavericks-P0C" or arg_ir[2] == "mavericks-p0c" :
+            ir_voltage_show_mavericks(1)
         elif arg_ir[2] == "Montara" or arg_ir[2] == "montara" :
             ir_voltage_show_montara()
         else :
