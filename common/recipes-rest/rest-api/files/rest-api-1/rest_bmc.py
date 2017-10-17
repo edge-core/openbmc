@@ -138,7 +138,7 @@ def get_bmc_tmp(param1):
         output.append(int(l[2*i + 1] * 10))
 
       #Max device temperature
-      output.append(int(l[18] * 10))
+      output.append(int(l[19] * 10))
 
     if param1 == "Montara" :
       for i in range(0, 5):

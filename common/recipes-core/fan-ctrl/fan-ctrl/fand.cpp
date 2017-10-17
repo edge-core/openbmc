@@ -1057,6 +1057,12 @@ int server_shutdown(const char *why) {
   }
 
   syslog(LOG_EMERG, "Shutting down:  %s", why);
+
+#if defined(CONFIG_MAVERICKS)
+  syslog(LOG_CRIT, "resetting Tofino...");
+  mav_syscpld_write(12, 0x31, 0x32, 0x3);
+#endif
+
 #if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
   write_device(USERVER_POWER, "0");
   sleep(5);
@@ -1389,7 +1395,6 @@ int main(int argc, char **argv) {
 #if defined(CONFIG_MAVERICKS)
     if (bad_reads_tofino > BAD_READ_THRESHOLD) {
       syslog(LOG_CRIT, "resetting Tofino: bad read");
-      mav_syscpld_write(12, 0x31, 0x32, 0x3);
       server_shutdown("Tofino sensors couldn't be read");
     }
 #endif
@@ -1436,7 +1441,6 @@ int main(int argc, char **argv) {
 #if defined(CONFIG_MAVERICKS)
     if (tofino_jct_temp > TOFINO_LIMIT) {
       syslog(LOG_CRIT, "resetting Tofinodue: high temperature");
-      mav_syscpld_write(12, 0x31, 0x32, 0x3);
       server_shutdown("Tofino temp limit reached");
     }
 #endif

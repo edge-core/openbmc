@@ -952,7 +952,7 @@ def error_ir_usage():
     print ""
     # Commenting this part as nobody other than Barefoot Hardware team should touch this functionality
     #print "./btools.py --IR set_vdd_core <mavericks> <voltage> <= Set IR voltages margin for VDD_CORE"
-    #print "                                                       <voltage> must be in range of .75-.9V else discarded"
+    #print "                                                       <voltage> must be in range of .725-.9V else discarded"
     #print " eg: ./btools.py --IR set_vdd_core mavericks .80 "
     return
 
@@ -1163,17 +1163,21 @@ def ir_set_vdd_core_dynamic_range_montara(arg_ir):
 
     v = float(arg_ir[2])
 
-    if v < 0.75 or v > 0.90:
-	print "Volatge value not in range .75 - .90"
+    if v < 0.725 or v > 0.90:
+	print "Volatge value not in range .725 - .90"
 	return
-    voltage_scale = {0: "0x180", 1: "0x185", 2: "0x18A", 3: "0x18F", 4: "0x194",
-                     5: "0x19A", 6: "0x19F", 7: "0x1A4", 8: "0x1A9", 9: "0x1AE",
-                     10: "0x1B3", 11: "0x1B8", 12: "0x1BD", 13: "0x1C3",
-                     14: "0x1C8", 15: "0x1CD"}
+    voltage_scale = {0: "0x173", 25: "0x180", 35: "0x185", 45: "0x18A", 50: "0x18D", 55: "0x18F", 65: "0x194",
+                     75: "0x19A", 85: "0x19F", 95: "0x1A4", 100: "0x1A6", 105: "0x1A9", 115: "0x1AE",
+                     125: "0x1B3", 135: "0x1B8", 145: "0x1BD", 150: "0x1C0", 155: "0x1C3",
+                     165: "0x1C8", 175: "0x1CD"}
 
     # Convert to mv with -9 exponent
-    i = (v * 100) % 75
+    i = (v * 1000) % 725
     voltage = voltage_scale.get(i)
+
+    if voltage == None:
+        error_ir_usage()
+	return
 
     margin_cmd = IR_VOUT_CMD
     margin_apply = IR_MARGIN_OFF
@@ -1197,16 +1201,20 @@ def ir_set_vdd_core_dynamic_range_mavericks(arg_ir):
 
     v = float(arg_ir[2])
 
-    if v < 0.75 or v > 0.90:
-	print "Volatge value not in range .75 - .90"
+    if v < 0.725 or v > 0.90:
+	print "Volatge value not in range .725 - .90"
 	return
-    voltage_scale = {0: "0xC0", 1: "0xc2", 2: "0xC5", 3: "0xC8", 4: "0xCA", 5: "0xCD",
-               6: "0xCF", 7: "0xD2", 8: "0xD4", 9: "0xD7", 10: "0xD9", 11: "0xDC",
-	       12: "0xDF", 13: "0xE1", 14: "0xE4", 15: "0xE6"}
+    voltage_scale = {0: "0xBA", 25: "0xC0", 35: "0xc2", 45: "0xC5", 50: "0xC6", 55: "0xC8", 65: "0xCA", 75: "0xCD",
+               85: "0xCF", 95: "0xD2", 100: "0xD3", 105: "0xD4", 115: "0xD7", 125: "0xD9", 135: "0xDC",
+	       145: "0xDF", 150: "0xE0", 155: "0xE1", 165: "0xE4", 175: "0xE6"}
 
     # Convert to mv with -8 exponent
-    i = (v * 100) % 75
+    i = (v * 1000) % 725
     voltage = voltage_scale.get(i)
+
+    if voltage == None:
+        error_ir_usage()
+	return
  
     margin_cmd = IR_VOUT_CMD
     margin_apply = IR_MARGIN_OFF
