@@ -32,7 +32,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 # make power button high to prepare for power on sequence
 gpio_set BMC_PWR_BTN_OUT_N 1
 
-# set the Tofino VDD volatage here before powering-ON COMe
+# set the Tofino VDD voltage here before powering-ON COMe
 CODE="$(i2cget -f -y 12 0x31 0xb)"
 CODE_M=$(($CODE & 0x7))
 if [ $CODE_M != 0x00 ]; then
@@ -44,6 +44,7 @@ if [ $CODE_M != 0x00 ]; then
     else
         btools.py --IR set_vdd_core mavericks ${tbl[$CODE_M]}
     fi
+    logger "VDD setting: ${tbl[$CODE_M]}"
 fi
 
 #switch COMe tty to dbg port

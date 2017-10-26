@@ -144,6 +144,9 @@ def get_bmc_tmp(param1):
       for i in range(0, 5):
         output.append(int(l[2*i + 1] * 10))
 
+      #Max device temperature
+      output.append(int(l[11] * 10))
+
     result = {
                 "Information": {"Description": output},
                 "Actions": [],
