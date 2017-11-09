@@ -33,8 +33,10 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 gpio_set BMC_PWR_BTN_OUT_N 1
 
 # set the Tofino VDD voltage here before powering-ON COMe
-CODE="$(i2cget -f -y 12 0x31 0xb)"
-CODE_M=$(($CODE & 0x7))
+# Disable for now
+#CODE="$(i2cget -f -y 12 0x31 0xb)"
+#CODE_M=$(($CODE & 0x7))
+CODE_M=0
 if [ $CODE_M != 0x00 ]; then
     tbl=(0 0.725 0.75 0.775 0.8 0.825 0.85 0.875)
     # If not able to access value it is a montara otherwise mavericks

@@ -1164,16 +1164,16 @@ def ir_set_vdd_core_dynamic_range_montara(arg_ir):
     v = float(arg_ir[2])
 
     if v < 0.65 or v > 0.95:
-	print "Volatge value not in range .65 - .95"
+	print "Voltage value not in range .65 - .95"
 	return
-    voltage_scale = {0: "0x14D", 1: "0x152", 2: "0x157", 3: "0x15C", 4: "0x161", 5: "0x166", 6: "0x16c",
-                     7: "0x171", 8: "0x176", 9: "0x17B", 10: "0x180", 11: "0x185", 12: "0x18A", 13: "0x18F", 
-                    14: "0x194", 15: "0x19A", 16: "0x19F", 17: "0x1A4", 18: "0x1A9", 19: "0x1AE", 
-                    20: "0x1B3", 21: "0x1B8", 22: "0x1BD", 23: "0x1C3", 24: "0x1C8", 25: "0x1CD", 
-                    26: "0x1D2", 27: "0x1D7", 28: "0x1DC", 29: "0x1E1", 30: "0x1E6"}
+    voltage_scale = {0: "0x14D", 10: "0x152", 20: "0x157", 30: "0x15C", 40: "0x161", 50: "0x166", 60: "0x16c",
+                    70: "0x171", 80: "0x176", 90: "0x17B", 100: "0x180", 110: "0x185", 120: "0x18A", 125: "0x18D",
+                   130: "0x18F", 140: "0x194", 150: "0x19A", 160: "0x19F", 170: "0x1A4", 175: "0x1A6", 180: "0x1A9",
+                   190: "0x1AE", 200: "0x1B3", 210: "0x1B8", 220: "0x1BD", 225: "0x1C0", 230: "0x1C3", 240: "0x1C8",
+                   250: "0x1CD", 260: "0x1D2", 270: "0x1D7", 280: "0x1DC", 290: "0x1E1", 300: "0x1E6"}
 
     # Convert to mv with -9 exponent
-    i = (v * 100) % 65
+    i = (v * 1000) % 650
     voltage = voltage_scale.get(i)
 
     if voltage == None:
@@ -1203,16 +1203,16 @@ def ir_set_vdd_core_dynamic_range_mavericks(arg_ir):
     v = float(arg_ir[2])
 
     if v < 0.65 or v > 0.95:
-	print "Volatge value not in range .65 - .95"
+	print "Voltage value not in range .65 - .95"
 	return
-    voltage_scale = {0: "0xA6", 1: "0xA9", 2: "0xAC", 3: "0xAE", 4: "0xB1", 5: "0xB3", 6: "0xB6", 7: "0xB8",
-               8: "0xBB", 9: "0xBD", 10: "0xC0", 11: "0xC2", 12: "0xC5", 13: "0xC8", 14: "0xCA",          
-              15: "0xCD", 16: "0xCF", 17: "0xD2", 18: "0xD4", 19: "0xD7", 20: "0xD9", 21: "0xDC", 
-              22: "0xDF", 23: "0xE1", 24: "0xE4", 25: "0xE6", 26: "0xE9", 27: "0xEC", 28: "0xEE", 
-              29: "0xF1", 30: "0xF3"}
+    voltage_scale = {0: "0xA6", 10: "0xA9", 20: "0xAC", 30: "0xAE", 40: "0xB1", 50: "0xB3", 60: "0xB6", 70: "0xB8",
+               80: "0xBB", 90: "0xBD", 100: "0xC0", 110: "0xC2", 120: "0xC5", 125: "0xC6", 130: "0xC8", 140: "0xCA",
+              150: "0xCD", 160: "0xCF", 170: "0xD2", 175: "0xD3", 180: "0xD4", 190: "0xD7", 200: "0xD9", 210: "0xDC",
+              220: "0xDF", 225: "0xE0", 230: "0xE1", 240: "0xE4", 250: "0xE6", 260: "0xE9", 270: "0xEC", 280: "0xEE",
+              290: "0xF1", 300: "0xF3"}
 
     # Convert to mv with -8 exponent
-    i = (v * 100) % 65
+    i = (v * 1000) % 650
     voltage = voltage_scale.get(i)
 
     if voltage == None:
