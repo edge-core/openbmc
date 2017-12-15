@@ -942,12 +942,14 @@ def error_ir_usage():
 
     print ""
     print "Usage:"
-    print "./btools.py --IR sh v <mavericks/mavericks-poc/montara>         => Show IR voltages "
-    print "./btools.py --IR set <mavericks/montara> <margin>        <voltage rail>  => Set IR voltages margin"
+    print "./btools.py --IR sh v <mavericks/mavericks-p0c/montara>         => Show IR voltages "
+    print "./btools.py --IR set <mavericks-p0c/mavericks/montara> <margin>    <voltage rail>  => Set IR voltages margin"
     print "                                           l = low margin       AVDD                   "
     print "                                           h = high margin      VDD_CORE               "
     print "                                           n = normal           QSFP_UPPER  (QSFP for Montara)"
     print "                                                                QSFP_LOWER             "
+    print "                                                                RETIMER_VDD  (mav p0c only) "
+    print "                                                                RETIMER_VDDA (mav p0c only) "
     print "                                                                REPEATER               "
     print ""
     # Commenting this part as nobody other than Barefoot Hardware team should touch this functionality
@@ -989,7 +991,8 @@ def read_vout(rail, I2C_BUS, I2C_ADDR):
 
     v = (float(mantissa)/float(div))
 
-    if not (rail == "VDD_CORE" or rail == "AVDD"):
+    if not (rail == "VDD_CORE" or rail == "AVDD" or rail == "RETIMER_VDD" or
+            rail == "RETIMER_VDDA"):
 	v = v * 2
 
     print ("IR %s       %.3f V" % (rail, v))
@@ -1226,7 +1229,7 @@ def ir_set_vdd_core_dynamic_range_mavericks(arg_ir):
     ir_restore_i2c_switch(a)
     return 
 
-def ir_voltage_set_mavericks(arg_ir):
+def ir_voltage_set_mavericks(arg_ir, p0c):
 
     a = ir_open_i2c_switch()
 
@@ -1234,8 +1237,12 @@ def ir_voltage_set_mavericks(arg_ir):
     UPPER_IR_PMBUS_ADDR = {1: "0x40", 2: "0x74", 3: "0x71"}
     string_upper = {1: "VDD_CORE", 2: "AVDD", 3: "QSFP_UPPER"}
     LOWER_IR_I2C_BUS = "0x1"
-    LOWER_IR_PMBUS_ADDR = {1: "0x71", 2: "0x72"}
-    lower_string = {1: "QSFP_LOWER", 2: "REPEATER"}
+    if (p0c == 1):
+      LOWER_IR_PMBUS_ADDR = {1: "0x71", 2: "0x72", 3: "0x70"}
+      lower_string = {1: "QSFP_LOWER", 2: "RETIMER_VDDA", 3: "RETIMER_VDD"}
+    else :
+      LOWER_IR_PMBUS_ADDR = {1: "0x71", 2: "0x72"}
+      lower_string = {1: "QSFP_LOWER", 2: "REPEATER"}
 
     IR_MARGIN_LOW_AOF_OP = "0x98"
     IR_MARGIN_HIGH_AOF_OP = "0xA8"
@@ -1345,7 +1352,62 @@ def ir_voltage_set_mavericks(arg_ir):
 
       set_ir_voltage(arg_ir[3], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
+    elif arg_ir[3] == "RETIMER_VDD":
+      if (p0c != 1):
+         error_ir_usage()
+      VOLT_MARGIN_HIGH = "0x20F"
+      VOLT_MARGIN_LOW = "0x1F1"
+      VOLT_NORMAL =  "0x200"
+
+      #set VDD
+      i2c_addr = LOWER_IR_PMBUS_ADDR.get(3)
+
+      if arg_ir[2] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW
+
+      elif arg_ir[2] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+
+      else:
+        margin_cmd = IR_VOUT_CMD
+        margin_apply = IR_MARGIN_OFF
+        voltage = VOLT_NORMAL
+
+      set_ir_voltage(arg_ir[3], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+
+    #set VDDA
+    elif arg_ir[3] == "RETIMER_VDDA":
+      if (p0c != 1):
+         error_ir_usage()
+      i2c_addr = LOWER_IR_PMBUS_ADDR.get(2)
+      VOLT_A_MARGIN_HIGH = "0x3B5"
+      VOLT_A_MARGIN_LOW = "0x37E"
+      VOLT_A_NORMAL =  "0x39A"
+
+      if arg_ir[2] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_A_MARGIN_LOW
+
+      elif arg_ir[2] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_A_MARGIN_HIGH
+
+      else:
+        margin_cmd = IR_VOUT_CMD
+        margin_apply = IR_MARGIN_OFF
+        voltage = VOLT_A_NORMAL
+
+      set_ir_voltage(arg_ir[3], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+
     elif arg_ir[3] == "REPEATER":
+      if (p0c != 0):
+         error_ir_usage()
 
       VOLT_MARGIN_HIGH = "0x2A0"
       VOLT_MARGIN_LOW = "0x260"
@@ -1395,8 +1457,10 @@ def ir(argv):
             error_ir_usage()
             return
     elif arg_ir[0] == "set":
-        if arg_ir[1] == "Mavericks" or arg_ir[1] == "mavericks" :
-            ir_voltage_set_mavericks(arg_ir)
+        if arg_ir[1] == "Mavericks-P0C" or arg_ir[1] == "mavericks-p0c" :
+            ir_voltage_set_mavericks(arg_ir, 1)
+        elif arg_ir[1] == "Mavericks" or arg_ir[1] == "mavericks" :
+            ir_voltage_set_mavericks(arg_ir, 0)
         elif arg_ir[1] == "Montara" or arg_ir[1] == "montara" :
             ir_voltage_set_montara(arg_ir)
         else :
