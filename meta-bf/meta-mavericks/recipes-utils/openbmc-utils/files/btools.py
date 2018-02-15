@@ -290,6 +290,15 @@ def psu(argv):
     elif arg_psu[2] == "ld":
         psu_read_load_sharing()
         return
+    elif arg_psu[2] == "psmodel":
+        val = "mfr_model_label"
+        s = "model"
+    elif arg_psu[2] == "psserial":
+        val = "mfr_serial_label"
+        s = "serial"
+    elif arg_psu[2] == "psrev":
+        val = "mfr_revision_label"
+        s = "rev"
     else:
         error_psu_usage()
         return
@@ -322,6 +331,12 @@ def psu(argv):
         print "{}{}".format(int(output), "rpm")                    # Speed of FAN
     elif s == "ffault":
         print "{}".format(int(output))
+    elif s == "model":
+        print "{}".format(output)
+    elif s == "serial":
+        print "{}".format(output)
+    elif s == "rev":
+        print "{}".format(output)
     return
 
 #
@@ -331,7 +346,7 @@ def error_ucd_usage():
 
     print " "
     print "Usage:"
-    print "./btools.py --UCD sh v <mavericks/montara>    => Show Voltage of all rails"
+    print "./btools.py --UCD sh v <mavericks/mavericks-p0c/montara>    => Show Voltage of all rails"
     print "                  fault    => Show Voltage fault/warnings of all rails"
     print "                  set_margin  <rail number> <margin> <mavericks/montara>"
     print "                                 <1 - 12>    l /h /n"
@@ -340,6 +355,7 @@ def error_ucd_usage():
     print "                                             n => none"
 
     print "./btools.py --UCD sh v mavericks"
+    print "./btools.py --UCD sh v mavericks-p0c"
     print "./btools.py --UCD set_margin 5 l montara"
     print " "
 
@@ -412,7 +428,7 @@ def ucd_rail_voltage_fault():
 #
 # Displays all rails voltages mavericks
 #
-def ucd_rail_voltage_mavericks():
+def ucd_rail_voltage_mavericks(poc):
 
     i = 1
 
@@ -425,14 +441,24 @@ def ucd_rail_voltage_mavericks():
     print " "
     print " RAIL                          Voltage(V)"
 
-    string = {1: "01** - VDD12V", 2: "02** - VDD5V_IR", 3: "03 - VDD5V_stby",
-               4: "04 - VDD3_3V_iso", 5: "05 - VDD3_3V_stby", 6: "06*- VDD3_3V_lower",
-               7: "07*- VDD3_3V_upper", 8: "08- VDD2_5V_stby", 9: "09*- VDD2_5V_rptr",
-               10: "10- VDD2_5V_tf", 11: "11- VDD1_8V_stby", 12: "12- VDD1_5V_stby",
-               13: "13- VDD1_2V_stby", 14: "14*- VDD0_9V_anlg", 15: "15*- VDD_core"}
+    if (poc == 0):
+        string = {1: "01** - VDD12V", 2: "02** - VDD5V_IR", 3: "03 - VDD5V_stby",
+                   4: "04 - VDD3_3V_iso", 5: "05 - VDD3_3V_stby", 6: "06*- VDD3_3V_lower",
+                   7: "07*- VDD3_3V_upper", 8: "08- VDD2_5V_stby", 9: "09*- VDD2_5V_rptr",
+                   10: "10- VDD2_5V_tf", 11: "11- VDD1_8V_stby", 12: "12- VDD1_5V_stby",
+                   13: "13- VDD1_2V_stby", 14: "14*- VDD0_9V_anlg", 15: "15*- VDD_core"}
+        index = 15
+    else:
+        string = {1: "01** - VDD12V", 2: "02** - VDD5V_IR", 3: "03 - VDD5V_stby",
+                   4: "04 - VDD3_3V_iso", 5: "05 - VDD3_3V_stby", 6: "06*- VDD3_3V_lower",
+                   7: "07*- VDD3_3V_upper", 8: "08- VDD2_5V_stby", 9: "09*- VDD1_8V_rt",
+                   10: "10- VDD2_5V_tf", 11: "11- VDD1_8V_stby", 12: "12- VDD1_5V_stby",
+                   13: "13- VDD1_2V_stby", 14: "14*- VDD0_9V_anlg", 15: "15*- VDD_core",
+                   16: "16- VDD1_0V_rt"}
+        index = 16
 
 # Parse 1 to 15 voltage rails
-    for i in range(0, 15):
+    for i in range(0, index):
 
         try:
             # i2cset -f -y 2 0x34 0x00 i
@@ -482,6 +508,7 @@ def ucd_rail_voltage_mavericks():
     print "  "
 
     return
+
 
 #
 # Displays all rails voltages montara
@@ -647,7 +674,9 @@ def ucd(argv):
 
     if arg_ucd[0] == "sh":
         if arg_ucd[2] == "Mavericks" or arg_ucd[2] == "mavericks" :
-            ucd_rail_voltage_mavericks()
+            ucd_rail_voltage_mavericks(0)
+        elif arg_ucd[2] == "Mavericks-p0c" or arg_ucd[2] == "mavericks-p0c" :
+            ucd_rail_voltage_mavericks(1)
         elif arg_ucd[2] == "Montara" or arg_ucd[2] == "montara" :
             ucd_rail_voltage_montara()
         else :
@@ -1170,10 +1199,11 @@ def ir_set_vdd_core_dynamic_range_montara(arg_ir):
 	print "Voltage value not in range .65 - .95"
 	return
     voltage_scale = {0: "0x14D", 10: "0x152", 20: "0x157", 30: "0x15C", 40: "0x161", 50: "0x166", 60: "0x16c",
-                    70: "0x171", 80: "0x176", 90: "0x17B", 100: "0x180", 110: "0x185", 120: "0x18A", 125: "0x18D",
-                   130: "0x18F", 140: "0x194", 150: "0x19A", 160: "0x19F", 170: "0x1A4", 175: "0x1A6", 180: "0x1A9",
-                   190: "0x1AE", 200: "0x1B3", 210: "0x1B8", 220: "0x1BD", 225: "0x1C0", 230: "0x1C3", 240: "0x1C8",
-                   250: "0x1CD", 260: "0x1D2", 270: "0x1D7", 280: "0x1DC", 290: "0x1E1", 300: "0x1E6"}
+                    70: "0x171",  80: "0x176",  85: "0x178",  90: "0x17B", 100: "0x180", 105: "0x182", 110: "0x185", 
+                   120: "0x18A", 125: "0x18D", 130: "0x18F", 135: "0x191", 140: "0x194", 150: "0x19A", 155: "0x19C",
+                   160: "0x19F", 170: "0x1A4", 175: "0x1A6", 180: "0x1A9", 185: "0x1AB", 190: "0x1AE", 200: "0x1B3",
+                   205: "0x1B5", 210: "0x1B8", 220: "0x1BD", 225: "0x1C0", 230: "0x1C3", 235: "0x1C5", 240: "0x1C8",
+                   250: "0x1CD", 255: "0x1CF", 260: "0x1D2", 270: "0x1D7", 280: "0x1DC", 290: "0x1E1", 300: "0x1E6"}
 
     # Convert to mv with -9 exponent
     i = (v * 1000) % 650
@@ -1209,9 +1239,10 @@ def ir_set_vdd_core_dynamic_range_mavericks(arg_ir):
 	print "Voltage value not in range .65 - .95"
 	return
     voltage_scale = {0: "0xA6", 10: "0xA9", 20: "0xAC", 30: "0xAE", 40: "0xB1", 50: "0xB3", 60: "0xB6", 70: "0xB8",
-               80: "0xBB", 90: "0xBD", 100: "0xC0", 110: "0xC2", 120: "0xC5", 125: "0xC6", 130: "0xC8", 140: "0xCA",
-              150: "0xCD", 160: "0xCF", 170: "0xD2", 175: "0xD3", 180: "0xD4", 190: "0xD7", 200: "0xD9", 210: "0xDC",
-              220: "0xDF", 225: "0xE0", 230: "0xE1", 240: "0xE4", 250: "0xE6", 260: "0xE9", 270: "0xEC", 280: "0xEE",
+               80: "0xBB",  85: "0xBC",  90: "0xBD", 100: "0xC0", 105: "0xC1", 110: "0xC2", 120: "0xC5", 125: "0xC6",
+              130: "0xC8", 135: "0xC9", 140: "0xCA", 150: "0xCD", 155: "0xCE", 160: "0xCF", 170: "0xD2", 175: "0xD3",
+              180: "0xD4", 185: "0xD5", 190: "0xD7", 200: "0xD9", 205: "0xDA", 210: "0xDC", 220: "0xDF", 225: "0xE0",
+              230: "0xE1", 235: "0xE2", 240: "0xE4", 250: "0xE6", 255: "0xE7", 260: "0xE9", 270: "0xEC", 280: "0xEE",
               290: "0xF1", 300: "0xF3"}
 
     # Convert to mv with -8 exponent

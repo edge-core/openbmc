@@ -162,7 +162,21 @@ def get_bmc_ucd():
     err = 0
     err_status = "exit status"
 
-    arg = ['btools.py', '--UCD', 'sh', 'v']
+    arg = ['cat', '/sys/bus/i2c/drivers/fancpld/9-0033/board_rev']
+    
+    with Capturing() as screen_op:
+         btools.main(arg)
+
+    data = str(screen_op)
+
+    if 'error' in data:
+         platform = 'montara'
+         valid_range = 12
+    else :
+         platform = 'mavericks-p0c'
+         valid_range = 16
+  
+    arg = ['btools.py', '--UCD', 'sh', 'v', platform]
 
     with Capturing() as screen_op:
          btools.main(arg)
@@ -174,7 +188,7 @@ def get_bmc_ucd():
       err = find_err_status(data)
 
     t = re.findall('\d+\.\d+', data)
-    for i in range (0, 12):
+    for i in range (0, valid_range):
         try:
              l.append(float(t[i]))
         except ValueError:
@@ -182,7 +196,7 @@ def get_bmc_ucd():
 
     output.append(err)
 
-    for i in range(0, 12):
+    for i in range(0, valid_range):
        output.append(int(l[i] * 1000))
 
     result = {
@@ -370,6 +384,57 @@ def get_bmc_ps(param1):
     for x in l:
       output.append(int(x))
 
+    # ps model                                                   
+    arg[4] = 'psmodel'                                                  
+    with Capturing() as screen_op:                     
+         btools.main(arg)                              
+    data = str(screen_op)
+                                                       
+    # if error while data collection                   
+    if err_status in data:                             
+      err[8] = find_err_status(data)                   
+                                                       
+    t = re.findall('[\w\.-]+', data)                        
+    try:                                               
+      output.append(t[0])                            
+    except ValueError:                         
+        output.append("None")                     
+        pass                                   
+                                               
+    # ps serial           
+    arg[4] = 'psserial'                             
+    with Capturing() as screen_op:                                 
+         btools.main(arg)            
+    data = str(screen_op)
+                         
+    # if error while data collection
+    if err_status in data:
+      err[9] = find_err_status(data)
+         
+    t = re.findall('[\w\.-]+', data)                        
+    try:
+      output.append(t[0])
+    except ValueError:                 
+        output.append("None")
+        pass                                              
+
+    # ps ver
+    arg[4] = 'psrev'                             
+    with Capturing() as screen_op:                                 
+         btools.main(arg)            
+    data = str(screen_op)
+                         
+    # if error while data collection
+    if err_status in data:
+      err[10] = find_err_status(data)
+         
+    t = re.findall('[\w\.-]+', data)                        
+    try:
+      output.append(t[0])
+    except ValueError:                 
+        output.append("None")
+        pass                                              
+
     result = {
                 "Information": {"Description": output},
                 "Actions": [],
@@ -429,6 +494,30 @@ def set_bmc_fan(param1, param2, param3):
         err = 1
 
     output.append(err)
+    result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+
+    return result;
+
+def get_bmc_sensors():
+    output = []
+    error = ["error", "Error", "ERROR"]
+    err = 0
+    cmd = "/usr/bin/sensors"
+    data = Popen(cmd, \
+                      shell=True, stdout=PIPE).stdout.read()
+
+    output.append(data)
+
+    # if error while data collection
+    if any(x in data for x in error):
+        err = 1
+
+    output.append(err)
+
     result = {
                 "Information": {"Description": output},
                 "Actions": [],

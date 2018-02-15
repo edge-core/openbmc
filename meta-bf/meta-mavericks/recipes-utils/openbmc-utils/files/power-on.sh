@@ -32,23 +32,6 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 # make power button high to prepare for power on sequence
 gpio_set BMC_PWR_BTN_OUT_N 1
 
-# set the Tofino VDD voltage here before powering-ON COMe
-# Disable for now
-#CODE="$(i2cget -f -y 12 0x31 0xb)"
-#CODE_M=$(($CODE & 0x7))
-CODE_M=0
-if [ $CODE_M != 0x00 ]; then
-    tbl=(0 0.725 0.75 0.775 0.8 0.825 0.85 0.875)
-    # If not able to access value it is a montara otherwise mavericks
-    cat /sys/bus/i2c/drivers/fancpld/9-0033/board_rev
-    if [ $? == 1 ]; then
-        btools.py --IR set_vdd_core montara ${tbl[$CODE_M]}
-    else
-        btools.py --IR set_vdd_core mavericks ${tbl[$CODE_M]}
-    fi
-    logger "VDD setting: ${tbl[$CODE_M]}"
-fi
-
 #switch COMe tty to dbg port
 mav_tty_switch_delay.sh 1
 
@@ -73,3 +56,18 @@ fi
 #switch COMe tty to BMC UART after 45 seconds
 echo "wait for 45 seconds before connecting to COMe..."
 mav_tty_switch_delay.sh 0 45 &
+
+# set the Tofino VDD voltage here before powering-ON COMe
+CODE="$(i2cget -f -y 12 0x31 0xb)"
+CODE_M=$(($CODE & 0x7))
+if [ $CODE_M != 0x00 ]; then
+    tbl=(0 0.83 0.78 0.88 0.755 0.855 0.805 0.905)
+    # If not able to access value it is a montara otherwise mavericks
+    cat /sys/bus/i2c/drivers/fancpld/9-0033/board_rev >& /dev/null
+    if [ $? == 1 ]; then
+        btools.py --IR set_vdd_core montara ${tbl[$CODE_M]}
+    else
+        btools.py --IR set_vdd_core mavericks ${tbl[$CODE_M]}
+    fi
+    logger "VDD setting: ${tbl[$CODE_M]}"
+fi

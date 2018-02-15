@@ -24,7 +24,7 @@ sslctx.verify_mode = ssl.CERT_NONE
 
 checkurl = "http{}://localhost:{}/api".format(
     's' if listen_ssl else '', port)
-interval = 30
+interval = 5
 timeout = 5
 service = "restapi"
 # intervals before forced kill
