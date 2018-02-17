@@ -60,7 +60,7 @@ mav_tty_switch_delay.sh 0 45 &
 # set the Tofino VDD voltage here before powering-ON COMe
 CODE="$(i2cget -f -y 12 0x31 0xb)"
 CODE_M=$(($CODE & 0x7))
-if [ $CODE_M != 0x00 ]; then
+if [ $CODE_M != 0 ]; then
     tbl=(0 0.83 0.78 0.88 0.755 0.855 0.805 0.905)
     # If not able to access value it is a montara otherwise mavericks
     cat /sys/bus/i2c/drivers/fancpld/9-0033/board_rev >& /dev/null
