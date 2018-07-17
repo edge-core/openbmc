@@ -21,9 +21,10 @@
 . /usr/local/bin/openbmc-utils.sh
 
 PWR_TH_RST_SYSFS="${SYSCPLD_SYSFS_DIR}/th_sys_rst_n"
+echo "POR to Tofino...."
 
 echo 0 > $PWR_TH_RST_SYSFS
-sleep 1
+usleep 10000
 echo 1 > $PWR_TH_RST_SYSFS
 
 logger "Reset Tomahawk"

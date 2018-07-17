@@ -29,6 +29,24 @@
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 
+tofino_set_vdd_core() {
+# set the Tofino VDD voltage here before powering-ON COMe
+  CODE="$(i2cget -f -y 12 0x31 0xb)"
+  CODE_M=$(($CODE & 0x7))
+  if [ $CODE_M != 0 ]; then
+    tbl=(0 0.83 0.78 0.88 0.755 0.855 0.805 0.905)
+    # If not able to access value it is a montara otherwise mavericks
+    cat /sys/bus/i2c/drivers/fancpld/9-0033/board_rev >& /dev/null
+    if [ $? == 1 ]; then
+        btools.py --IR set_vdd_core montara ${tbl[$CODE_M]}
+    else
+        btools.py --IR set_vdd_core mavericks ${tbl[$CODE_M]}
+    fi
+    logger "VDD setting: ${tbl[$CODE_M]}"
+    echo "setting Tofino VDD_CORE to ${tbl[$CODE_M]}..."
+  fi
+}
+
 # make power button high to prepare for power on sequence
 gpio_set BMC_PWR_BTN_OUT_N 1
 
@@ -37,7 +55,18 @@ mav_tty_switch_delay.sh 1
 
 # First power on TH, and if Panther+ is used,
 # provide standby power to Panther+.
+
+val=$(cat $PWR_MAIN_SYSFS 2> /dev/null | head -n 1)
+#preserve $val as COMe would be in a powered-ON state after the following command
 wedge_power_on_board
+
+if [ "$val" != "0x1" ]; then
+  tofino_set_vdd_core
+  usleep 100000
+  i2cset -f -y 12 0x31 0x32 0x9
+  usleep 50000
+  i2cset -f -y 12 0x31 0x32 0xf
+fi
 
 echo -n "Checking microserver power status ... "
 if wedge_is_us_on 10 "."; then
@@ -57,17 +86,3 @@ fi
 echo "wait for 45 seconds before connecting to COMe..."
 mav_tty_switch_delay.sh 0 45 &
 
-# set the Tofino VDD voltage here before powering-ON COMe
-CODE="$(i2cget -f -y 12 0x31 0xb)"
-CODE_M=$(($CODE & 0x7))
-if [ $CODE_M != 0 ]; then
-    tbl=(0 0.83 0.78 0.88 0.755 0.855 0.805 0.905)
-    # If not able to access value it is a montara otherwise mavericks
-    cat /sys/bus/i2c/drivers/fancpld/9-0033/board_rev >& /dev/null
-    if [ $? == 1 ]; then
-        btools.py --IR set_vdd_core montara ${tbl[$CODE_M]}
-    else
-        btools.py --IR set_vdd_core mavericks ${tbl[$CODE_M]}
-    fi
-    logger "VDD setting: ${tbl[$CODE_M]}"
-fi

@@ -33,7 +33,7 @@ wedge_is_us_on() {
     else
         default=1
     fi
-    val=$(cat $PWR_USRV_SYSFS 2> /dev/null | head -n 1)
+    val=$(cat $PWR_MAIN_SYSFS 2> /dev/null | head -n 1)
     if [ -z "$val" ]; then
         return $default
     elif [ "$val" == "0x1" ]; then

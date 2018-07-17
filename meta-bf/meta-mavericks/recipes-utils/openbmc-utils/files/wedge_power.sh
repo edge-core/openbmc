@@ -89,7 +89,7 @@ do_on() {
     fi
 
     # reset Tofino
-    reset_brcm.sh
+#    reset_brcm.sh
     # power on sequence
     do_on_com_e
     ret=$?
@@ -156,7 +156,7 @@ do_reset() {
             return -1
         fi
         # reset Tofino  first
-        reset_brcm.sh
+#        reset_brcm.sh
         echo -n "Power reset microserver ..."
         echo 0 > $PWR_USRV_RST_SYSFS
         sleep 1

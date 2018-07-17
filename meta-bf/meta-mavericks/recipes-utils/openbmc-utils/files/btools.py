@@ -1598,10 +1598,14 @@ def tmp_lower(board):
 #
 # Upper board temperature sensors. It only exists in Mavericks
 #
-def tmp_upper():
+def tmp_upper(p0c):
 
     TMP75_I2C_BUS = "9"
-    TMP75_I2C_ADDR = {1: "0x48", 2: "0x49", 3: "0x4a", 4: "0x4b"}
+    if (p0c == 1):
+      TMP75_I2C_ADDR = {1: "0x4d", 2: "0x4e", 3: "0x4a", 4: "0x4b"}
+    else:
+      TMP75_I2C_ADDR = {1: "0x48", 2: "0x49", 3: "0x4a", 4: "0x4b"}
+
     TMP75_READ_OP = "0x00"
 
     for i in range(1, 5):
@@ -1617,12 +1621,16 @@ def tmp_upper():
 
             t = output & 0xff
             d = output & 0xfff00
-
+            t1 = float(t)
+            if t > 127:
+              t1 = float(257 - t) * (-1.0)
+              if d == 0x8000:
+                t1 = t1 - 0.5
             # if d is 0x80 means .0625 * 8(consider only fourth nibble 2 ^ 3)
             if d == 0x8000:
-                t = float(t) + .500
+                t1 = float(t) + .500
 
-            print " TMP SENSOR UPPER %.2d            %.3f C" % (i, t)
+            print " TMP SENSOR UPPER %.2d            %.3f C" % (i, t1)
 
         except subprocess.CalledProcessError as e:
             print e
@@ -1732,7 +1740,12 @@ def tmp(argv):
     elif argv[2] == "Mavericks" or argv[2] == "mavericks":
         a = tmp_open_i2c_switch()
         tmp_lower("Mavericks")
-        tmp_upper()
+        tmp_upper(0)
+        tmp_restore_i2c_switch(a)
+    elif argv[2] == "Mavericks-P0C" or argv[2] == "mavericks-p0c":
+        a = tmp_open_i2c_switch()
+        tmp_lower("Mavericks")
+        tmp_upper(1)
         tmp_restore_i2c_switch(a)
     else:
         error_tmp_usage()
