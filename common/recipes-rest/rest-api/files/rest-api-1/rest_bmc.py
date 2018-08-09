@@ -232,6 +232,19 @@ def get_bmc_ps(param1):
     err_status = "exit status"
     not_present = "not_present"
 
+    r = btools.psu_check_pwr_presence(int(param1))
+    if r != 0 :
+        # 0. error status
+        output.append("0")
+        output.append("absent")
+        result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+        return result;
+
+
     arg = ['btools.py', '--PSU', '1', 'r', 'v']
     arg[2] = str(param1)
 
@@ -367,10 +380,14 @@ def get_bmc_ps(param1):
 
     # if current is shared between supplies then load sharing
     # is true
-    if float(t[0]) > 0.0 and float(t[1]) > 0.0 :
-        l.append(float(1))
-    else :
+    try :
+        if float(t[0]) > 0.0 and float(t[1]) > 0.0 :
+            l.append(float(1))
+        else :
+            l.append(float(0))
+    except Exception :
         l.append(float(0))
+        err[7] = 0
 
     #if err is present append it to output
     a = 0
