@@ -42,3 +42,6 @@ if [ $board_rev -ge 2 ]; then
     # Make the BIOS EEPROM connect to COMe instead of BMC
     gpio_set COM_SPI_SEL 0
 fi
+
+# To enhance role of 'admin/admin' for 'sol.sh' execution.
+find /etc -name passwd | xargs -i sed -i 's/1001/0/g' {}
