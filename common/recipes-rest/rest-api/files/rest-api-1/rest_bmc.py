@@ -519,11 +519,11 @@ def set_bmc_fan(param1, param2, param3):
 
     return result;
 
-def get_bmc_sensors():
+def get_bmc_sensors(args):
     output = []
     error = ["error", "Error", "ERROR"]
     err = 0
-    cmd = "/usr/bin/sensors"
+    cmd = "/usr/bin/sensors %s" %(args)
     data = Popen(cmd, \
                       shell=True, stdout=PIPE).stdout.read()
 
