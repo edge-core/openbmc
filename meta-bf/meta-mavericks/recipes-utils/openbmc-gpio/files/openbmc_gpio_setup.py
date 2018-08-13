@@ -39,6 +39,7 @@ def set_register():
     '''
     l_reg = soc_get_register(0x8C)
     l_reg.clear_bit(0, write_through=True)
+    l_reg.clear_bit(3, write_through=True)
 
 def wedge_board_rev(soc_gpio_table, board_gpio_rev_table):
     # Setup to read revision
