@@ -54,6 +54,14 @@ static ssize_t fancpld_fan_rpm_show(struct device *dev,
   return scnprintf(buf, PAGE_SIZE, "%u\n", val);
 }
 
+
+static ssize_t show_fan_min_value(struct device *dev,
+                                    struct device_attribute *attr,
+                                    char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%u\n", 0);
+}
+
 #define FANTRAY_PWM_HELP                        \
   "each value represents 1/32 duty cycle"
 #define FANTRAY_LED_CTRL_HELP                   \
@@ -315,6 +323,76 @@ static const i2c_dev_attr_st fancpld_attr_table[] = {
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
     0x27, 2, 1,
+  },
+  {
+    "fan1_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan2_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan3_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan4_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan5_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan6_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan7_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan8_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan9_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan10_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
   },
 };
 
