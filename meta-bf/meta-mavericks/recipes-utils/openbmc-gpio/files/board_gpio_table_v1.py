@@ -23,7 +23,7 @@ from openbmc_gpio_table import BoardGPIO
 
 
 # The fallowing table is generated using:
-# python wedge100_gpio_parser.py data/wedge100-BMC-gpio.csv
+# python mavericks_gpio_parse.py data/wedge100-BMC-GPIO-EVT.csv
 # DO NOT MODIFY THE TABLE!!!
 # Manual modification will be overridden!!!
 
@@ -31,7 +31,6 @@ board_gpio_table_v1 = [
     BoardGPIO('GPIOB0', 'PANTHER_I2C_ALERT_N'),
     BoardGPIO('GPIOB1', 'MSERV_NIC_SMBUS_ALERT_N'),
     BoardGPIO('GPIOB2', 'DEBUG_PORT_UART_SEL_N'),
-    BoardGPIO('GPIOB4', 'LED_POSTCODE_4'),
     BoardGPIO('GPIOB5', 'LED_POSTCODE_5'),
     BoardGPIO('GPIOB6', 'LED_POSTCODE_6'),
     BoardGPIO('GPIOB7', 'LED_POSTCODE_7'),
@@ -52,13 +51,15 @@ board_gpio_table_v1 = [
     BoardGPIO('GPIOF2', 'CPLD_JTAG_SEL'),
     BoardGPIO('GPIOF3', 'CPLD_UPPER_JTAG_SEL'),
     BoardGPIO('GPIOF4', 'MSERV_POWERUP'),
-    BoardGPIO('GPIOF5', 'RCKMON_RS485_DE'),
     BoardGPIO('GPIOG0', 'LED_POSTCODE_0'),
     BoardGPIO('GPIOG1', 'LED_POSTCODE_1'),
     BoardGPIO('GPIOG2', 'LED_POSTCODE_2'),
     BoardGPIO('GPIOG3', 'LED_POSTCODE_3'),
     BoardGPIO('GPIOG4', 'BMC_WDTRST1'),
     BoardGPIO('GPIOG5', 'BMC_WDTRST2'),
+    BoardGPIO('GPIOH0', 'BMC_UPPER_CPLD_TDI'),
+    BoardGPIO('GPIOH1', 'BMC_UPPER_CPLD_TCK'),
+    BoardGPIO('GPIOH2', 'BMC_UPPER_CPLD_TDO'),
     BoardGPIO('GPIOH3', 'QSFP_LED_POSITION'),
     BoardGPIO('GPIOH4', 'PM_SM_ALERT_N'),
     BoardGPIO('GPIOI4', 'BMC_EEPROM1_SPI_SS'),
@@ -73,7 +74,6 @@ board_gpio_table_v1 = [
     BoardGPIO('GPIOJ5', 'FANCARD_CPLD_TCK'),
     BoardGPIO('GPIOJ6', 'FANCARD_CPLD_TDI'),
     BoardGPIO('GPIOJ7', 'FANCARD_CPLD_TDO'),
-    BoardGPIO('GPIOL5', 'BMC_UART_1_RTS'),
     BoardGPIO('GPIOM0', 'CPLD_UPD_EN'),
     BoardGPIO('GPIOM1', 'SMB_ALERT'),
     BoardGPIO('GPIOM3', 'TH_POWERUP'),
@@ -81,10 +81,6 @@ board_gpio_table_v1 = [
     BoardGPIO('GPIOM5', 'BMC_CPLD_TDI'),
     BoardGPIO('GPIOM6', 'BMC_CPLD_TCK'),
     BoardGPIO('GPIOM7', 'BMC_CPLD_TDO'),
-    BoardGPIO('GPIOS3', 'BMC_UPPER_CPLD_TMS'),
-    BoardGPIO('GPIOH0', 'BMC_UPPER_CPLD_TDI'),
-    BoardGPIO('GPIOH1', 'BMC_UPPER_CPLD_TCK'),
-    BoardGPIO('GPIOH2', 'BMC_UPPER_CPLD_TDO'),
     BoardGPIO('GPIOO0', 'RCKMON_SPARE4'),
     BoardGPIO('GPIOO1', 'RCKMON_SPARE5'),
     BoardGPIO('GPIOO2', 'RCKMON_SPARE10'),
@@ -105,8 +101,8 @@ board_gpio_table_v1 = [
     BoardGPIO('GPIOQ5', 'BMC_CPLD_SPARE7'),
     BoardGPIO('GPIOQ6', 'USB_OCS_N1'),
     BoardGPIO('GPIOQ7', 'BMC_HEARTBEAT_N'),
-    BoardGPIO('GPIOR0', 'SPI_IBMC_BT_CS1_N_R'),
     BoardGPIO('GPIOR6', 'SWITCH_MDC'),
     BoardGPIO('GPIOR7', 'SWITCH_MDIO'),
     BoardGPIO('GPIOS0', 'BMC_SPI_WP_N'),
+    BoardGPIO('GPIOS3', 'BMC_UPPER_CPLD_TMS'),
 ]

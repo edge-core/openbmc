@@ -1,7 +1,6 @@
 J21,GPIOB0_SALT1,In,PANTHER_I2C_ALERT_N,panther i2c alert_n
 J20,GPIOB1_SALT2,In,MSERV_NIC_SMBUS_ALERT_N,"micro server NIC SMBUS alert_n, active low"
 H18,GPIOB2_SALT3,In,DEBUG_PORT_UART_SEL_N,The DEBUG_PORT_UART_SEL_N is connected to a push button in the front panel. When Debug port select button in Front panel is pressed DEBUG_PORT_UART_SEL_N becomes low.
-E19,GPIOB4_LPCRST_N,Out,LED_POSTCODE_4,LED 7-segment code bit-4 for facebook debug header
 H19,GPIOB5_LPCPD_N_LPCSMI_N,Out,LED_POSTCODE_5,LED 7-segment code bit-5 for facebook debug header
 H20,GPIOB6_LPCPME_N,Out,LED_POSTCODE_6,LED 7-segment code bit-6 for facebook debug header
 E18,GPIOB7_EXTRST_N_SPICS1_N,Out,LED_POSTCODE_7,LED 7-segment code bit-7 for facebook debug header
@@ -26,7 +25,6 @@ B19,GPIOF1_NDCD4_SIOPBI_N,Out,BMC_MAIN_RESET_N,BMC can request cpld to reset mai
 A20,GPIOF2_NDSR4_SIOPWRGD,Out,CPLD_JTAG_SEL,"SYSCPLD upgrade enable, 0: jtag header program, 1: BMC programming"
 D17,GPIOF3_NRI4_SIOPBO_N,Out,UPPER_CPLD_JTAG_SEL,"Upper SYSCPLD upgrade enable, 0: jtag header program, 1: BMC programming"
 B18,GPIOF4_NDTR4,Out,MSERV_POWERUP,To request cpld to turn on P12_uServer for microserver
-A19,GPIOF5_NRTS4,Out,RCKMON_RS485_DE,RS485 Drive Enable (TX/RX Toggle) pin for rackmon
 A14,GPIOG0_SGPSCK,Out,LED_POSTCODE_0,LED 7-segment code bit-0 for facebook debug header
 E13,GPIOG1_SGPSLD,Out,LED_POSTCODE_1,LED 7-segment code bit-1 for facebook debug header
 D13,GPIOG2_SGPSI0,Out,LED_POSTCODE_2,LED 7-segment code bit-2 for facebook debug header
@@ -47,7 +45,6 @@ T4,VGAHS_GPIOJ4,,FANCARD_CPLD_TMS,"fancard CPLD JTAG upgrade interface, BMC outp
 U2,VGAVS_GPIOJ5,,FANCARD_CPLD_TCK,"fancard CPLD JTAG upgrade interface, BMC output to CPLD TCK"
 T2,DDCCLK_GPIOJ6,,FANCARD_CPLD_TDI,"fancard CPLD JTAG upgrade interface, BMC output to CPLD TDI"
 T1,DDCDAT_GPIOJ7,,FANCARD_CPLD_TDO,"fancard CPLD JTAG upgrade interface, BMC input to CPLD TDO"
-V2,GPIOL5_NRTS1_VPICLK,Out,BMC_UART_1_RTS,connect to SYSCPLD
 V3,GPIOM0_NCTS2_VPIB2,Out,CPLD_UPD_EN,"fan_card CPLD upgrade enable, 0: jtag header programming, 1: BMC programming"
 W2,GPIOM1_NDCD2_VPIB3,In,SMB_ALERT,"Alert signal from cpld representing Alert from the power supplies(Vcore,vanlg,3.3)"
 V4,GPIOM3_NRI2_VPIB5,out,TH_POWERUP,"tomahawk power up enable, active high. Connect to CPLD, cpld will control pwr1014a"
@@ -81,7 +78,6 @@ H2,GPIOQ6,out,USB_OCS_N1,over-current sense output to USB2513 hub
 H1,GPIOQ7,out,BMC_HEARTBEAT_N,BMC heatbeat output to onboard heartbeat LED
 C6,GPIOR6_MDC1,BI,SWITCH_MDC,MDC/MDIO to GE Switch
 A5,GPIOR7_MDIO1,BI,SWITCH_MDIO,
-V20,GPIOR0_ROMCS1_N,out,SPI_IBMC_BT_CS1_N_R,chip select to secondary boot SPI flash
 U21,ROMD4_GPIOS0_VPODE,Out,BMC_SPI_WP_N,Write protect for Secondary Boot Flash. Connected to CPLD. CPLD will drive it to the flash chip
 C21,GPIOY0_SIOS3_N,In,BOARD_REV_ID0,"Board ID input bit0, resister straping, connect to both BMC and CPLD"
 F20,GPIOY1_SIOS5_N,In,BOARD_REV_ID1,"Board ID input bit1, resister straping, connect to both BMC and CPLD"

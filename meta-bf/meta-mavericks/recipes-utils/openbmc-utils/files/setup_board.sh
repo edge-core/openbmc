@@ -45,3 +45,7 @@ fi
 
 # To enhance role of 'admin/admin' for 'sol.sh' execution.
 find /etc -name passwd | xargs -i sed -i 's/1001/0/g' {}
+
+# For AST1250, it should use this pin as LPC reset input. And set hardware
+# strapping bit14 to ’1’. Defined on ast2400v13.pdf.
+devmem 0x1e6e2070 32 0x0A0845D2
