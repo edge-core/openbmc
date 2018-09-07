@@ -1,0 +1,111 @@
+From 06686719e34347e0cbdd3fb7a9b38d76885bdb23 Mon Sep 17 00:00:00 2001
+From: JeremyChen1004 <jeremy_chen@accton.com>
+Date: Thu, 6 Sep 2018 19:40:15 +0800
+Subject: [PATCH] Psu_Reboot_Openbmc
+
+---
+ drivers/hwmon/pmbus/pfe1100.c |  2 +-
+ drivers/i2c/i2c-core.c        | 45 ++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 43 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/hwmon/pmbus/pfe1100.c b/drivers/hwmon/pmbus/pfe1100.c
+index a5d23ca..adc04bd 100644
+--- a/drivers/hwmon/pmbus/pfe1100.c
++++ b/drivers/hwmon/pmbus/pfe1100.c
+@@ -42,7 +42,7 @@ struct pfe1100_data {
+ #define to_pfe1100_data(x)  container_of(x, struct pfe1100_data, info)
+ 
+ 
+-#define PFE1100_WAIT_TIME		5000	/* uS	*/
++#define PFE1100_WAIT_TIME		4000	/* uS	*/
+ 
+ static ushort delay = PFE1100_WAIT_TIME;
+ module_param(delay, ushort, 0644);
+diff --git a/drivers/i2c/i2c-core.c b/drivers/i2c/i2c-core.c
+index 06d9042..b8146da 100644
+--- a/drivers/i2c/i2c-core.c
++++ b/drivers/i2c/i2c-core.c
+@@ -34,6 +34,7 @@
+ #include <linux/completion.h>
+ #include <linux/hardirq.h>
+ #include <linux/irqflags.h>
++#include <linux/delay.h>
+ #include <asm/uaccess.h>
+ 
+ #include "i2c-core.h"
+@@ -1766,12 +1767,21 @@ s32 i2c_smbus_read_block_data(struct i2c_client *client, u8 command,
+ 			      u8 *values)
+ {
+ 	union i2c_smbus_data data;
+-	int status;
++	int status, retry = 3;
+ 
++TRY_AGAIN:
+ 	status = i2c_smbus_xfer(client->adapter, client->addr, client->flags,
+ 				I2C_SMBUS_READ, command,
+ 				I2C_SMBUS_BLOCK_DATA, &data);
+-	if (status)
++	if (status == -EAGAIN){
++		if( retry > 0 ){
++			mdelay(4);
++			--retry;
++			goto TRY_AGAIN;
++		}
++		return status;
++	}
++	else if (status)
+ 		return status;
+ 
+ 	memcpy(values, &data.block[1], data.block[0]);
+@@ -1998,7 +2008,7 @@ static s32 i2c_smbus_xfer_emulated(struct i2c_adapter * adapter, u16 addr,
+ 			return status;
+ 	}
+ 
+-	if (read_write == I2C_SMBUS_READ)
++	if (read_write == I2C_SMBUS_READ) {
+ 		switch(size) {
+ 			case I2C_SMBUS_BYTE:
+ 				data->byte = msgbuf0[0];
+@@ -2017,10 +2027,39 @@ static s32 i2c_smbus_xfer_emulated(struct i2c_adapter * adapter, u16 addr,
+ 			case I2C_SMBUS_BLOCK_DATA:
+ 			case I2C_SMBUS_BLOCK_LARGE_DATA:
+ 			case I2C_SMBUS_BLOCK_PROC_CALL:
++				if(  msgbuf1[0] == 0xff )
++					return -EAGAIN;
++				if(  msgbuf1[0] > I2C_SMBUS_BLOCK_MAX ){
++					int mdd;
++					printk("length too long:%d > %d\n",  msgbuf1[0], I2C_SMBUS_BLOCK_MAX);
++					/*This is to output each value of msgbuf1 for debug. The first value represents length.*/
++					for (i = 0; i < msgbuf1[0] + 1; i++){
++						mdd = 0;
++						printk("%02x ", msgbuf1[i]);
++						mdd = i % 16;
++						switch( mdd ){
++						case 15:
++							printk("\n");
++							break;
++						case 7:
++							printk("  ");
++							break;
++						case 3:
++						case 11:
++							printk(" ");
++							break;
++						default:
++							break;
++						}
++					}
++					printk("\n");
++					return -EOVERFLOW;
++				}
+ 				for (i = 0; i < msgbuf1[0] + 1; i++)
+ 					data->block[i] = msgbuf1[i];
+ 				break;
+ 		}
++	}
+ 	return 0;
+ }
+ 
+-- 
+1.9.1
+
