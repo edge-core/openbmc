@@ -247,12 +247,13 @@ def psu(argv):
     psu_init()
 
     # Mapping i2c bus address according to power supply number
+    # 2018.09.10 Swap PSUs mapping because of reverse.
     if arg_psu[0] == "1":
         power_supply = 1
-        ps = "59/"
+        ps = "5a/"
     elif arg_psu[0] == "2":
         power_supply = 2
-        ps = "5a/"
+        ps = "59/"
 
     if arg_psu[1] == "r":
         cmd = "cat"

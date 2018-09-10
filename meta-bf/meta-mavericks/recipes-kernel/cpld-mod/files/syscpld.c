@@ -89,14 +89,14 @@ static const i2c_dev_attr_st syscpld_attr_table[] = {
     NULL,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     NULL,
-    8, 0, 1,
+    8, 1, 1,
   },
   {
     "psu2_present",
     NULL,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     NULL,
-    8, 1, 1,
+    8, 0, 1,
   },
   {
     "fan_rackmon_present",
@@ -403,7 +403,7 @@ static const i2c_dev_attr_st syscpld_attr_table[] = {
     "1: Power status OK",
     I2C_DEV_ATTR_SHOW_DEFAULT,
     NULL,
-    0x10, 2, 1,
+    0x10, 6, 1,
   },
   {
     "psu2_in_pwr_sts",
@@ -411,7 +411,7 @@ static const i2c_dev_attr_st syscpld_attr_table[] = {
     "1: Power status OK",
     I2C_DEV_ATTR_SHOW_DEFAULT,
     NULL,
-    0x10, 6, 1,
+    0x10, 2, 1,
   },
   {
     "psu1_output_pwr_sts",
@@ -419,7 +419,7 @@ static const i2c_dev_attr_st syscpld_attr_table[] = {
     "1: Power status OK",
     I2C_DEV_ATTR_SHOW_DEFAULT,
     NULL,
-    0x10, 1, 1,
+    0x10, 5, 1,
   },
   {
     "psu2_output_pwr_sts",
@@ -427,7 +427,7 @@ static const i2c_dev_attr_st syscpld_attr_table[] = {
     "1: Power status OK",
     I2C_DEV_ATTR_SHOW_DEFAULT,
     NULL,
-    0x10, 5, 1,
+    0x10, 1, 1,
   },
   {
     "th_sys_rst_n",
