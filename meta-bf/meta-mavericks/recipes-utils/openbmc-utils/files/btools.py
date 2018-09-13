@@ -119,9 +119,9 @@ def psu_read_output_voltage(power_supply):
     PSU_I2C_READ_VOUT = "0x8b"
 
     if power_supply == 1:
-        PSU_I2C_ADDR = "0x59"
-    else:
         PSU_I2C_ADDR = "0x5a"
+    else:
+        PSU_I2C_ADDR = "0x59"
 
     try:
         get_cmd = "i2cget"
@@ -154,12 +154,12 @@ def psu_read_load_sharing():
 
     try:
         #Read 1st power supply
-        PSU_I2C_ADDR = "0x59"
+        PSU_I2C_ADDR = "0x5a"
         get_cmd = "i2cget"
         output1 = subprocess.check_output([get_cmd, "-f", "-y", PSU_I2C_BUS,
                                           PSU_I2C_ADDR, PSU_I2C_READ_IOUT, "w"])
 
-        PSU_I2C_ADDR = "0x5a"
+        PSU_I2C_ADDR = "0x59"
         output2 = subprocess.check_output([get_cmd, "-f", "-y", PSU_I2C_BUS,
                                           PSU_I2C_ADDR, PSU_I2C_READ_IOUT, "w"])
 
