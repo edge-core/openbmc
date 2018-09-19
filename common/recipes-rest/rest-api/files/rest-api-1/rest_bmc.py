@@ -133,14 +133,14 @@ def get_bmc_tmp(param1):
 
     output.append(err)
 
-    if param1 == "Mavericks" :
+    if param1 == "Mavericks" or param1 == "mavericks" or param1 == "Mavericks-P0C" or param1 == "mavericks-p0c":
       for i in range(0, 9):
         output.append(int(l[2*i + 1] * 10))
 
       #Max device temperature
       output.append(int(l[19] * 10))
 
-    if param1 == "Montara" :
+    if param1 == "Montara" or param1 == "montara" :
       for i in range(0, 5):
         output.append(int(l[2*i + 1] * 10))
 
