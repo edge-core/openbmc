@@ -58,8 +58,12 @@ U20,ROMD7_GPIOS3_VPOCLK,out,BMC_UPPER_CPLD_TMS,"Upper SYSCPLD CPLD JTAG upgrade 
 A8,GPIOH0_ROMD8_NCTS6,out,BMC_UPPER_CPLD_TDI,"Upper SYSCPLD CPLD JTAG upgrade interface, BMC output to Upper SYSCPLD TDI"
 C7,GPIOH1_ROMD9_NDCD6,out,BMC_UPPER_CPLD_TCK,"Upper SYSCPLD CPLD JTAG upgrade interface, BMC output to Upper SYSCPLD TCK"
 B7,GPIOH2_ROMD10_NDSR6,In,BMC_UPPER_CPLD_TDO,"Upper SYSCPLD CPLD JTAG upgrade interface, BMC output to Upper SYSCPLD TDO"
-V6,GPIOO0_TACH0_VPIG8,BI,RCKMON_SPARE4,RCKMON_SPARE[0:11] connect to fan_ctrl_rmon card connector
-Y5,GPIOO1_TACH1_VPIG9,BI,RCKMON_SPARE5,RCKMON_SPARE[0:11] connect to fan_ctrl_rmon card connector
+Y4,GPION5_PWM5_VPIG5,Out,BRG_COM_BIOS_DIS0_N,BMC can select the bootdevice of COM (COME Signal)
+AA3,GPION6_PWM6_VPIG6,Out,BRG_COM_BIOS_DIS1_N,BMC can select the bootdevice of COM (COME Signal)
+V6,GPIOO0_TACH0_VPIG8,Out,COM_SPI_SEL,"override signal from bmc to select bmc to upgrade com eeprom
+0:On board spi flash
+1:BMC can write into SPI flash"
+Y5,GPIOO1_TACH1_VPIG9,Out,COM6_BUF_EN,Active low signal to enable isolation buffer dedicated for com signals
 AA4,GPIOO2_TACH2_VPIR0,BI,RCKMON_SPARE10,RCKMON_SPARE[0:11] connect to fan_ctrl_rmon card connector(now not connected)
 AB3,GPIOO3_TACH3_VPIR1,BI,RCKMON_SPARE11,RCKMON_SPARE[0:11] connect to fan_ctrl_rmon card connector(now not connected)
 W6,GPIOO4_TACH4_VPIR2,BI,RCKMON_SPARE8,RCKMON_SPARE[0:11] connect to fan_ctrl_rmon card connector(now not connected)
