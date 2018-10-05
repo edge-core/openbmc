@@ -109,4 +109,5 @@ board_gpio_table_v1 = [
     BoardGPIO('GPIOR7', 'SWITCH_MDIO'),
     BoardGPIO('GPIOS0', 'BMC_SPI_WP_N'),
     BoardGPIO('GPIOS3', 'BMC_UPPER_CPLD_TMS'),
+    BoardGPIO('GPIOY3', 'LED_POSTCODE_4'),
 ]

@@ -4,6 +4,7 @@ H18,GPIOB2_SALT3,In,DEBUG_PORT_UART_SEL_N,The DEBUG_PORT_UART_SEL_N is connected
 H19,GPIOB5_LPCPD_N_LPCSMI_N,Out,LED_POSTCODE_5,LED 7-segment code bit-5 for facebook debug header
 H20,GPIOB6_LPCPME_N,Out,LED_POSTCODE_6,LED 7-segment code bit-6 for facebook debug header
 E18,GPIOB7_EXTRST_N_SPICS1_N,Out,LED_POSTCODE_7,LED 7-segment code bit-7 for facebook debug header
+K20,GPIOY3_SIOONCTRL_N,Out,LED_POSTCODE_4,LED 7-segment code bit-4 for facebook debug header
 A2,GPIOC2_SD1DAT0_SCL11,Out,ISO_BUF_EN,"reserved for ISO_BUFFER control, in default serial resister is depop, use CPLD to control"
 A18,GPIOD0_SD2CLK,,BMC_PWR_BTN_IN_N,to emulate Microserver power button function using BMC
 D16,GPIOD1_SD2CMD,,BMC_PWR_BTN_OUT_N,
