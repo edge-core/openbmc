@@ -26,6 +26,9 @@ import btools
 from cStringIO import StringIO
 import sys
 
+import subprocess
+import bmc_command
+
 class Capturing(list):
     def __enter__(self):
         self._stdout = sys.stdout
@@ -106,14 +109,37 @@ def find_err_status(data):
 
     return err
 
+def get_project(cmd=['weutil']):
+    proc = subprocess.Popen(cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+    try:
+        data, err = bmc_command.timed_communicate(proc)
+    except bmc_command.TimeoutError as ex:
+        data = ex.output
+        err = ex.error
+
+    # need to remove the first info line from weutil
+    adata = data.split('\n', 1)
+    for sdata in adata[1].split('\n'):
+        tdata = sdata.split(':', 1)
+        if (len(tdata) < 2):
+            continue
+        if tdata[0].strip() == "Product Name" :
+            return tdata[1].strip()
+
+    print "Error occured while capturing Product Name"
+    return
+
 def get_bmc_tmp(param1):
 
     l = []
     output = []
     err = 0
     err_status = "exit status"
+    platform = get_project()
 
-    arg = ['btools.py', '--TMP', 'Mavericks', 'sh',]
+    arg = ['btools.py', '--TMP', platform, 'sh',]
 
     arg[2] = str(param1);
 
@@ -133,14 +159,14 @@ def get_bmc_tmp(param1):
 
     output.append(err)
 
-    if param1 == "Mavericks" or param1 == "mavericks" or param1 == "Mavericks-P0C" or param1 == "mavericks-p0c":
+    if param1.lower() == "mavericks" or param1.lower() == "mavericks-p0c":
       for i in range(0, 9):
         output.append(int(l[2*i + 1] * 10))
 
       #Max device temperature
       output.append(int(l[19] * 10))
 
-    if param1 == "Montara" or param1 == "montara" :
+    if param1.lower() == "montara":
       for i in range(0, 5):
         output.append(int(l[2*i + 1] * 10))
 
@@ -161,22 +187,17 @@ def get_bmc_ucd():
     output = []
     err = 0
     err_status = "exit status"
+    platform = get_project()
+    valid_range = 12
 
-    arg = ['cat', '/sys/bus/i2c/drivers/fancpld/9-0033/board_rev']
-    
-    with Capturing() as screen_op:
-         btools.main(arg)
-
-    data = str(screen_op)
-
-    if 'error' in data:
-         platform = 'montara'
-         valid_range = 12
-    else :
-         platform = 'mavericks-p0c'
-         valid_range = 16
-  
     arg = ['btools.py', '--UCD', 'sh', 'v', platform]
+
+    if platform.lower() == "mavericks-p0c":
+         valid_range = 16
+    if platform.lower() == "mavericks":
+         valid_range = 15
+    if platform.lower() == "montara":
+         valid_range = 12
 
     with Capturing() as screen_op:
          btools.main(arg)
