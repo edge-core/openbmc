@@ -21,6 +21,7 @@ FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
 SRC_URI += "file://get_fan_speed.sh \
             file://set_fan_speed.sh \
             file://setup-fan.sh \
+            file://get_fantray_present.sh \
            "
 
 S = "${WORKDIR}"
@@ -28,7 +29,8 @@ S = "${WORKDIR}"
 binfiles = "                                    \
     get_fan_speed.sh                            \
     set_fan_speed.sh                            \
-    fand					\
+    fand                                        \
+    get_fantray_present.sh                      \
     "
 
 CXXFLAGS_prepend = "-DCONFIG_MAVERICKS "

@@ -422,56 +422,56 @@ def get_bmc_ps(param1):
     for x in l:
       output.append(int(x))
 
-    # ps model                                                   
-    arg[4] = 'psmodel'                                                  
-    with Capturing() as screen_op:                     
-         btools.main(arg)                              
+    # ps model
+    arg[4] = 'psmodel'
+    with Capturing() as screen_op:
+         btools.main(arg)
     data = str(screen_op)
-                                                       
-    # if error while data collection                   
-    if err_status in data:                             
-      err[8] = find_err_status(data)                   
-                                                       
-    t = re.findall('[\w\.-]+', data)                        
-    try:                                               
-      output.append(t[0])                            
-    except ValueError:                         
-        output.append("None")                     
-        pass                                   
-                                               
-    # ps serial           
-    arg[4] = 'psserial'                             
-    with Capturing() as screen_op:                                 
-         btools.main(arg)            
+
+    # if error while data collection
+    if err_status in data:
+      err[8] = find_err_status(data)
+
+    t = re.findall('[\w\.-]+', data)
+    try:
+      output.append(t[0])
+    except ValueError:
+        output.append("None")
+        pass
+
+    # ps serial
+    arg[4] = 'psserial'
+    with Capturing() as screen_op:
+         btools.main(arg)
     data = str(screen_op)
-                         
+
     # if error while data collection
     if err_status in data:
       err[9] = find_err_status(data)
          
-    t = re.findall('[\w\.-]+', data)                        
+    t = re.findall('[\w\.-]+', data)
     try:
       output.append(t[0])
-    except ValueError:                 
+    except ValueError:
         output.append("None")
-        pass                                              
+        pass
 
     # ps ver
-    arg[4] = 'psrev'                             
-    with Capturing() as screen_op:                                 
-         btools.main(arg)            
+    arg[4] = 'psrev'
+    with Capturing() as screen_op:
+         btools.main(arg)
     data = str(screen_op)
-                         
+
     # if error while data collection
     if err_status in data:
       err[10] = find_err_status(data)
-         
-    t = re.findall('[\w\.-]+', data)                        
+
+    t = re.findall('[\w\.-]+', data)
     try:
       output.append(t[0])
-    except ValueError:                 
+    except ValueError:
         output.append("None")
-        pass                                              
+        pass
 
     result = {
                 "Information": {"Description": output},
@@ -502,7 +502,7 @@ def get_bmc_fan(param1):
     for x in t:
       output.append(int(x))
 
-    cmd = "cat /sys/class/i2c-adapter/i2c-8/8-0033/fantray_present"
+    cmd = "/usr/local/bin/get_fantray_present.sh"
     data = Popen(cmd, \
                        shell=True, stdout=PIPE).stdout.read()
 
