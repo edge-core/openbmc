@@ -16,82 +16,111 @@
 # Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
-
-upgrade_syscpld() {
-  echo "Started SYSCPLD upgrade .."
-  echo out > /tmp/gpionames/CPLD_JTAG_SEL/direction
-  echo 1 > /tmp/gpionames/CPLD_JTAG_SEL/value
-  sys_usercode=$(jbi -r -aREAD_USERCODE -gc102 -gi101 -go103 -gs100 $1 | grep -i "USERCODE code is" | awk '{ print $6 }')
-  new_usercode=$(jbi -i $1 | grep -i "\"USERCODE"\" | awk -F '"' '{ print $4 }')
-  if [ "${sys_usercode}" != "${new_usercode}" ];
-  then
-      #disable heartbeat
-      i2cset -f -y 12 0x31 0x2e 0x18
-      #program syscpld
-      rc=$(jbi -r -aPROGRAM -gc102 -gi101 -go103 -gs100 $1 | grep -i "Success")
-      if [[ $rc == *"Success"* ]];
-      then
-          echo "Finished SYSCPLD upgrade: Pass"
-      else
-          echo "Finished SYSCPLD upgrade: Fail (Program failed)"
-      fi
-  else
-    echo "Finished SYSCPLD upgrade: No Action (Same usercode)"
-  fi
+usage() {
+    echo "Usage: ${0} <target board (upper lower)> <target cpld (sys fan)> <cpld_image.jbc>" >&2
 }
 
-upgrade_fancpld() {
-  echo "Started FANCPLD upgrade .."
-  echo out > /tmp/gpionames/CPLD_UPD_EN/direction
-  echo 0 > /tmp/gpionames/CPLD_UPD_EN/value
-  #get usercode from system
-  sys_usercode=$(jbi -r -aREAD_USERCODE -gc77 -gi78 -go79 -gs76 $1 | grep -i "USERCODE code is" | awk '{ print $6 }')
-  #get usercode from file
-  new_usercode=$(jbi -i $1 | grep -i "\"USERCODE"\" | awk -F '"' '{ print $4 }')
-  if [ "${sys_usercode}" != "${new_usercode}" ];
-  then
-      #program fancpld
-      rc=$(jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success")
-      if [[ $rc == *"Success"* ]];
-      then
-          echo "Finished FANCPLD upgrade: Pass"
-      else
-          echo "Finished FANCPLD upgrade: Fail (Program failed)"
-      fi
-  else
-    echo "Finished FANCPLD upgrade: No Action (Same usercode)"
-  fi
+upgrade_upper_syscpld() {
+    echo "Started Upper SYSCPLD upgrade .."
+    echo out > /tmp/gpionames/CPLD_UPPER_JTAG_SEL/direction
+    echo 1 > /tmp/gpionames/CPLD_UPPER_JTAG_SEL/value
+
+    #program syscpld
+    rc=$(jbi -r -aPROGRAM -gc57 -gi56 -go58 -gs147 $1 | grep -i "Success")
+    if [[ $rc == *"Success"* ]]; then
+        echo "Finished Upper SYSCPLD upgrade: Pass"
+    else
+        echo "Finished Upper SYSCPLD upgrade: Fail (Program failed)"
+    fi
 }
 
-# Check the number of arguments provided, should get atleast 1 for file path
-if [ $# -lt 1 ]; then
-  echo "Provide FAN or SYSCPLD path"
-  exit -1
+upgrade_lower_syscpld() {
+    echo "Started Lower SYSCPLD upgrade .."
+    echo out > /tmp/gpionames/CPLD_JTAG_SEL/direction
+    echo 1 > /tmp/gpionames/CPLD_JTAG_SEL/value
+
+    #program syscpld
+    rc=$(jbi -r -aPROGRAM -gc102 -gi101 -go103 -gs100 $1 | grep -i "Success")
+    if [[ $rc == *"Success"* ]]; then
+        echo "Finished Lower SYSCPLD upgrade: Pass"
+    else
+        echo "Finished Lower SYSCPLD upgrade: Fail (Program failed)"
+    fi
+}
+
+upgrade_upper_fancpld() {
+    echo "Started Upper FANCPLD upgrade .."
+    echo out > /tmp/gpionames/UPPER_FANCARD_CPLD_UPD_EN/direction
+    echo 0 > /tmp/gpionames/UPPER_FANCARD_CPLD_UPD_EN/value
+
+    echo out > /tmp/gpionames/BMC_FANCARD_CPLD_JTAG__SEL/direction
+    echo 1 > /tmp/gpionames/BMC_FANCARD_CPLD_JTAG__SEL/value
+
+    #program fancpld
+    rc=$(jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success")
+    if [[ $rc == *"Success"* ]]; then
+        echo "Finished Upper FANCPLD upgrade: Pass"
+    else
+        echo "Finished Upper FANCPLD upgrade: Fail (Program failed)"
+    fi
+}
+
+upgrade_lower_fancpld() {
+    echo "Started Lower FANCPLD upgrade .."
+    echo out > /tmp/gpionames/CPLD_UPD_EN/direction
+    echo 0 > /tmp/gpionames/CPLD_UPD_EN/value
+
+    echo out > /tmp/gpionames/BMC_FANCARD_CPLD_JTAG__SEL/direction
+    echo 0 > /tmp/gpionames/BMC_FANCARD_CPLD_JTAG__SEL/value
+
+    #program fancpld
+    rc=$(jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success")
+    if [[ $rc == *"Success"* ]]; then
+        echo "Finished Lower FANCPLD upgrade: Pass"
+    else
+        echo "Finished Lower FANCPLD upgrade: Fail (Program failed)"
+    fi
+}
+
+# Check the number of arguments provided
+if [ $# -ne 3 ]; then
+    usage
+    exit 1
+fi
+
+if [ $1 != "upper" ] && [ $1 != "lower" ]; then
+    usage
+    exit 1
+fi
+if [ $2 != "sys" ] && [ $2 != "fan" ]; then
+    usage
+    exit 1
 fi
 
 # Check the file path provided is a valid one.
-jbcfile="$1"
+jbcfile="$3"
 if [ ! -f $jbcfile ]; then
     echo "$jbcfile does not exist"
-    exit -1
+    exit 1
 fi
 
 # Check the file path extension is .jbc
 filename="$(basename $jbcfile)"
-if [[ ${filename: -4} != ".jbc" ]]; then
+if [ ${filename: -4} != ".jbc" ] && [ ${filename: -4} != ".JBC" ]; then
     echo "Must pass in a .jbc file"
-    exit -1
+    exit 1
 fi
 
 # Check the file name and upgrade accordingly
-if [[ $filename == *"FAN"* ]];
-then
-    upgrade_fancpld $jbcfile
-else if [[ $filename == *"SYSCPLD"* ]];
-then
-    upgrade_syscpld $jbcfile
+if [ $1 == "upper" ] && [ $2 == "sys" ]; then
+    upgrade_upper_syscpld $jbcfile
+elif [ $1 == "lower" ] && [ $2 == "sys" ]; then
+    upgrade_lower_syscpld $jbcfile
+elif [ $1 == "upper" ] && [ $2 == "fan" ]; then
+    upgrade_upper_fancpld $jbcfile
+elif [ $1 == "lower" ] && [ $2 == "fan" ]; then
+    upgrade_lower_fancpld $jbcfile
 else
-  echo "Provide FAN or SYSCPLD path"
-  exit -1
-fi
+  usage
+  exit 1
 fi
