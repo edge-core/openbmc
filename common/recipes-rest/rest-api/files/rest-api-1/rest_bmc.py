@@ -166,7 +166,7 @@ def get_bmc_tmp(param1):
       #Max device temperature
       output.append(int(l[19] * 10))
 
-    if param1.lower() == "montara":
+    if param1.lower() == "montara" or param1.lower() == "jbay":
       for i in range(0, 5):
         output.append(int(l[2*i + 1] * 10))
 
@@ -196,7 +196,7 @@ def get_bmc_ucd():
          valid_range = 16
     if platform.lower() == "mavericks":
          valid_range = 15
-    if platform.lower() == "montara":
+    if platform.lower() == "montara" or platform.lower() == "jbay":
          valid_range = 12
 
     with Capturing() as screen_op:

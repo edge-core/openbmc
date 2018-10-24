@@ -18,11 +18,10 @@
 # Boston, MA 02110-1301 USA
 #
 usage() {
-    echo "Usage: $0 <PERCENT (0..100)> <Fan Unit (1..5)(6...10)> <board type (Montara Mavericks)>" >&2
+    echo "Usage: $0 <PERCENT (0..100)> <Fan Unit (1..6)> <board type (Jbay)>" >&2
 }
 
-FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0033
-FAN_DIR_UPPER=/sys/class/i2c-adapter/i2c-9/9-0033
+FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0066
 
 set -e
 
@@ -33,47 +32,33 @@ fi
 
 # Adding fix for Mavericks and Montara while keeping backward compatibility with FB command line.
 if [ "$#" -eq 1 ]; then
-    FANS="1 2 3 4 5"
+    FANS="1 2 3 4 5 6"
 elif [ "$#" -eq 2 ]; then
-    if [ $2 = "Mavericks" ]; then
-    	FANS="1 2 3 4 5 6 7 8 9 10"
-    elif [ $2 = "Montara" ]; then
-    	FANS="1 2 3 4 5"
-    else 
-    	if [ $2 -gt 10 ]; then
-       	    usage
+    if [ $2 = "Jbay" ]; then
+        FANS="1 2 3 4 5 6"
+    else
+        if [ $2 -gt 6 ]; then
+            usage
             exit 1
-    	fi
-    	FANS="$2"
+        fi
+        FANS="$2"
     fi
 else
-    if [ $3 = "Mavericks" ]; then
-    	if [ $2 -gt 10 ]; then
-       	    usage
+    if [ $3 = "Jbay" ]; then
+        if [ $2 -gt 6 ]; then
+            usage
             exit 1
-    	fi
-    elif [ $3 = "Montara" ]; then
-    	if [ $2 -gt 5 ]; then
-       	    usage
-            exit 1
-    	fi
-    else 
+        fi
+    else
         usage
         exit 1
     fi
     FANS="$2"
 fi
 
-# Convert the percentage to our 1/32th unit (0-31).
-unit=$(( ( $1 * 31 ) / 100 ))
+# Convert the percentage to our 1/16th unit (0-15).
+unit=$(( ( $1 * 16 ) / 100 - 1 ))
 
-for fan in $FANS; do
-    if [ $fan -gt 5 ]; then
-        fan_idx=$(( $fan - 5))
-        pwm="${FAN_DIR_UPPER}/fantray${fan_idx}_pwm"
-    else
-        pwm="${FAN_DIR}/fantray${fan}_pwm"
-    fi
-    echo "$unit" > $pwm
-    echo "Successfully set fan ${fan} speed to $1%"
-done
+pwm="${FAN_DIR}/fantray_pwm"
+echo "$unit" > $pwm
+echo "Successfully set fan speed to $1%"

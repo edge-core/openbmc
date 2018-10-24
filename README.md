@@ -57,12 +57,14 @@ The BMC SoC layer and board specific layer are grouped together based on the ven
 
 ### set TEMPLATECONF to a different conf directory to build a different platform
 ### e.g. export TEMPLATECONF=meta-openbmc/meta-bf/meta-mavericks/conf
+### e.g. export TEMPLATECONF=meta-openbmc/meta-bf/meta-jbay/conf
 
 5. Start the build within the build directory:
  ```bash
  $ bitbake wedge-image
  ```
 ###  $ bitbake mavericks-image
+###  $ bitbake jbay-image
 
 The build process automatically fetches all necessary packages and builds the complete image. The final build results are in `poky/build/tmp/deploy/images/wedge`. The root password will be `0penBmc`, you may change this in the local configuration.
 

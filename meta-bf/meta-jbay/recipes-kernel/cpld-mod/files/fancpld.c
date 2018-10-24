@@ -61,10 +61,9 @@ static ssize_t show_fan_min_value(struct device *dev,
 {
   return scnprintf(buf, PAGE_SIZE, "%u\n", 0);
 }
-
-/* Convert the percentage to our 1/32th unit (0-31). */
+/* Convert the percentage to our 1/16th unit (0-15). */
 #define FANTRAY_PWM_HELP                        \
-  "each value represents 1/32 duty cycle"
+  "each value represents 1/16 duty cycle"
 #define FANTRAY_LED_CTRL_HELP                   \
   "0x0: Under HW control\n"                     \
   "0x1: Red off, Blue on\n"                     \
@@ -77,48 +76,51 @@ static ssize_t show_fan_min_value(struct device *dev,
 static const i2c_dev_attr_st fancpld_attr_table[] = {
   {
     "board_rev",
-    NULL,
+    "0x4: R0A\n"
+    "0x5: R0B\n"
+    "0x6: R01\n"
+    "Others: Reserved",
     I2C_DEV_ATTR_SHOW_DEFAULT,
     NULL,
-    0, 0, 4,
+    0, 5, 3,    //[7:5] Version_ID
   },
   {
     "model_id",
-    "0x0: wedge100\n"
-    "0x1: 6-pack100 linecard\n"
-    "0x2: 6-pack100 fabric card\n"
-    "0x3: reserved",
+    "0x0: Reserved\n"
+    "0x1: Reserved\n"
+    "0x2: Reserved\n"
+    "0x3: ZZ project",
     I2C_DEV_ATTR_SHOW_DEFAULT,
     NULL,
-    0, 4, 2,
+    0, 0, 2,    //[1:0] Board_ID
   },
   {
     "cpld_rev",
     NULL,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     NULL,
-    1, 0, 6,
+    1, 0, 8,    //[7:0] CPLD_ver
   },
   {
     "cpld_released",
     NULL,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     NULL,
-    1, 6, 1,
+    1, 0, 0,    //No support
   },
   {
     "cpld_sub_rev",
     NULL,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     NULL,
-    2, 0, 8,
+    2, 0, 0,    //No support
   },
   {
     "slotid",
     NULL,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     NULL,
-    3, 0, 5,
+    3, 0, 0,    //No support
   },
   {
     "jaybox_gpio",
@@ -147,28 +149,28 @@ static const i2c_dev_attr_st fancpld_attr_table[] = {
     NULL,
     fancpld_fan_rpm_show,
     NULL,
-    0x10, 0, 8,
+    0x12, 0, 8,
   },
   {
     "fan2_input",
     NULL,
     fancpld_fan_rpm_show,
     NULL,
-    0x11, 0, 8,
+    0x22, 0, 8,
   },
   {
     "fan3_input",
     NULL,
     fancpld_fan_rpm_show,
     NULL,
-    0x12, 0, 8,
+    0x13, 0, 8,
   },
   {
     "fan4_input",
     NULL,
     fancpld_fan_rpm_show,
     NULL,
-    0x13, 0, 8,
+    0x23, 0, 8,
   },
   {
     "fan5_input",
@@ -182,35 +184,49 @@ static const i2c_dev_attr_st fancpld_attr_table[] = {
     NULL,
     fancpld_fan_rpm_show,
     NULL,
-    0x15, 0, 8,
+    0x24, 0, 8,
   },
   {
     "fan7_input",
     NULL,
     fancpld_fan_rpm_show,
     NULL,
-    0x16, 0, 8,
+    0x15, 0, 8,
   },
   {
     "fan8_input",
     NULL,
     fancpld_fan_rpm_show,
     NULL,
-    0x17, 0, 8,
+    0x25, 0, 8,
   },
   {
     "fan9_input",
     NULL,
     fancpld_fan_rpm_show,
     NULL,
-    0x18, 0, 8,
+    0x16, 0, 8,
   },
   {
     "fan10_input",
     NULL,
     fancpld_fan_rpm_show,
     NULL,
-    0x19, 0, 8,
+    0x26, 0, 8,
+  },
+  {
+    "fan11_input",
+    NULL,
+    fancpld_fan_rpm_show,
+    NULL,
+    0x17, 0, 8,    //New add
+  },
+  {
+    "fan12_input",
+    NULL,
+    fancpld_fan_rpm_show,
+    NULL,
+    0x27, 0, 8,    //New add
   },
   {
     "fantray_present",
@@ -218,112 +234,263 @@ static const i2c_dev_attr_st fancpld_attr_table[] = {
     "1: not present",
     I2C_DEV_ATTR_SHOW_DEFAULT,
     NULL,
-    0x1d, 0, 5,
+    0x1d, 0, 0,    //No support
+  },
+  {
+    "fantray1_present",
+    "0: present\n"
+    "1: not present",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    NULL,
+    0x0f, 0, 1,    //New add
+  },
+  {
+    "fantray2_present",
+    "0: present\n"
+    "1: not present",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    NULL,
+    0x0f, 1, 1,    //New add
+  },
+  {
+    "fantray3_present",
+    "0: present\n"
+    "1: not present",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    NULL,
+    0x0f, 2, 1,    //New add
+  },
+  {
+    "fantray4_present",
+    "0: present\n"
+    "1: not present",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    NULL,
+    0x0f, 3, 1,    //New add
+  },
+  {
+    "fantray5_present",
+    "0: present\n"
+    "1: not present",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    NULL,
+    0x0f, 4, 1,    //New add
+  },
+  {
+    "fantray6_present",
+    "0: present\n"
+    "1: not present",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    NULL,
+    0x0f, 5, 1,    //New add
+  },
+  {
+    "fantray_pwm",
+    FANTRAY_PWM_HELP,
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x11, 0, 4,    //New add
   },
   {
     "fantray1_pwm",
     FANTRAY_PWM_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x20, 0, 5,
+    0x20, 0, 0,    //No support
   },
   {
     "fantray2_pwm",
     FANTRAY_PWM_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x21, 0, 5,
+    0x21, 0, 0,    //No support
   },
   {
     "fantray3_pwm",
     FANTRAY_PWM_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x22, 0, 5,
+    0x22, 0, 0,    //No support
   },
   {
     "fantray4_pwm",
     FANTRAY_PWM_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x23, 0, 5,
+    0x23, 0, 0,    //No support
   },
   {
     "fantray5_pwm",
     FANTRAY_PWM_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x24, 0, 5,
+    0x24, 0, 0,    //No support
   },
   {
     "fantray1_led_ctrl",
     FANTRAY_LED_CTRL_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x25, 0, 2,
+    0x25, 0, 0,    //No support
   },
   {
     "fantray1_led_blink",
     FANTRAY_LED_BLINK_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x25, 2, 1,
+    0x25, 2, 0,    //No support
   },
   {
     "fantray2_led_ctrl",
     FANTRAY_LED_CTRL_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x25, 4, 2,
+    0x25, 4, 0,    //No support
   },
   {
     "fantray2_led_blink",
     FANTRAY_LED_BLINK_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x25, 6, 1,
+    0x25, 6, 0,    //No support
   },
   {
     "fantray3_led_ctrl",
     FANTRAY_LED_CTRL_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x26, 0, 2,
+    0x26, 0, 0,    //No support
   },
   {
     "fantray3_led_blink",
     FANTRAY_LED_BLINK_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x26, 2, 1,
+    0x26, 2, 0,    //No support
   },
   {
     "fantray4_led_ctrl",
     FANTRAY_LED_CTRL_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x26, 4, 2,
+    0x26, 4, 0,    //No support
   },
   {
     "fantray4_led_blink",
     FANTRAY_LED_BLINK_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x26, 6, 1,
+    0x26, 6, 0,    //No support
   },
   {
     "fantray5_led_ctrl",
     FANTRAY_LED_CTRL_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x27, 0, 2,
+    0x27, 0, 0,    //No support
   },
   {
     "fantray5_led_blink",
     FANTRAY_LED_BLINK_HELP,
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
-    0x27, 2, 1,
+    0x27, 2, 0,    //No support
+  },
+  {
+    "fantray1_led_r",
+    "0: Red\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1C, 7, 1,    //New add
+  },
+  {
+    "fantray1_led_g",
+    "0: Green\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1C, 6, 1,    //New add
+  },
+  {
+    "fantray2_led_r",
+    "0: Red\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1C, 5, 1,    //New add
+  },
+  {
+    "fantray2_led_g",
+    "0: Green\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1C, 4, 1,    //New add
+  },
+  {
+    "fantray3_led_r",
+    "0: Red\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1C, 3, 1,    //New add
+  },
+  {
+    "fantray3_led_g",
+    "0: Green\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1C, 2, 1,    //New add
+  },
+  {
+    "fantray4_led_r",
+    "0: Red\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1C, 1, 1,    //New add
+  },
+  {
+    "fantray4_led_g",
+    "0: Green\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1C, 0, 1,    //New add
+  },
+  {
+    "fantray5_led_r",
+    "0: Red\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1D, 3, 1,    //New add
+  },
+  {
+    "fantray5_led_g",
+    "0: Green\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1D, 2, 1,    //New add
+  },
+  {
+    "fantray6_led_r",
+    "0: Red\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1D, 1, 1,    //New add
+  },
+  {
+    "fantray6_led_g",
+    "0: Green\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1D, 0, 1,    //New add
   },
   {
     "fan1_min",

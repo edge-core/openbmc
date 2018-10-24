@@ -24,6 +24,7 @@ usage() {
 FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0033
 FAN_DIR_UPPER=/sys/class/i2c-adapter/i2c-9/9-0033
 
+# Convert the percentage to our 1/32th unit (0-31).
 show_pwm()
 {
     if [ $1 -gt 5 ]; then
