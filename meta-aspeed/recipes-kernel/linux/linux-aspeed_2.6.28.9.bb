@@ -28,6 +28,7 @@ SRC_URI = "git://github.com/theopolis/linux.git;branch=${SRCBRANCH};protocol=htt
            file://patch-2.6.28.9/0002-bzip2-lzma-config-and-initramfs-support-for-bzip2-lz.patch \
            file://patch-2.6.28.9/0036-Psu_Reboot_Openbmc.patch \
            file://patch-2.6.28.9/0036-Sensors-PSU-vout1-is-not-expectation.patch \
+           file://patch-2.6.28.9/0037-To-expand-shrink-data-partitions.patch \
           "
 
 S = "${WORKDIR}/git"

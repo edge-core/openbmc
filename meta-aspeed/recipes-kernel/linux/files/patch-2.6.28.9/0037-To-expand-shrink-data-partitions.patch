@@ -1,0 +1,49 @@
+From b740cfd82c6e69fe8a3429c5428baeaf62ee493e Mon Sep 17 00:00:00 2001
+From: JeremyChen1004 <jeremy_chen@accton.com>
+Date: Tue, 25 Sep 2018 16:27:00 +0800
+Subject: [PATCH] To expand or shrink data partitions. The rootfs is almost
+ maxed out at present
+
+---
+ arch/arm/plat-aspeed/dev-spi.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/arch/arm/plat-aspeed/dev-spi.c b/arch/arm/plat-aspeed/dev-spi.c
+index c23c4b1..555f883 100644
+--- a/arch/arm/plat-aspeed/dev-spi.c
++++ b/arch/arm/plat-aspeed/dev-spi.c
+@@ -304,24 +304,24 @@ static struct mtd_partition ast_spi_flash_partitions[] = {
+ 		.mask_flags	= MTD_WRITEABLE,
+ 	}, {
+ 		.name	= "env",
+-		.offset = 0x60000, /* From 384K */
++		.offset = MTDPART_OFS_APPEND, /* From 384K */
+ 		.size	= 0x20000, /* Size 128K, two sectors */
+ 	}, {
+ 		.name	= "kernel",
+-		.offset = 0x80000,  /* From 512K */
+-		.size	= 0x280000, /* Size 2.5M */
++		.offset = MTDPART_OFS_APPEND,  /* From 512K */
++		.size	= 0x400000, /* Size 4M */
+ 	}, {
+ 		.name	= "rootfs",
+-		.offset = 0x300000, /* From 3M */
+-		.size	= 0xC00000, /* Size 12M */
++		.offset = MTDPART_OFS_APPEND, /* From 4.5M */
++		.size	= 0x1780000, /* Size 23.5M */
+ 	}, {
+ 		.name	= "data0",
+ 		.offset = MTDPART_OFS_APPEND,
+ 		.size	= MTDPART_SIZ_FULL,
+ 	}, {
+ 		.name	= "flash0", /* Full flash */
+-		.offset = 0,
+-		.size	= MTDPART_SIZ_FULL,
++		.offset = 0, /* From 0 */
++		.size	= MTDPART_SIZ_FULL, /* Full size */
+ 	},
+ };
+ #endif
+-- 
+1.9.1
+
