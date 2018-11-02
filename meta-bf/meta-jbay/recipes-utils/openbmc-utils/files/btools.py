@@ -1068,9 +1068,6 @@ def error_usage():
 # Main function parses command line argument and call appropiate tool
 def main(argv):
 
-    lock_file = "/tmp/btools_lock"
-    timeout_counter = 0
-
     try:
         opts, args = getopt.getopt(argv[1:], "hP:U:I:T:", ["help", "PSU=", "UCD=", "IR=", "TMP="])
 
@@ -1083,18 +1080,6 @@ def main(argv):
     except getopt.GetoptError:
         error_usage()
         return
-
-    while os.path.isfile(lock_file):
-        timeout_counter = timeout_counter + 1
-        if timeout_counter >= 10:
-	    # It's possible that the other process using the lock might have
-	    # malfunctioned. Hence explicitly delete the file and proceed
-	    print "Some process didn't clean up the lock file. Hence explicitly cleaning it up and proceeding"
-	    os.remove(lock_file)
-	    break
-        sleep(0.5)
-
-    open(lock_file, "w+")
 
     for opt, arg in opts:
         if opt in ("-h", "--help"):
@@ -1109,11 +1094,6 @@ def main(argv):
             tmp(argv)
         else:
             error_usage()
-
-    try:
-         os.remove(lock_file)
-    except OSError:
-         pass
 
     return
 

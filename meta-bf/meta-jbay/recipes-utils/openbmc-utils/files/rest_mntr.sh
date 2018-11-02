@@ -20,10 +20,6 @@ do
 	    echo "rest.py not running"
 	    /usr/local/bin/setup-rest-api.sh restart
 	    check_8080_port
-	    if [ -e "/tmp/btools_lock" ]; then
-	      rm -f "/tmp/btools_lock"
-	      echo "Stale btools_lock exists. Removing it"
-	    fi
 	fi
 	sleep 5
 done

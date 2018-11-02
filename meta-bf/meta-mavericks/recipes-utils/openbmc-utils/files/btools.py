@@ -766,10 +766,37 @@ def ir_voltage_show_montara():
 
     return
 
+def open_upper_PCA9548_lock():
+    lock_file = "/tmp/mav_9548_10_lock"
+    timeout_counter = 0
+
+    while os.path.isfile(lock_file):
+        timeout_counter = timeout_counter + 1
+        if timeout_counter >= 10:
+            # It's possible that the other process using the lock might have
+            # malfunctioned. Hence explicitly delete the file and proceed
+            print "Some process didn't clean up the lock file. Hence explicitly cleaning it up and proceeding"
+            os.remove(lock_file)
+            break
+        sleep(0.5)
+
+    open(lock_file, "w+")
+    return
+
+def close_upper_PCA9548_lock():
+    lock_file = "/tmp/mav_9548_10_lock"
+    try:
+         os.remove(lock_file)
+    except OSError:
+         pass
+    return
+
 #
 # Mavericks need i2c switch to be opened for reading IR
 #
 def ir_open_i2c_switch():
+
+    open_upper_PCA9548_lock()
 
     IR_I2C_SW_BUS = "9"
     IR_I2C_SW_ADDR = "0x70"
@@ -788,11 +815,13 @@ def ir_open_i2c_switch():
         o = subprocess.check_output([set_cmd, "-f", "-y",
                                     IR_I2C_SW_BUS,
                                     IR_I2C_SW_ADDR, str(res)])
+        close_upper_PCA9548_lock()
 
     except subprocess.CalledProcessError as e:
         print e
         print "Error occured while processing opening i2c switch" \
               " on mavericks upper board"
+        close_upper_PCA9548_lock()
 
     return output
 
@@ -800,6 +829,8 @@ def ir_open_i2c_switch():
 # Restoring the i2c switch state
 #
 def ir_restore_i2c_switch(res):
+
+    open_upper_PCA9548_lock()
 
     IR_I2C_SW_BUS = "9"
     IR_I2C_SW_ADDR = "0x70"
@@ -809,11 +840,13 @@ def ir_restore_i2c_switch(res):
         o = subprocess.check_output([set_cmd, "-f", "-y",
                                     IR_I2C_SW_BUS,
                                     IR_I2C_SW_ADDR, str(res)])
+        close_upper_PCA9548_lock()
 
     except subprocess.CalledProcessError as e:
         print e
         print "Error occured while processing restoring i2c switch" \
               " on mavericks upper board"
+        close_upper_PCA9548_lock()
 
     return
 
@@ -1673,6 +1706,8 @@ def tmp_upper(p0c):
 #
 def tmp_open_i2c_switch():
 
+    open_upper_PCA9548_lock()
+
     TMP_I2C_SW_BUS = "9"
     TMP_I2C_SW_ADDR = "0x70"
 
@@ -1690,11 +1725,13 @@ def tmp_open_i2c_switch():
         o = subprocess.check_output([set_cmd, "-f", "-y",
                                     TMP_I2C_SW_BUS,
                                     TMP_I2C_SW_ADDR, str(res)])
+        close_upper_PCA9548_lock()
 
     except subprocess.CalledProcessError as e:
         print e
         print "Error occured while processing opening i2c switch" \
               " on mavericks upper board"
+        close_upper_PCA9548_lock()
 
     return output
 
@@ -1702,6 +1739,8 @@ def tmp_open_i2c_switch():
 # Restoring the i2c switch state
 #
 def tmp_restore_i2c_switch(res):
+
+    open_upper_PCA9548_lock()
 
     TMP_I2C_SW_BUS = "9"
     TMP_I2C_SW_ADDR = "0x70"
@@ -1711,11 +1750,13 @@ def tmp_restore_i2c_switch(res):
         o = subprocess.check_output([set_cmd, "-f", "-y",
                                     TMP_I2C_SW_BUS,
                                     TMP_I2C_SW_ADDR, str(res)])
+        close_upper_PCA9548_lock()
 
     except subprocess.CalledProcessError as e:
         print e
         print "Error occured while processing restoring i2c switch" \
               " on mavericks upper board"
+        close_upper_PCA9548_lock()
 
     return
 
@@ -1762,9 +1803,6 @@ def error_usage():
 # Main function parses command line argument and call appropiate tool
 def main(argv):
 
-    lock_file = "/tmp/btools_lock"
-    timeout_counter = 0
-
     try:
         opts, args = getopt.getopt(argv[1:], "hP:U:I:T:", ["help", "PSU=", "UCD=", "IR=", "TMP="])
 
@@ -1777,18 +1815,6 @@ def main(argv):
     except getopt.GetoptError:
         error_usage()
         return
-
-    while os.path.isfile(lock_file):
-        timeout_counter = timeout_counter + 1
-        if timeout_counter >= 10:
-	    # It's possible that the other process using the lock might have
-	    # malfunctioned. Hence explicitly delete the file and proceed
-	    print "Some process didn't clean up the lock file. Hence explicitly cleaning it up and proceeding"
-	    os.remove(lock_file)
-	    break
-        sleep(0.5)
-
-    open(lock_file, "w+")
 
     for opt, arg in opts:
         if opt in ("-h", "--help"):
@@ -1803,11 +1829,6 @@ def main(argv):
             tmp(argv)
         else:
             error_usage()
-
-    try:
-         os.remove(lock_file)
-    except OSError:
-         pass
 
     return
 

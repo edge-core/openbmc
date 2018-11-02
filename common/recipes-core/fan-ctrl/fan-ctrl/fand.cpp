@@ -795,31 +795,37 @@ static void mav_read_tofino_temp(int *temp) {
   char full_name[LARGEST_DEVICE_NAME];
   int fd = fd_tofino_ext_tmp;
   int res;
-  const char *lock_file_name = "/tmp/btools_lock";
+#if defined(CONFIG_MAVERICKS)
+  const char *lock_file_name = "/tmp/mav_9548_10_lock";
   FILE *lock_file_fp;
   int timeout_counter = 0;
+#endif
 
   *temp = BAD_TEMP;
   if (fd == -1) {
     return;
   }
-  
-  /* Acquire the file lock */
-  while (file_exists(lock_file_name) == true) {
-    timeout_counter++;
-    if (timeout_counter >= 5) {
-      /* It's possible that the other process using the lock might have
-   	 malfunctioned. Hence explicitly delete the file and proceed*/
-      syslog(LOG_CRIT, "Some process didn't clean up the lock file. Hence explicitly cleaning it up and proceeding");
-      remove(lock_file_name);
-      break;
-    }
-    sleep(1);
-    /* Periodically kick the watch dog while trying to acquire the file lock */
-    kick_watchdog();
-  }
 
-  lock_file_fp = fopen(lock_file_name, "w+");
+#if defined(CONFIG_MAVERICKS)
+  if (mav_board_type == BF_BOARD_MAV) {
+    /* Acquire the file lock */
+    while (file_exists(lock_file_name) == true) {
+      timeout_counter++;
+      if (timeout_counter >= 5) {
+        /* It's possible that the other process using the lock might have
+           malfunctioned. Hence explicitly delete the file and proceed*/
+        syslog(LOG_CRIT, "Some process didn't clean up the lock file. Hence explicitly cleaning it up and proceeding");
+        remove(lock_file_name);
+        break;
+      }
+      sleep(1);
+      /* Periodically kick the watch dog while trying to acquire the file lock */
+      kick_watchdog();
+    }
+
+    lock_file_fp = fopen(lock_file_name, "w+");
+  }
+#endif
 
   /* file_exists() and fopen() can sometimes take a very long time. Hence 
      kick the watch dog so that the delay introduced by us is nullified
@@ -847,13 +853,21 @@ static void mav_read_tofino_temp(int *temp) {
   res = ioctl(fd, I2C_SLAVE_FORCE, 0x4c);
   if (res < 0) {
     syslog(LOG_CRIT, "Failed to open slave @ address 0x4c error %d", res);
-    close_and_remove_file(lock_file_fp, lock_file_name);
+#if defined(CONFIG_MAVERICKS)
+    if (mav_board_type == BF_BOARD_MAV) {
+      close_and_remove_file(lock_file_fp, lock_file_name);
+    }
+#endif
     return;
   }
   res = i2c_smbus_read_byte_data(fd, 0x1);
   if (res < 0) {
     syslog(LOG_CRIT, "Failed to to read slave @ address 0x4c");
-    close_and_remove_file(lock_file_fp, lock_file_name);
+#if defined(CONFIG_MAVERICKS)
+    if (mav_board_type == BF_BOARD_MAV) {
+      close_and_remove_file(lock_file_fp, lock_file_name);
+    }
+#endif
     return;
   }
   *temp = res;
@@ -872,9 +886,10 @@ static void mav_read_tofino_temp(int *temp) {
       close_and_remove_file(lock_file_fp, lock_file_name);
       return;
     }
-  }
+
+    close_and_remove_file(lock_file_fp, lock_file_name);
+ }
 #endif
-  close_and_remove_file(lock_file_fp, lock_file_name);
 }
 
 static int mav_open_i2c_dev(int i2c_bus) {
