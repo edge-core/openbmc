@@ -190,6 +190,119 @@ static ssize_t i2c_dev_show_voltage3(struct device *dev,
   return scnprintf(buf, PAGE_SIZE, "%u\n", result);
 }
 
+#define in0_min (1710)  //CPU Vcore
+#define in0_max (1890)
+#define in1_min (3000)  //+3V
+#define in1_max (3600)
+#define in2_min (4500)  //+5V
+#define in2_max (5500)
+#define in3_min (10800) //+12V
+#define in3_max (13200)
+#define in4_min (1140)  //VDIMM
+#define in4_max (1260)
+#define temp1_min (0)   //CPU Temp
+#define temp1_max (85000)
+#define temp2_min (0)   //Memory Temp
+#define temp2_max (85000)
+
+static ssize_t i2c_dev_show_in0_min(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", in0_min);
+}
+
+static ssize_t i2c_dev_show_in0_max(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", in0_max);
+}
+
+static ssize_t i2c_dev_show_in1_min(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", in1_min);
+}
+
+static ssize_t i2c_dev_show_in1_max(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", in1_max);
+}
+
+static ssize_t i2c_dev_show_in2_min(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", in2_min);
+}
+
+static ssize_t i2c_dev_show_in2_max(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", in2_max);
+}
+
+static ssize_t i2c_dev_show_in3_min(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", in3_min);
+}
+
+static ssize_t i2c_dev_show_in3_max(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", in3_max);
+}
+
+static ssize_t i2c_dev_show_in4_min(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", in4_min);
+}
+
+static ssize_t i2c_dev_show_in4_max(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", in4_max);
+}
+
+static ssize_t i2c_dev_show_temp2_min(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", temp2_min);
+}
+
+static ssize_t i2c_dev_show_temp2_max(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", temp2_max);
+}
+
+static ssize_t i2c_dev_show_temp1_min(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", temp1_min);
+}
+
+static ssize_t i2c_dev_show_temp1_max(struct device *dev,
+                                     struct device_attribute *attr,
+                                     char *buf)
+{
+  return scnprintf(buf, PAGE_SIZE, "%d\n", temp1_max);
+}
+
 static const i2c_dev_attr_st com_e_attr_table[] = {
   {
     "temp2_input", // cpu_temp
@@ -199,11 +312,39 @@ static const i2c_dev_attr_st com_e_attr_table[] = {
     0x0, 0, 8,
   },
   {
+    "temp2_min",
+    NULL,
+    i2c_dev_show_temp2_min,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "temp2_max",
+    NULL,
+    i2c_dev_show_temp2_max,
+    NULL,
+    0, 0, 0,
+  },
+  {
     "temp1_input", // mem_temp : fand uses this temp
     NULL,
     i2c_dev_show_mem_temp,
     NULL,
     0x04, 0, 16,
+  },
+  {
+    "temp1_min",
+    NULL,
+    i2c_dev_show_temp1_min,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "temp1_max",
+    NULL,
+    i2c_dev_show_temp1_max,
+    NULL,
+    0, 0, 0,
   },
   {
     "version", // version_r,_e,_t
@@ -220,6 +361,20 @@ static const i2c_dev_attr_st com_e_attr_table[] = {
     0x20, 0, 16,
   },
   {
+    "in0_min",
+    NULL,
+    i2c_dev_show_in0_min,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "in0_max",
+    NULL,
+    i2c_dev_show_in0_max,
+    NULL,
+    0, 0, 0,
+  },
+  {
     "in1_input",// 3V
     NULL,
     i2c_dev_show_voltage1,
@@ -227,11 +382,39 @@ static const i2c_dev_attr_st com_e_attr_table[] = {
     0x22, 0, 16,
   },
   {
+    "in1_min",
+    NULL,
+    i2c_dev_show_in1_min,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "in1_max",
+    NULL,
+    i2c_dev_show_in1_max,
+    NULL,
+    0, 0, 0,
+  },
+  {
     "in2_input",// 5V
     NULL,
     i2c_dev_show_voltage2,
     NULL,
     0x24, 0, 16,
+  },
+  {
+    "in2_min",
+    NULL,
+    i2c_dev_show_in2_min,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "in2_max",
+    NULL,
+    i2c_dev_show_in2_max,
+    NULL,
+    0, 0, 0,
   },
   {
     "date",
@@ -248,11 +431,39 @@ static const i2c_dev_attr_st com_e_attr_table[] = {
     0x30, 0, 16,
   },
   {
+    "in3_min",
+    NULL,
+    i2c_dev_show_in3_min,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "in3_max",
+    NULL,
+    i2c_dev_show_in3_max,
+    NULL,
+    0, 0, 0,
+  },
+  {
     "in4_input",// VDIMM
     NULL,
     i2c_dev_show_voltage0,
     NULL,
     0x32, 0, 16,
+  },
+  {
+    "in4_min",
+    NULL,
+    i2c_dev_show_in4_min,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "in4_max",
+    NULL,
+    i2c_dev_show_in4_max,
+    NULL,
+    0, 0, 0,
   },
   {
     "product_name",
@@ -281,55 +492,6 @@ static const i2c_dev_attr_st com_e_attr_table[] = {
     i2c_dev_show_ascii,
     NULL,
     0x60, 0, 256,
-  },
-  {
-    "in0_label",
-    "CPU Vcore",
-    i2c_dev_show_label,
-    NULL,
-    0x0, 0, 0,
-  },
-  {
-    "in1_label",
-    "+3V Voltage",
-    i2c_dev_show_label,
-    NULL,
-    0x0, 0, 0,
-  },
-  {
-    "in2_label",
-    "+5V Voltage",
-    i2c_dev_show_label,
-    NULL,
-    0x0, 0, 0,
-  },
-  {
-    "in3_label",
-    "+12V Voltage",
-    i2c_dev_show_label,
-    NULL,
-    0x0, 0, 0,
-  },
-  {
-    "in4_label",
-    "VDIMM Voltage",
-    i2c_dev_show_label,
-    NULL,
-    0x0, 0, 0,
-  },
-  {
-    "temp2_label",
-    "CPU Temp",
-    i2c_dev_show_label,
-    NULL,
-    0x0, 0, 0,
-  },
-  {
-    "temp1_label",
-    "Memory Temp",
-    i2c_dev_show_label,
-    NULL,
-    0x0, 0, 0,
   },
 };
 
