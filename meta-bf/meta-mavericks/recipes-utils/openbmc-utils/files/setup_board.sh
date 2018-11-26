@@ -49,3 +49,9 @@ find /etc -name passwd | xargs -i sed -i 's/1001/0/g' {}
 # For AST1250, it should use this pin as LPC reset input. And set hardware
 # strapping bit14 to ’1’. Defined on ast2400v13.pdf.
 devmem 0x1e6e2070 32 0x0A0845D2
+
+# Reinstall pfe1100 driver because PCA9548 is not selected/controlled when booting.
+# BMC-bus7-PCA9548(0x70)-PSU1&PSU2
+i2cset -f -y 7 0x70 0x3
+rmmod pfe1100
+modprobe pfe1100
