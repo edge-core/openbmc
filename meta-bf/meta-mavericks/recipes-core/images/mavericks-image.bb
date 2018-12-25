@@ -24,6 +24,7 @@ IMAGE_INSTALL += " \
   ast-mdio \
   openbmc-gpio \
   fan-ctrl \
+  rackmon \
   watchdog-ctrl \
   sensor-setup \
   usb-console \
