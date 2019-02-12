@@ -237,8 +237,9 @@ def psu_init():
         
 	# load driver for both devices
         o = subprocess.check_output(["lsmod", "pfe1100"])
+        rtn = o.find("pfe1100")
 
-	if len(o) != 0:
+        if rtn != -1:
             # load driver for both devices
             subprocess.check_output(["rmmod", "pfe1100"])
 
