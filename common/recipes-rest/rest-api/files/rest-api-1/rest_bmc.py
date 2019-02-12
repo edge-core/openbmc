@@ -125,10 +125,10 @@ def get_project(cmd=['weutil']):
         tdata = sdata.split(':', 1)
         if (len(tdata) < 2):
             continue
-        if tdata[0].strip() == "Product Name" :
+        if tdata[0].strip() == "Location on Fabric" :
             return tdata[1].strip()
 
-    print "Error occured while capturing Product Name"
+    print "Error occured while capturing Location on Fabric"
     return
 
 def get_bmc_tmp(param1):
@@ -139,9 +139,10 @@ def get_bmc_tmp(param1):
     err_status = "exit status"
     platform = get_project()
 
-    arg = ['btools.py', '--TMP', platform, 'sh',]
+    arg = ['btools.py', '--TMP', 'sh']
 
-    arg[2] = str(param1);
+    # ignore the input of project name field
+    print "Auto detection, ignore %s" % str(param1)
 
     with Capturing() as screen_op:
          btools.main(arg)
@@ -159,14 +160,14 @@ def get_bmc_tmp(param1):
 
     output.append(err)
 
-    if param1.lower() == "mavericks" or param1.lower() == "mavericks-p0c":
+    if platform.lower() == "maverick" or platform.lower() == "mavericks" or platform.lower() == "mavericks-p0c":
       for i in range(0, 9):
         output.append(int(l[2*i + 1] * 10))
 
       #Max device temperature
       output.append(int(l[19] * 10))
 
-    if param1.lower() == "montara" or param1.lower() == "jbay":
+    if platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
       for i in range(0, 5):
         output.append(int(l[2*i + 1] * 10))
 
@@ -190,13 +191,13 @@ def get_bmc_ucd():
     platform = get_project()
     valid_range = 12
 
-    arg = ['btools.py', '--UCD', 'sh', 'v', platform]
+    arg = ['btools.py', '--UCD', 'sh', 'v']
 
     if platform.lower() == "mavericks-p0c":
          valid_range = 16
-    if platform.lower() == "mavericks":
+    if platform.lower() == "maverick" or platform.lower() == "mavericks":
          valid_range = 15
-    if platform.lower() == "montara" or platform.lower() == "jbay":
+    if platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
          valid_range = 12
 
     with Capturing() as screen_op:

@@ -31,6 +31,7 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 
 board_rev=$(wedge_board_rev)
+board_type=$(wedge_board_type)
 
 if [ $board_rev -ge 2 ]; then
     # DVT or later
@@ -50,8 +51,10 @@ find /etc -name passwd | xargs -i sed -i 's/1001/0/g' {}
 # strapping bit14 to ’1’. Defined on ast2400v13.pdf.
 devmem 0x1e6e2070 32 0x0A0845D2
 
-# Reinstall pfe1100 driver because PCA9548 is not selected/controlled when booting.
+# Reinstall PSU driver because PCA9548 is not selected/controlled when booting.
 # BMC-bus7-PCA9548(0x70)-PSU1&PSU2
-i2cset -f -y 7 0x70 0x3
-rmmod pfe1100
-modprobe pfe1100
+if [ "$board_type" == "MAVERICKS" ]; then
+    i2cset -f -y 7 0x70 0x3
+    rmmod pfe1100
+    modprobe pfe1100
+fi

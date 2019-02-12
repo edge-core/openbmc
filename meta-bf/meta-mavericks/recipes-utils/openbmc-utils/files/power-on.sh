@@ -35,13 +35,7 @@ tofino_set_vdd_core() {
   CODE_M=$(($CODE & 0x7))
   if [ $CODE_M != 0 ]; then
     tbl=(0 0.83 0.78 0.88 0.755 0.855 0.805 0.905)
-    # If not able to access value it is a montara otherwise mavericks
-    cat /sys/bus/i2c/drivers/fancpld/9-0033/board_rev >& /dev/null
-    if [ $? == 1 ]; then
-        btools.py --IR set_vdd_core montara ${tbl[$CODE_M]}
-    else
-        btools.py --IR set_vdd_core mavericks ${tbl[$CODE_M]}
-    fi
+    btools.py --IR set_vdd_core ${tbl[$CODE_M]}
     logger "VDD setting: ${tbl[$CODE_M]}"
     echo "setting Tofino VDD_CORE to ${tbl[$CODE_M]}..."
   fi

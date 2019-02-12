@@ -1,11 +1,12 @@
 #!/usr/bin/python
 #
-# File is the tool for bringup of tofino chipset on Mavericks and Montara.
+# File is the tool for bringup of tofino chipset on Mavericks, Montara and Newport.
 #
 import sys
 import os
 import getopt
 import subprocess
+import bmc_command
 import os.path
 from time import sleep
 
@@ -15,28 +16,56 @@ from time import sleep
 def usage():
 
     print " "
-    print "USAGE: "
-    print "./btools.py --<[device]/help>"
-    print "[device]"
-    print "          PSU  => PFE1100 power supply unit"
-    print "          UCD  => UCD90120A power supply sequencer"
-    print "          IR   => Multiphase Controller"
-    print "          TMP  => Temperature Sensors"
-    print "Eg:"
-    print "./btools.py --PSU help"
-    print "./btools.py --UCD help"
-    print "./btools.py --IR help"
+    print "USAGE:"
+    print "./btools.py --<device>"
+    print "              PSU  => PFE1100 power supply unit"
+    print "              UCD  => UCD90120A power supply sequencer"
+    print "              IR   => Multiphase Controller"
+    print "              TMP  => Temperature Sensors"
     print "./btools.py --help"
+    print " "
+    print "Eg."
+    print "btools.py --PSU help"
+    print "btools.py --UCD help"
+    print "btools.py --IR help"
+    print "btools.py --TMP help"
+    print "btools.py --help"
+    print " "
 
+    return
+#
+# Read board_type of FRU EEPROM
+#
+def get_project(cmd=['weutil']):
+    proc = subprocess.Popen(cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+    try:
+        data, err = bmc_command.timed_communicate(proc)
+    except bmc_command.TimeoutError as ex:
+        data = ex.output
+        err = ex.error
+
+    # need to remove the first info line from weutil
+    adata = data.split('\n', 1)
+    for sdata in adata[1].split('\n'):
+        tdata = sdata.split(':', 1)
+        if (len(tdata) < 2):
+            continue
+        if tdata[0].strip() == "Location on Fabric" :
+            return tdata[1].strip()
+
+    print "Error occured while capturing Location on Fabric"
     return
 #
 # Usage for PSU related arguments
 #
 def error_psu_usage():
+
     print " "
-    print "USAGE: "
+    print "USAGE:"
     print "./btools.py --PSU <power supply number> r v              => input voltage"
-    print "                     <1 - 2>            r vo             => output voltage"
+    print "                  <1 - 2>               r vo             => output voltage"
     print "                                        r i              => current"
     print "                                        r p              => power"
     print "                                        r ld             => load sharing"
@@ -46,8 +75,11 @@ def error_psu_usage():
     print "                                        r sts_in_power   => power input status"
     print "                                        r sts_op_power   => power output status"
     print " "
-    print "./btools.py --PSU 1 r v   => Read input voltage for power supply 1"
+    print "Eg."
+    print "btools.py --PSU 1 r v   => Read input voltage for power supply 1"
+    print " "
 
+    return
 #
 # Presence and power status is read from CPLD
 #
@@ -347,19 +379,20 @@ def error_ucd_usage():
 
     print " "
     print "Usage:"
-    print "./btools.py --UCD sh v <mavericks/mavericks-p0c/montara>    => Show Voltage of all rails"
+    print "./btools.py --UCD sh v     => Show Voltage of all rails"
     print "                  fault    => Show Voltage fault/warnings of all rails"
-    print "                  set_margin  <rail number> <margin> <mavericks/montara>"
-    print "                                 <1 - 12>    l /h /n"
-    print "                                             l => low"
-    print "                                             h => high"
-    print "                                             n => none"
-
-    print "./btools.py --UCD sh v mavericks"
-    print "./btools.py --UCD sh v mavericks-p0c"
-    print "./btools.py --UCD set_margin 5 l montara"
+    print "                  set_margin <rail number> <margin>"
+    print "                             <1 - 12>      l /h /n"
+    print "                                           l => low"
+    print "                                           h => high"
+    print "                                           n => none"
+    print " "
+    print "Eg."
+    print "btools.py --UCD sh v"
+    print "btools.py --UCD set_margin 5 l"
     print " "
 
+    return
 #
 # Reads voltage faults on all rails
 #
@@ -512,7 +545,7 @@ def ucd_rail_voltage_mavericks(poc):
 
 
 #
-# Displays all rails voltages montara
+# Displays all rails voltages montara or newport
 #
 def ucd_rail_voltage_montara():
 
@@ -596,14 +629,17 @@ def ucd_voltage_margin(arg):
     UCD_PAGE_OP = "0x00"
     UCD_MARGIN_OP = "0x01"
 
-    if len(arg) is not 4:
+    # Check # of parameters
+    if len(arg) != 3:
         error_ucd_usage()
         return
-    if arg[3] == "mavericks":
+    # Get project name
+    platform = get_project()
+    if platform.lower() == "maverick" or platform.lower() == "mavericks":
     	if not 1 <= int(arg[1]) <= 15:
              error_ucd_usage()
              return
-    elif arg[3] == "montara":
+    elif platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
     	if not 1 <= int(arg[1]) <= 12:
              error_ucd_usage()
              return
@@ -669,16 +705,22 @@ def ucd(argv):
 
     arg_ucd = argv[2:]
 
-    if arg_ucd[0] == "help" or arg_ucd[0] == "h" or len(arg_ucd) < 3:
+    if arg_ucd[0] == "help" or arg_ucd[0] == "h" or len(arg_ucd) < 1:
         error_ucd_usage()
         return
 
     if arg_ucd[0] == "sh":
-        if arg_ucd[2] == "Mavericks" or arg_ucd[2] == "mavericks" :
+        # Check # of parameters
+        if len(arg_ucd) != 2:
+            error_ucd_usage()
+            return
+        # Get project name
+        platform = get_project()
+        if platform.lower() == "maverick" or platform.lower() == "mavericks":
             ucd_rail_voltage_mavericks(0)
-        elif arg_ucd[2] == "Mavericks-p0c" or arg_ucd[2] == "mavericks-p0c" :
+        elif platform.lower() == "mavericks-p0c" :
             ucd_rail_voltage_mavericks(1)
-        elif arg_ucd[2] == "Montara" or arg_ucd[2] == "montara" :
+        elif platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
             ucd_rail_voltage_montara()
         else :
             error_ucd_usage()
@@ -925,7 +967,7 @@ def ir_voltage_show_mavericks(poc):
     ir_restore_i2c_switch(a)
 
     LOWER_IR_I2C_BUS = "0x1"
-# for Mavericks-P0C
+#for Mavericks-P0C
     if (poc == 1):
       LOWER_IR_PMBUS_ADDR = {1: "0x71", 2: "0x72", 3: "0x70"}
       lower_string = {1: "QSFP_LOWER", 2: "RETIMER_VDDA", 3:"RETIMER_VDD"}
@@ -1005,20 +1047,24 @@ def error_ir_usage():
 
     print ""
     print "Usage:"
-    print "./btools.py --IR sh v <mavericks/mavericks-p0c/montara>         => Show IR voltages "
-    print "./btools.py --IR set <mavericks-p0c/mavericks/montara> <margin>    <voltage rail>  => Set IR voltages margin"
-    print "                                           l = low margin       AVDD                   "
-    print "                                           h = high margin      VDD_CORE               "
-    print "                                           n = normal           QSFP_UPPER  (QSFP for Montara)"
-    print "                                                                QSFP_LOWER             "
-    print "                                                                RETIMER_VDD  (mav p0c only) "
-    print "                                                                RETIMER_VDDA (mav p0c only) "
-    print "                                                                REPEATER               "
+    print "./btools.py --IR sh v                                  => Show IR voltages "
+    print "./btools.py --IR set <margin>          <voltage rail>  => Set IR voltages margin"
+    print "                     l = low margin    AVDD"
+    print "                     h = high margin   VDD_CORE"
+    print "                     n = normal        QSFP_UPPER  (QSFP for Montara/Newport)"
+    print "                                       QSFP_LOWER"
+    print "                                       RETIMER_VDD  (mav p0c only)"
+    print "                                       RETIMER_VDDA (mav p0c only)"
+    print "                                       REPEATER"
     print ""
     # Commenting this part as nobody other than Barefoot Hardware team should touch this functionality
-    #print "./btools.py --IR set_vdd_core <mavericks> <voltage> <= Set IR voltages margin for VDD_CORE"
-    #print "                                                       <voltage> must be in range of .65-.95V else discarded"
-    #print " eg: ./btools.py --IR set_vdd_core mavericks .80 "
+    #print "./btools.py --IR set_vdd_core <voltage>               => Set IR voltages margin for VDD_CORE"
+    #print "                              <voltage> must be in range of .65-.95V else discarded"
+    print "Eg."
+    print "btools.py --IR sh v"
+    #print "btools.py --IR set_vdd_core .80"
+    print ""
+
     return
 
 def read_vout(rail, I2C_BUS, I2C_ADDR):
@@ -1131,7 +1177,7 @@ def ir_voltage_set_montara(arg_ir):
     IR_VOUT_MARGIN_LOW = "0x26"
     IR_VOUT_CMD = "0x21"
 
-    if arg_ir[3] == "AVDD":
+    if arg_ir[2] == "AVDD":
 
       # keep this command for few boards
       #fix_montara_avdd_ir_pmbus()
@@ -1141,12 +1187,12 @@ def ir_voltage_set_montara(arg_ir):
       VOLT_NORMAL = "0x1CE"
       i2c_addr = IR_PMBUS_ADDR.get(2)
 
-      if arg_ir[2] == "l":
+      if arg_ir[1] == "l":
         margin_cmd = IR_VOUT_MARGIN_LOW
         margin_apply = IR_MARGIN_LOW_AOF_OP
         voltage = VOLT_MARGIN_LOW
 
-      elif arg_ir[2] == "h":
+      elif arg_ir[1] == "h":
         margin_cmd = IR_VOUT_MARGIN_HIGH
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
@@ -1156,9 +1202,9 @@ def ir_voltage_set_montara(arg_ir):
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
 
-      set_ir_voltage(arg_ir[3], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+      set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
-    elif arg_ir[3] == "VDD_CORE":
+    elif arg_ir[2] == "VDD_CORE":
 
       # keep this command for few boards
       #fix_montara_vdd_core_ir_pmbus()
@@ -1169,12 +1215,12 @@ def ir_voltage_set_montara(arg_ir):
       VOLT_NORMAL = "0x1AE"
       i2c_addr = IR_PMBUS_ADDR.get(1)
 
-      if arg_ir[2] == "l":
+      if arg_ir[1] == "l":
         margin_cmd = IR_VOUT_MARGIN_LOW
         margin_apply = IR_MARGIN_LOW_AOF_OP
         voltage = VOLT_MARGIN_LOW
 
-      elif arg_ir[2] == "h":
+      elif arg_ir[1] == "h":
         margin_cmd = IR_VOUT_MARGIN_HIGH
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
@@ -1184,21 +1230,21 @@ def ir_voltage_set_montara(arg_ir):
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
 
-      set_ir_voltage(arg_ir[3], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+      set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
-    elif arg_ir[3] == "QSFP":
+    elif arg_ir[2] == "QSFP":
 
       VOLT_MARGIN_HIGH = "0x361"
       VOLT_MARGIN_LOW = "0x323"
       VOLT_NORMAL =  "0x34D"
       i2c_addr = IR_PMBUS_ADDR.get(3)
 
-      if arg_ir[2] == "l":
+      if arg_ir[1] == "l":
         margin_cmd = IR_VOUT_MARGIN_LOW
         margin_apply = IR_MARGIN_LOW_AOF_OP
         voltage = VOLT_MARGIN_LOW
 
-      elif arg_ir[2] == "h":
+      elif arg_ir[1] == "h":
         margin_cmd = IR_VOUT_MARGIN_HIGH
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
@@ -1208,7 +1254,7 @@ def ir_voltage_set_montara(arg_ir):
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
 
-      set_ir_voltage(arg_ir[3], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+      set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     else:
         error_ir_usage()
@@ -1223,11 +1269,7 @@ def ir_set_vdd_core_dynamic_range_montara(arg_ir):
     IR_MARGIN_OFF = "0x80"
     IR_VOUT_CMD = "0x21"
 
-    if len(arg_ir) != 3:
-        error_ir_usage()
-	return
-
-    v = float(arg_ir[2])
+    v = float(arg_ir[1])
 
     if v < 0.65 or v > 0.95:
 	print "Voltage value not in range .65 - .95"
@@ -1263,11 +1305,7 @@ def ir_set_vdd_core_dynamic_range_mavericks(arg_ir):
     IR_MARGIN_OFF = "0x80"
     IR_VOUT_CMD = "0x21"
 
-    if len(arg_ir) != 3:
-        error_ir_usage()
-	return
-
-    v = float(arg_ir[2])
+    v = float(arg_ir[1])
 
     if v < 0.65 or v > 0.95:
 	print "Voltage value not in range .65 - .95"
@@ -1319,7 +1357,7 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
     IR_VOUT_CMD = "0x21"
 
 
-    if arg_ir[3] == "AVDD":
+    if arg_ir[2] == "AVDD":
 
       # voltage +3% -3%  0x1b6=>438
       VOLT_MARGIN_HIGH = "0x1DB"
@@ -1327,12 +1365,12 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
       VOLT_NORMAL = "0x1CE"
       i2c_addr = UPPER_IR_PMBUS_ADDR.get(2)
 
-      if arg_ir[2] == "l":
+      if arg_ir[1] == "l":
         margin_cmd = IR_VOUT_MARGIN_LOW
         margin_apply = IR_MARGIN_LOW_AOF_OP
         voltage = VOLT_MARGIN_LOW
 
-      elif arg_ir[2] == "h":
+      elif arg_ir[1] == "h":
         margin_cmd = IR_VOUT_MARGIN_HIGH
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
@@ -1342,9 +1380,9 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
 
-      set_ir_voltage(arg_ir[3], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+      set_ir_voltage(arg_ir[2], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
-    elif arg_ir[3] == "VDD_CORE":
+    elif arg_ir[2] == "VDD_CORE":
 
       # voltage +2% -2%  0x1AE=>430
       VOLT_MARGIN_HIGH = "0x0DB"
@@ -1352,12 +1390,12 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
       VOLT_NORMAL =  "0x0D7"
       i2c_addr = UPPER_IR_PMBUS_ADDR.get(1)
 
-      if arg_ir[2] == "l":
+      if arg_ir[1] == "l":
         margin_cmd = IR_VOUT_MARGIN_LOW
         margin_apply = IR_MARGIN_LOW_AOF_OP
         voltage = VOLT_MARGIN_LOW
 
-      elif arg_ir[2] == "h":
+      elif arg_ir[1] == "h":
         margin_cmd = IR_VOUT_MARGIN_HIGH
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
@@ -1367,21 +1405,21 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
 
-      set_ir_voltage(arg_ir[3], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+      set_ir_voltage(arg_ir[2], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
-    elif arg_ir[3] == "QSFP_UPPER":
+    elif arg_ir[2] == "QSFP_UPPER":
 
       VOLT_MARGIN_HIGH = "0x361"
       VOLT_MARGIN_LOW = "0x323"
       VOLT_NORMAL =  "0x34D"
       i2c_addr = UPPER_IR_PMBUS_ADDR.get(3)
 
-      if arg_ir[2] == "l":
+      if arg_ir[1] == "l":
         margin_cmd = IR_VOUT_MARGIN_LOW
         margin_apply = IR_MARGIN_LOW_AOF_OP
         voltage = VOLT_MARGIN_LOW
 
-      elif arg_ir[2] == "h":
+      elif arg_ir[1] == "h":
         margin_cmd = IR_VOUT_MARGIN_HIGH
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
@@ -1391,21 +1429,21 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
 
-      set_ir_voltage(arg_ir[3], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+      set_ir_voltage(arg_ir[2], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
-    elif arg_ir[3] == "QSFP_LOWER":
+    elif arg_ir[2] == "QSFP_LOWER":
 
       VOLT_MARGIN_HIGH = "0x361"
       VOLT_MARGIN_LOW = "0x323"
       VOLT_NORMAL =  "0x34D"
       i2c_addr = LOWER_IR_PMBUS_ADDR.get(1)
 
-      if arg_ir[2] == "l":
+      if arg_ir[1] == "l":
         margin_cmd = IR_VOUT_MARGIN_LOW
         margin_apply = IR_MARGIN_LOW_AOF_OP
         voltage = VOLT_MARGIN_LOW
 
-      elif arg_ir[2] == "h":
+      elif arg_ir[1] == "h":
         margin_cmd = IR_VOUT_MARGIN_HIGH
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
@@ -1415,9 +1453,9 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
 
-      set_ir_voltage(arg_ir[3], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+      set_ir_voltage(arg_ir[2], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
-    elif arg_ir[3] == "RETIMER_VDD":
+    elif arg_ir[2] == "RETIMER_VDD":
       if (p0c != 1):
          error_ir_usage()
       VOLT_MARGIN_HIGH = "0x20F"
@@ -1427,12 +1465,12 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
       #set VDD
       i2c_addr = LOWER_IR_PMBUS_ADDR.get(3)
 
-      if arg_ir[2] == "l":
+      if arg_ir[1] == "l":
         margin_cmd = IR_VOUT_MARGIN_LOW
         margin_apply = IR_MARGIN_LOW_AOF_OP
         voltage = VOLT_MARGIN_LOW
 
-      elif arg_ir[2] == "h":
+      elif arg_ir[1] == "h":
         margin_cmd = IR_VOUT_MARGIN_HIGH
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
@@ -1442,10 +1480,10 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
 
-      set_ir_voltage(arg_ir[3], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+      set_ir_voltage(arg_ir[2], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     #set VDDA
-    elif arg_ir[3] == "RETIMER_VDDA":
+    elif arg_ir[2] == "RETIMER_VDDA":
       if (p0c != 1):
          error_ir_usage()
       i2c_addr = LOWER_IR_PMBUS_ADDR.get(2)
@@ -1453,12 +1491,12 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
       VOLT_A_MARGIN_LOW = "0x37E"
       VOLT_A_NORMAL =  "0x39A"
 
-      if arg_ir[2] == "l":
+      if arg_ir[1] == "l":
         margin_cmd = IR_VOUT_MARGIN_LOW
         margin_apply = IR_MARGIN_LOW_AOF_OP
         voltage = VOLT_A_MARGIN_LOW
 
-      elif arg_ir[2] == "h":
+      elif arg_ir[1] == "h":
         margin_cmd = IR_VOUT_MARGIN_HIGH
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_A_MARGIN_HIGH
@@ -1468,9 +1506,9 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_A_NORMAL
 
-      set_ir_voltage(arg_ir[3], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+      set_ir_voltage(arg_ir[2], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
-    elif arg_ir[3] == "REPEATER":
+    elif arg_ir[2] == "REPEATER":
       if (p0c != 0):
          error_ir_usage()
 
@@ -1479,12 +1517,12 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
       VOLT_NORMAL =  "0x280"
       i2c_addr = LOWER_IR_PMBUS_ADDR.get(2)
 
-      if arg_ir[2] == "l":
+      if arg_ir[1] == "l":
         margin_cmd = IR_VOUT_MARGIN_LOW
         margin_apply = IR_MARGIN_LOW_AOF_OP
         voltage = VOLT_MARGIN_LOW
 
-      elif arg_ir[2] == "h":
+      elif arg_ir[1] == "h":
         margin_cmd = IR_VOUT_MARGIN_HIGH
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
@@ -1494,7 +1532,7 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
 
-      set_ir_voltage(arg_ir[3], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+      set_ir_voltage(arg_ir[2], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     else:
         error_ir_usage()
@@ -1507,34 +1545,52 @@ def ir(argv):
 
     arg_ir = argv[2:]
 
-    if arg_ir[0] == "help" or arg_ir[0] == "h" or (len(arg_ir) != 3 and len(arg_ir) != 4):
+    if arg_ir[0] == "help" or arg_ir[0] == "h" or len(arg_ir) < 1:
         error_ir_usage()
         return
 
     if arg_ir[0] == "sh":
-        if arg_ir[2] == "Mavericks" or arg_ir[2] == "mavericks" :
+        # Check # of parameters
+        if len(arg_ir) != 2:
+            error_ir_usage()
+            return
+        # Get project name
+        platform = get_project()
+        if platform.lower() == "maverick" or platform.lower() == "mavericks":
             ir_voltage_show_mavericks(0)
-        elif arg_ir[2] == "Mavericks-P0C" or arg_ir[2] == "mavericks-p0c" :
+        elif platform.lower() == "mavericks-p0c":
             ir_voltage_show_mavericks(1)
-        elif arg_ir[2] == "Montara" or arg_ir[2] == "montara" :
+        elif platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
             ir_voltage_show_montara()
         else :
             error_ir_usage()
             return
     elif arg_ir[0] == "set":
-        if arg_ir[1] == "Mavericks-P0C" or arg_ir[1] == "mavericks-p0c" :
-            ir_voltage_set_mavericks(arg_ir, 1)
-        elif arg_ir[1] == "Mavericks" or arg_ir[1] == "mavericks" :
+        # Check # of parameters
+        if len(arg_ir) != 3:
+            error_ir_usage()
+            return
+        # Get project name
+        platform = get_project()
+        if platform.lower() == "maverick" or platform.lower() == "mavericks":
             ir_voltage_set_mavericks(arg_ir, 0)
-        elif arg_ir[1] == "Montara" or arg_ir[1] == "montara" :
+        elif platform.lower() == "mavericks-p0c":
+            ir_voltage_set_mavericks(arg_ir, 1)
+        elif platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
             ir_voltage_set_montara(arg_ir)
         else :
             error_ir_usage()
             return
     elif arg_ir[0] == "set_vdd_core":
-        if arg_ir[1] == "Mavericks" or arg_ir[1] == "mavericks" :
+        # Check # of parameters
+        if len(arg_ir) != 2:
+            error_ir_usage()
+            return
+        # Get project name
+        platform = get_project()
+        if platform.lower() == "maverick" or platform.lower() == "mavericks":
 	     ir_set_vdd_core_dynamic_range_mavericks(arg_ir)
-        elif arg_ir[1] == "Montara" or arg_ir[1] == "montara" :
+        elif platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
             ir_set_vdd_core_dynamic_range_montara(arg_ir)
         else :
             error_ir_usage()
@@ -1555,15 +1611,16 @@ def error_tmp_usage():
 
     print " "
     print "Usage:"
-    print "./btools.py --TMP <board type> sh           => Show Temp"
-    print "                  <board type>      Montara or Mavericks"
+    print "./btools.py --TMP sh   => Show Temp"
+    print " "
     print "Eg."
-    print "./btools.py --TMP Montara sh        Show Temp sensors values on Montara"
+    print "btools.py --TMP sh"
+    print " "
 
     return
 
 #
-# Lower board temperature sensors. Board exists on Montara and Mavericks
+# Lower board temperature sensors. Board exists on Montara, Mavericks and Newport
 #
 def tmp_lower(board):
 
@@ -1595,7 +1652,7 @@ def tmp_lower(board):
             print e
             print "Error occured while reading Temperature sensor %d " % i
 
-    if board == "Montara":
+    if board == "Montara" or board == "Newport":
 
         cmd = "i2cget"
 
@@ -1765,30 +1822,36 @@ def tmp_restore_i2c_switch(res):
 #
 def tmp(argv):
 
-    if argv[2] == "help" or argv[2] == "h":
+    arg_tmp = argv[2:]
+
+    if arg_tmp[0] == "help" or arg_tmp[0] == "h" or len(arg_tmp) < 1:
         error_tmp_usage()
         return
 
-    if len(argv) != 4:
-        error_tmp_usage()
-        return
-
-    if argv[3] != "sh":
-        error_tmp_usage()
-        return
-
-    if argv[2] == "Montara" or argv[2] =="montara":
-        tmp_lower("Montara")
-    elif argv[2] == "Mavericks" or argv[2] == "mavericks":
-        a = tmp_open_i2c_switch()
-        tmp_lower("Mavericks")
-        tmp_upper(0)
-        tmp_restore_i2c_switch(a)
-    elif argv[2] == "Mavericks-P0C" or argv[2] == "mavericks-p0c":
-        a = tmp_open_i2c_switch()
-        tmp_lower("Mavericks")
-        tmp_upper(1)
-        tmp_restore_i2c_switch(a)
+    if arg_tmp[0] == "sh":
+        # Check # of parameters
+        if len(arg_tmp) != 1:
+            error_tmp_usage()
+            return
+        # Get project name
+        platform = get_project()
+        if platform.lower() == "montara":
+            tmp_lower("Montara")
+        elif platform.lower() == "newport" or platform.lower() == "newports":
+            tmp_lower("Newport")
+        elif platform.lower() == "maverick" or platform.lower() == "mavericks":
+            a = tmp_open_i2c_switch()
+            tmp_lower("Mavericks")
+            tmp_upper(0)
+            tmp_restore_i2c_switch(a)
+        elif platform.lower() == "mavericks-p0c":
+            a = tmp_open_i2c_switch()
+            tmp_lower("Mavericks")
+            tmp_upper(1)
+            tmp_restore_i2c_switch(a)
+        else:
+            error_tmp_usage()
+            return
     else:
         error_tmp_usage()
         return

@@ -18,15 +18,36 @@
 # Boston, MA 02110-1301 USA
 #
 
-FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0033
+. /usr/local/bin/openbmc-utils.sh
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
+
+board_type=$(wedge_board_type)
+
+if [ "$board_type" == "MAVERICKS" ]; then
+    FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0033
+elif [ "$board_type" == "NEWPORT" ]; then
+    FANS="1 2 3 4 5 6"
+    FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0066
+fi
 
 show_present()
 {
-    fantray_pres="${FAN_DIR}/fantray_present"
+    if [ "$board_type" == "MAVERICKS" ]; then
+        fantray_pres="${FAN_DIR}/fantray_present"
+    elif [ "$board_type" == "NEWPORT" ]; then
+        fantray_pres="${FAN_DIR}/fantray${1}_present"
+    fi
     echo "$(cat $fantray_pres)"
 }
 
 set -e
 
-# refer to the comments in init_pwn.sh regarding
-echo "Fantray present: $(show_present)"
+if [ "$board_type" == "MAVERICKS" ]; then
+    # refer to the comments in init_pwn.sh regarding
+    echo "Fantray present: $(show_present)"
+elif [ "$board_type" == "NEWPORT" ]; then
+    for fan in $FANS; do
+        echo "Fan $fan present: $(show_present $fan)"
+    done
+fi

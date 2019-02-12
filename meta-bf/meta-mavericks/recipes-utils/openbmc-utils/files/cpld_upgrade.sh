@@ -16,6 +16,12 @@
 # Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
+. /usr/local/bin/openbmc-utils.sh
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
+
+board_subtype=$(wedge_board_subtype)
+
 usage() {
     echo "Usage: ${0} <target board (upper lower)> <target cpld (sys fan)> <cpld_image.jbc>" >&2
 }
@@ -25,6 +31,8 @@ upgrade_upper_syscpld() {
     echo out > /tmp/gpionames/CPLD_UPPER_JTAG_SEL/direction
     echo 1 > /tmp/gpionames/CPLD_UPPER_JTAG_SEL/value
 
+    #disable heartbeat
+    i2cset -y -f 12 0x31 0x2e 0x18
     #program syscpld
     rc=$(jbi -r -aPROGRAM -gc57 -gi56 -go58 -gs147 $1 | grep -i "Success")
     if [[ $rc == *"Success"* ]]; then
@@ -39,6 +47,8 @@ upgrade_lower_syscpld() {
     echo out > /tmp/gpionames/CPLD_JTAG_SEL/direction
     echo 1 > /tmp/gpionames/CPLD_JTAG_SEL/value
 
+    #disable heartbeat
+    i2cset -y -f 12 0x31 0x2e 0x18
     #program syscpld
     rc=$(jbi -r -aPROGRAM -gc102 -gi101 -go103 -gs100 $1 | grep -i "Success")
     if [[ $rc == *"Success"* ]]; then
@@ -111,15 +121,25 @@ if [ ${filename: -4} != ".jbc" ] && [ ${filename: -4} != ".JBC" ]; then
     exit 1
 fi
 
+# 2U: Mavericks, 1U: Montara, Newport
+if [ $1 == "upper" ] && [ "$board_subtype" != "Mavericks" ]; then
+    echo "upper board does not exist"
+    exit 1
+fi
+
 # Check the file name and upgrade accordingly
-if [ $1 == "upper" ] && [ $2 == "sys" ]; then
-    upgrade_upper_syscpld $jbcfile
-elif [ $1 == "lower" ] && [ $2 == "sys" ]; then
-    upgrade_lower_syscpld $jbcfile
-elif [ $1 == "upper" ] && [ $2 == "fan" ]; then
-    upgrade_upper_fancpld $jbcfile
-elif [ $1 == "lower" ] && [ $2 == "fan" ]; then
-    upgrade_lower_fancpld $jbcfile
+if [ $1 == "upper" ]; then
+    if [ $2 == "sys" ]; then
+        upgrade_upper_syscpld $jbcfile
+    else
+        upgrade_upper_fancpld $jbcfile
+    fi
+elif [ $1 == "lower" ]; then
+    if [ $2 == "sys" ]; then
+        upgrade_lower_syscpld $jbcfile
+    else
+        upgrade_lower_fancpld $jbcfile
+    fi
 else
   usage
   exit 1

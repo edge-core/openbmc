@@ -40,7 +40,7 @@ index 2e29737..b470df8 100644
  	ast_scu_multi_func_eth(0);
  
 diff --git a/arch/arm/plat-aspeed/dev-i2c.c b/arch/arm/plat-aspeed/dev-i2c.c
-index fc1a0d6..59dab85 100644
+index fc1a0d6..6f91a75 100644
 --- a/arch/arm/plat-aspeed/dev-i2c.c
 +++ b/arch/arm/plat-aspeed/dev-i2c.c
 @@ -1,4 +1,5 @@
@@ -49,7 +49,7 @@ index fc1a0d6..59dab85 100644
  * File Name     : linux/arch/arm/plat-aspeed/dev-i2c.c
  * Author        : Ryan chen
  * Description   : ASPEED I2C Device
-@@ -1051,6 +1052,118 @@ static struct i2c_board_info __initdata ast_i2c_board_info_14[] = {
+@@ -1051,6 +1052,126 @@ static struct i2c_board_info __initdata ast_i2c_board_info_14[] = {
  
  /* end of defined(CONFIG_LIGHTNING) */
  
@@ -139,6 +139,10 @@ index fc1a0d6..59dab85 100644
 +  {
 +    I2C_BOARD_INFO("tmp75", 0x49),
 +  },
++  /*For Newport*/
++  {
++    I2C_BOARD_INFO("fancpld", 0x66),
++  },
 +};
 +
 +static struct i2c_board_info __initdata mavericks_i2c_bus10[] = {
@@ -146,7 +150,11 @@ index fc1a0d6..59dab85 100644
 +    I2C_BOARD_INFO("fancpld", 0x33),
 +  },
 +  {
-+      I2C_BOARD_INFO("pca9548", 0x70),
++    I2C_BOARD_INFO("pca9548", 0x70),
++  },
++  /*For Newport, but ignore since bus10 is for upper fantray*/
++  {
++    I2C_BOARD_INFO("fancpld", 0x66),
 +  },
 +};
 +
@@ -168,7 +176,7 @@ index fc1a0d6..59dab85 100644
  #else
  
  /* wedge */
-@@ -1386,6 +1499,48 @@ void __init ast_add_device_i2c(void)
+@@ -1386,6 +1507,48 @@ void __init ast_add_device_i2c(void)
  
  	platform_device_register(&ast_i2c_dev14_device);
  	i2c_register_board_info(13, ast_i2c_board_info_14, ARRAY_SIZE(ast_i2c_board_info_14));
@@ -202,8 +210,8 @@ index fc1a0d6..59dab85 100644
 +  platform_device_register(&ast_i2c_dev9_device);
 +  i2c_register_board_info(8, mavericks_i2c_bus9, ARRAY_SIZE(mavericks_i2c_bus9));
 +
-+	platform_device_register(&ast_i2c_dev10_device);
-+	i2c_register_board_info(9, mavericks_i2c_bus10, ARRAY_SIZE(mavericks_i2c_bus10));
++  platform_device_register(&ast_i2c_dev10_device);
++  i2c_register_board_info(9, mavericks_i2c_bus10, ARRAY_SIZE(mavericks_i2c_bus10));
 +
 +  /* i2c bus 11, 12 are not used as i2c on mavericks */
 +

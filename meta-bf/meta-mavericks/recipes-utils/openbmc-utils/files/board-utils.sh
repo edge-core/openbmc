@@ -44,7 +44,53 @@ wedge_is_us_on() {
 }
 
 wedge_board_type() {
-    echo 'MAVERICKS'
+    local pn
+    pn=$(/usr/bin/weutil 2> /dev/null | grep -i '^Location on Fabric:')
+    case "$pn" in
+        *Montara*)
+            echo 'MAVERICKS'
+            ;;
+        *Maverick*)
+            echo 'MAVERICKS'
+            ;;
+        *Mavericks*)
+            echo 'MAVERICKS'
+            ;;
+        *Newport*)
+            echo 'NEWPORT'
+            ;;
+        *Newports*)
+            echo 'NEWPORT'
+            ;;
+        *)                  # Follow bf_board_type_get() of fand.cpp, defaulting to Montara
+            echo 'MAVERICKS'
+            ;;
+    esac
+}
+
+wedge_board_subtype() {
+    local pn
+    pn=$(/usr/bin/weutil 2> /dev/null | grep -i '^Location on Fabric:')
+    case "$pn" in
+        *Montara*)
+            echo 'Montara'
+            ;;
+        *Maverick*)
+            echo 'Mavericks'
+            ;;
+        *Mavericks*)
+            echo 'Mavericks'
+            ;;
+        *Newport*)
+            echo 'Newport'
+            ;;
+        *Newports*)
+            echo 'Newport'
+            ;;
+        *)                  # Follow bf_board_type_get() of fand.cpp, defaulting to Montara
+            echo 'Montara'
+            ;;
+    esac
 }
 
 wedge_slot_id() {

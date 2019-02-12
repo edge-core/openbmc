@@ -44,7 +44,7 @@
 /* XXX:  Both CONFIG_WEDGE and CONFIG_MAVERICKS are defined for MAVERICKS */
 
 #if !defined(CONFIG_YOSEMITE) && !defined(CONFIG_WEDGE) && \
-    !defined(CONFIG_WEDGE100) && !defined(CONFIG_MAVERICKS) && !defined(CONFIG_JBAY) && \
+    !defined(CONFIG_WEDGE100) && !defined(CONFIG_MAVERICKS) && \
     !defined(CONFIG_LIGHTNING)
 #error "No hardware platform defined!"
 #endif
@@ -69,7 +69,7 @@
 #include <facebook/wedge_eeprom.h>
 #endif
 
-#if defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+#if defined(CONFIG_MAVERICKS)
 #include <fcntl.h>
 #include <facebook/i2c-dev.h>
 #endif
@@ -80,7 +80,7 @@
 /* Sensor definitions */
 
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
-                          || defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+                          || defined(CONFIG_MAVERICKS)
 #define INTERNAL_TEMPS(x) ((x) * 1000) // stored as C * 1000
 #define EXTERNAL_TEMPS(x) ((x) / 1000)
 #define WEDGE100_COME_DIMM 100000 // 100C
@@ -98,7 +98,7 @@
  */
 
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
-                          || defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+                          || defined(CONFIG_MAVERICKS)
 #define USERVER_TEMP_FUDGE INTERNAL_TEMPS(10)
 #else
 #define USERVER_TEMP_FUDGE INTERNAL_TEMPS(0)
@@ -139,11 +139,15 @@
 #define USERVER_POWER "/sys/bus/i2c/drivers/syscpld/12-0031/pwr_usrv_en"
 
 #elif defined(CONFIG_MAVERICKS)
-
 #define PWM_DIR "/sys/bus/i2c/drivers/fancpld/8-0033/"
+#define PWM_UPPER_DIR "/sys/bus/i2c/drivers/fancpld/9-0033/"
+/*For Newport*/
+#define PWM_DIR_NEWPORT "/sys/bus/i2c/drivers/fancpld/8-0066/"
 
 /* Convert the percentage to our 1/32th unit (0-31). */
 #define PWM_UNIT_MAX 31
+/*For Newport, Convert the percentage to our 1/16th unit (0-15). */
+#define PWM_UNIT_MAX_NEWPORT 16
 
 #define LM75_DIR "/sys/bus/i2c/drivers/lm75/"
 #define COM_E_DIR "/sys/bus/i2c/drivers/com_e_driver/"
@@ -160,52 +164,31 @@
 #define FAN2_LED PWM_DIR "fantray3_led_ctrl"
 #define FAN3_LED PWM_DIR "fantray4_led_ctrl"
 #define FAN4_LED PWM_DIR "fantray5_led_ctrl"
-
-#define PWM_UPPER_DIR "/sys/bus/i2c/drivers/fancpld/9-0033/"
 #define FAN5_LED PWM_UPPER_DIR "fantray1_led_ctrl"
 #define FAN6_LED PWM_UPPER_DIR "fantray2_led_ctrl"
 #define FAN7_LED PWM_UPPER_DIR "fantray3_led_ctrl"
 #define FAN8_LED PWM_UPPER_DIR "fantray4_led_ctrl"
 #define FAN9_LED PWM_UPPER_DIR "fantray5_led_ctrl"
+/*For Newport*/
+#define FAN0_LED_R PWM_DIR_NEWPORT "fantray1_led_r"
+#define FAN0_LED_G PWM_DIR_NEWPORT "fantray1_led_g"
+#define FAN1_LED_R PWM_DIR_NEWPORT "fantray2_led_r"
+#define FAN1_LED_G PWM_DIR_NEWPORT "fantray2_led_g"
+#define FAN2_LED_R PWM_DIR_NEWPORT "fantray3_led_r"
+#define FAN2_LED_G PWM_DIR_NEWPORT "fantray3_led_g"
+#define FAN3_LED_R PWM_DIR_NEWPORT "fantray4_led_r"
+#define FAN3_LED_G PWM_DIR_NEWPORT "fantray4_led_g"
+#define FAN4_LED_R PWM_DIR_NEWPORT "fantray5_led_r"
+#define FAN4_LED_G PWM_DIR_NEWPORT "fantray5_led_g"
+#define FAN5_LED_R PWM_DIR_NEWPORT "fantray6_led_r"
+#define FAN5_LED_G PWM_DIR_NEWPORT "fantray6_led_g"
 
 #define FAN_LED_BLUE "0x1"
 #define FAN_LED_RED "0x2"
+/*For Newport*/
+#define FAN_LED_GREEN "0x3"
 
-#define MAIN_POWER "/sys/bus/i2c/drivers/syscpld/12-0031/pwr_main_n"
-#define USERVER_POWER "/sys/bus/i2c/drivers/syscpld/12-0031/pwr_usrv_en"
-
-#elif defined(CONFIG_JBAY)
-
-#define PWM_DIR "/sys/bus/i2c/drivers/fancpld/8-0066/"
-
-/* Convert the percentage to our 1/16th unit (0-15). */
-#define PWM_UNIT_MAX 16
-
-#define LM75_DIR "/sys/bus/i2c/drivers/lm75/"
-#define COM_E_DIR "/sys/bus/i2c/drivers/com_e_driver/"
-
-#define INTAKE_TEMP_DEVICE LM75_DIR "3-004b"
-#define CHIP_TEMP_DEVICE LM75_DIR "3-0048"
-#define EXHAUST_TEMP_DEVICE LM75_DIR "3-004a"
-#define USERVER_TEMP_DEVICE COM_E_DIR "4-0033"
-
-#define FAN_READ_RPM_FORMAT "fan%d_input"
-
-#define FAN0_LED_R PWM_DIR "fantray1_led_r"
-#define FAN0_LED_G PWM_DIR "fantray1_led_g"
-#define FAN1_LED_R PWM_DIR "fantray2_led_r"
-#define FAN1_LED_G PWM_DIR "fantray2_led_g"
-#define FAN2_LED_R PWM_DIR "fantray3_led_r"
-#define FAN2_LED_G PWM_DIR "fantray3_led_g"
-#define FAN3_LED_R PWM_DIR "fantray4_led_r"
-#define FAN3_LED_G PWM_DIR "fantray4_led_g"
-#define FAN4_LED_R PWM_DIR "fantray5_led_r"
-#define FAN4_LED_G PWM_DIR "fantray5_led_g"
-#define FAN5_LED_R PWM_DIR "fantray6_led_r"
-#define FAN5_LED_G PWM_DIR "fantray6_led_g"
-
-#define FAN_LED_GREEN "0x1"
-#define FAN_LED_RED "0x2"
+/*For Newport*/
 #define FAN_LED_ON "0x0"
 #define FAN_LED_OFF "0x1"
 
@@ -251,7 +234,7 @@
 #endif
 
 #if (defined(CONFIG_YOSEMITE) || defined(CONFIG_WEDGE)) && \
-    !defined(CONFIG_WEDGE100) && !defined(CONFIG_MAVERICKS) && !defined(CONFIG_JBAY)
+    !defined(CONFIG_WEDGE100) && !defined(CONFIG_MAVERICKS)
 #define PWM_DIR "/sys/devices/platform/ast_pwm_tacho.0"
 
 #define PWM_UNIT_MAX 96
@@ -265,14 +248,7 @@
 
 #define LARGEST_DEVICE_NAME 120
 
-#if defined(CONFIG_JBAY)
-const char *fan_led_r[] = {FAN0_LED_R, FAN1_LED_R, FAN2_LED_R, FAN3_LED_R,
-                           FAN4_LED_R, FAN5_LED_R
-};
-const char *fan_led_g[] = {FAN0_LED_G, FAN1_LED_G, FAN2_LED_G, FAN3_LED_G,
-                           FAN4_LED_G, FAN5_LED_G
-};
-#elif defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
+#if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
                           || defined(CONFIG_MAVERICKS)
 const char *fan_led[] = {FAN0_LED, FAN1_LED, FAN2_LED, FAN3_LED,
 #if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
@@ -281,6 +257,13 @@ const char *fan_led[] = {FAN0_LED, FAN1_LED, FAN2_LED, FAN3_LED,
 #if defined(CONFIG_MAVERICKS)
                          FAN5_LED, FAN6_LED, FAN7_LED, FAN8_LED, FAN9_LED,
 #endif
+};
+/*For Newports*/
+const char *fan_led_r[] = {FAN0_LED_R, FAN1_LED_R, FAN2_LED_R, FAN3_LED_R,
+                           FAN4_LED_R, FAN5_LED_R
+};
+const char *fan_led_g[] = {FAN0_LED_G, FAN1_LED_G, FAN2_LED_G, FAN3_LED_G,
+                           FAN4_LED_G, FAN5_LED_G
 };
 #endif
 
@@ -296,7 +279,7 @@ const char *fan_led[] = {FAN0_LED, FAN1_LED, FAN2_LED, FAN3_LED,
 #define USERVER_LIMIT INTERNAL_TEMPS(90)
 #endif
 
-#if defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+#if defined(CONFIG_MAVERICKS)
 #define TOFINO_LIMIT  (105)
 #define TOFINO_THRESH (85)
 #define TOFINO_HIGH   (80)
@@ -319,7 +302,7 @@ const char *fan_led[] = {FAN0_LED, FAN1_LED, FAN2_LED, FAN3_LED,
 #define WEDGE_FAN_LOW 35
 #define WEDGE_FAN_MEDIUM 50
 #define WEDGE_FAN_HIGH 70
-#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
 #define WEDGE_FAN_MAX 100
 #else
 #define WEDGE_FAN_MAX 99
@@ -342,6 +325,7 @@ int fan_to_pwm_map[] = {1, 2, 3, 4, 5};
 // Tacho offset between front and rear fans:
 #define REAR_FAN_OFFSET 1
 #define BACK_TO_BACK_FANS
+
 #elif defined(CONFIG_MAVERICKS)
 #define MAV_FAN_LOW 40
 #define MAV_FAN_MEDIUM 60
@@ -352,20 +336,15 @@ int fan_to_pwm_map[] = {1, 2, 3, 4, 5};
  **/
 int fan_to_rpm_map[] = {1, 3, 5, 7, 9, 101, 103, 105, 107, 109};
 int fan_to_pwm_map[] = {1, 2, 3, 4, 5, 101, 102, 103, 104, 105};
+/*For Newport*/
+int fan_to_rpm_map_newport[] = {1, 3, 5, 7, 9, 11};
+int fan_to_pwm_map_newport[] = {1, 2, 3, 4, 5, 6};
+
 #define FANS 5
 // Tacho offset between front and rear fans:
 #define REAR_FAN_OFFSET 1
 #define BACK_TO_BACK_FANS
-#elif defined(CONFIG_JBAY)
-/* make upper  fan tray numbers arbitrarily off by 100, more than the largest
- * value
- **/
-int fan_to_rpm_map[] = {1, 3, 5, 7, 9, 11};
-int fan_to_pwm_map[] = {1, 2, 3, 4, 5, 6};
-#define FANS 6
-// Tacho offset between front and rear fans:
-#define REAR_FAN_OFFSET 1
-#define BACK_TO_BACK_FANS
+
 #elif defined(CONFIG_WEDGE)
 int fan_to_rpm_map[] = {3, 2, 0, 1};
 int fan_to_pwm_map[] = {7, 6, 0, 1};
@@ -398,7 +377,7 @@ struct rpm_to_pct_map {
   uint rpm;
 };
 
-#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
 struct rpm_to_pct_map rpm_front_map[] = {{20, 4200},
                                          {25, 5550},
                                          {30, 6180},
@@ -553,14 +532,13 @@ int report_temp = REPORT_TEMP;
 bool verbose = false;
 
 #if defined(CONFIG_MAVERICKS)
-/* mavericks board types */
+/* board types */
 #define BF_BOARD_MAV 1
 #define BF_BOARD_MON 2
-static int total_fans_upper  = 0;
+#define BF_BOARD_NEW 3
+static int total_fans_upper = 0;
+/*Follow bf_board_type_get(), defaulting to Montara*/
 static int mav_board_type = BF_BOARD_MON;
-#elif defined(CONFIG_JBAY)
-#define BF_BOARD_JBA 1
-static int mav_board_type = BF_BOARD_JBA;
 #endif
 
 void usage() {
@@ -635,7 +613,7 @@ int write_device(const char *device, const char *value) {
 }
 
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
-                          || defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+                          || defined(CONFIG_MAVERICKS)
 int read_temp(const char *device, int *value) {
   char full_name[LARGEST_DEVICE_NAME + 1];
 
@@ -655,7 +633,7 @@ int read_temp(const char *device, int *value) {
 #endif
 
 #if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100) \
-                          && !defined(CONFIG_MAVERICKS) && !defined(CONFIG_JBAY)
+                          && !defined(CONFIG_MAVERICKS)
 int read_gpio_value(const int id, const char *device, int *value) {
   char full_name[LARGEST_DEVICE_NAME];
 
@@ -732,40 +710,28 @@ bool is_two_fan_board(bool verbose) {
 }
 #endif
 
-#if defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+#if defined(CONFIG_MAVERICKS)
 
 /* returns different BF board types */
 static int bf_board_type_get() {
-#if defined(CONFIG_MAVERICKS) /* determine based on presence of upper fan tray */
-  char device_name[100];
-  int present;
-  snprintf(device_name, sizeof(device_name), "%s%s", PWM_UPPER_DIR, "fantray_present");
-  if (read_device(device_name, &present) == 0) {
-    syslog(LOG_NOTICE, "BF board type is Mavericks");
-    return BF_BOARD_MAV;
-  } else {
-    syslog(LOG_NOTICE, "BF board type is Montara");
-    return BF_BOARD_MON;
-  }
-#elif defined(CONFIG_JBAY)
-  syslog(LOG_NOTICE, "BF board type is Jbay");
-  return BF_BOARD_JBA;
-#else  /* old way of doing it based on eeprom board ID */
   struct wedge_eeprom_st eeprom;
   /* Retrieve the board type from EEPROM . We support Rev2 upward EEPROM map */
   if (wedge_eeprom_parse(NULL, &eeprom) == 0) {
     /* able to parse EEPROM */
     if (verbose) {
-      syslog(LOG_INFO, "BF board type is %s", eeprom.fbw_assembly_number);
+      syslog(LOG_INFO, "BF board type is %s", eeprom.fbw_location);
     }
-    if (!strncasecmp(eeprom.fbw_assembly_number, "015-000001-01",
-                   strlen("015-000001-01"))) {
-      syslog(LOG_INFO, "BF board type is Mavericks");
+    if ((!strncasecmp(eeprom.fbw_location, "Maverick", strlen("Maverick")))
+          || (!strncasecmp(eeprom.fbw_location, "Mavericks", strlen("Mavericks")))){
+      syslog(LOG_INFO, "BF board type is %s", eeprom.fbw_location);
       return BF_BOARD_MAV;
-    } else if (!strncasecmp(eeprom.fbw_assembly_number, "015-000003-01",
-                           strlen("015-000003-01"))) {
-      syslog(LOG_INFO, "BF board type is Montara");
+    } else if (!strncasecmp(eeprom.fbw_location, "Montara", strlen("Montara"))) {
+      syslog(LOG_INFO, "BF board type is %s", eeprom.fbw_location);
       return BF_BOARD_MON;
+    } else if ((!strncasecmp(eeprom.fbw_location, "Newport", strlen("Newport")))
+                 || (!strncasecmp(eeprom.fbw_location, "Newports", strlen("Newports")))){
+      syslog(LOG_INFO, "BF board type is %s", eeprom.fbw_location);
+      return BF_BOARD_NEW;
     } else {
       syslog(LOG_WARNING, "BF invalid board type. defaulting to Montara");
       return BF_BOARD_MON;
@@ -774,7 +740,6 @@ static int bf_board_type_get() {
     syslog(LOG_WARNING, "BF error reading eeprom. defaulting to Montara");
     return BF_BOARD_MON;
   }
-#endif
 }
 
 static bool file_exists(const char *file_name) {
@@ -795,18 +760,15 @@ static void mav_read_tofino_temp(int *temp) {
   char full_name[LARGEST_DEVICE_NAME];
   int fd = fd_tofino_ext_tmp;
   int res;
-#if defined(CONFIG_MAVERICKS)
   const char *lock_file_name = "/tmp/mav_9548_10_lock";
   FILE *lock_file_fp;
   int timeout_counter = 0;
-#endif
 
   *temp = BAD_TEMP;
   if (fd == -1) {
     return;
   }
 
-#if defined(CONFIG_MAVERICKS)
   if (mav_board_type == BF_BOARD_MAV) {
     /* Acquire the file lock */
     while (file_exists(lock_file_name) == true) {
@@ -825,16 +787,13 @@ static void mav_read_tofino_temp(int *temp) {
 
     lock_file_fp = fopen(lock_file_name, "w+");
   }
-#endif
 
   /* file_exists() and fopen() can sometimes take a very long time. Hence 
      kick the watch dog so that the delay introduced by us is nullified
      and the timer doesn't go off */
   kick_watchdog();
 
-#if defined(CONFIG_MAVERICKS)
   if (mav_board_type == BF_BOARD_MAV) {
-
     /* open PCA9548 channel */
     res = ioctl(fd, I2C_SLAVE_FORCE, 0x70);
     if (res < 0) {
@@ -844,34 +803,28 @@ static void mav_read_tofino_temp(int *temp) {
     }
     res = i2c_smbus_write_byte(fd, 0x10);
     if (res < 0) {
-      syslog(LOG_CRIT, "Failed to to write slave @ address 0x70");
+      syslog(LOG_CRIT, "Failed to write slave @ address 0x70 error %d", res);
       close_and_remove_file(lock_file_fp, lock_file_name);
       return;
     }
   }
-#endif
   res = ioctl(fd, I2C_SLAVE_FORCE, 0x4c);
   if (res < 0) {
     syslog(LOG_CRIT, "Failed to open slave @ address 0x4c error %d", res);
-#if defined(CONFIG_MAVERICKS)
     if (mav_board_type == BF_BOARD_MAV) {
       close_and_remove_file(lock_file_fp, lock_file_name);
     }
-#endif
     return;
   }
   res = i2c_smbus_read_byte_data(fd, 0x1);
   if (res < 0) {
-    syslog(LOG_CRIT, "Failed to to read slave @ address 0x4c");
-#if defined(CONFIG_MAVERICKS)
+    syslog(LOG_CRIT, "Failed to read slave @ address 0x4c error %d", res);
     if (mav_board_type == BF_BOARD_MAV) {
       close_and_remove_file(lock_file_fp, lock_file_name);
     }
-#endif
     return;
   }
   *temp = res;
-#if defined(CONFIG_MAVERICKS)
   if (mav_board_type == BF_BOARD_MAV) {
     /* close PCA9548 channel */
     res = ioctl(fd, I2C_SLAVE_FORCE, 0x70);
@@ -882,14 +835,13 @@ static void mav_read_tofino_temp(int *temp) {
     }
     res = i2c_smbus_write_byte(fd, 0x00);
     if (res < 0) {
-      syslog(LOG_CRIT, "Failed to to write slave @ address 0x70");
+      syslog(LOG_CRIT, "Failed to write slave @ address 0x70 error %d", res);
       close_and_remove_file(lock_file_fp, lock_file_name);
       return;
     }
 
     close_and_remove_file(lock_file_fp, lock_file_name);
  }
-#endif
 }
 
 static int mav_open_i2c_dev(int i2c_bus) {
@@ -923,7 +875,7 @@ static void mav_syscpld_write(int i2c_bus, int i2c_addr, uint8_t reg,
   }
   res = i2c_smbus_write_byte_data(fd, reg, val);
   if (res < 0) {
-    syslog(LOG_CRIT, "Failed to to write slave @ address 0x%x", i2c_addr);
+    syslog(LOG_CRIT, "Failed to write slave @ address 0x%x", i2c_addr);
     close(fd);
     return;
   }
@@ -937,16 +889,18 @@ int read_fan_value(const int fan, const char *device, int *value) {
   char output_value[LARGEST_DEVICE_NAME];
   char full_name[LARGEST_DEVICE_NAME];
 #if defined(CONFIG_MAVERICKS)
-  if (fan >= 100) {
-    snprintf(device_name, LARGEST_DEVICE_NAME, device, fan-100);
-    snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s",PWM_UPPER_DIR,device_name);
+  if (mav_board_type == BF_BOARD_NEW) {
+      snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
+      snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s", PWM_DIR_NEWPORT, device_name);
   } else {
-    snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
-    snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s", PWM_DIR, device_name);
+    if (fan >= 100) {
+      snprintf(device_name, LARGEST_DEVICE_NAME, device, fan-100);
+      snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s", PWM_UPPER_DIR, device_name);
+    } else {
+      snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
+      snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s", PWM_DIR, device_name);
+    }
   }
-#elif defined(CONFIG_JBAY)
-  snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
-  snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s", PWM_DIR, device_name);
 #else
   snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
   snprintf(full_name, LARGEST_DEVICE_NAME, "%s/%s", PWM_DIR,device_name);
@@ -960,15 +914,19 @@ int write_fan_value(const int fan, const char *device, const int value) {
   char output_value[LARGEST_DEVICE_NAME];
 
 #if defined(CONFIG_MAVERICKS)
-  if (fan >= 100) {
-    snprintf(device_name, LARGEST_DEVICE_NAME, device, fan-100);
-    snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s",PWM_UPPER_DIR,device_name);
+  if (mav_board_type == BF_BOARD_NEW) {
+    /*fantray_pwm*/
+    snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s", PWM_DIR_NEWPORT, device);
   } else {
-    snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
-    snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s", PWM_DIR, device_name);
+    /*fantray%d_pwm*/
+    if (fan >= 100) {
+      snprintf(device_name, LARGEST_DEVICE_NAME, device, fan-100);
+      snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s", PWM_UPPER_DIR, device_name);
+    } else {
+      snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
+      snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s", PWM_DIR, device_name);
+    }
   }
-#elif defined(CONFIG_JBAY)
-	snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s", PWM_DIR, device);
 #else
   snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
   snprintf(full_name, LARGEST_DEVICE_NAME, "%s/%s", PWM_DIR, device_name);
@@ -1023,7 +981,11 @@ int fan_speed_okay(const int fan, const int speed, const int slop) {
    * in the box, so we have to map them:
    */
 
-  real_fan = fan_to_rpm_map[fan];
+  if (mav_board_type == BF_BOARD_NEW) {
+    real_fan = fan_to_rpm_map_newport[fan];
+  } else {
+    real_fan = fan_to_rpm_map[fan];
+  }
 
   front_fan = 0;
   read_fan_value(real_fan, FAN_READ_RPM_FORMAT, &front_fan);
@@ -1085,9 +1047,12 @@ int write_fan_speed(const int fan, const int value) {
 
   if (value == 0) {
 #if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
-    return write_fan_value(real_fan, "fantray%d_pwm", 0);
-#elif defined(CONFIG_JBAY)
-    return write_fan_value(real_fan, "fantray_pwm", 0);
+    if (mav_board_type == BF_BOARD_NEW) {
+        real_fan = fan_to_pwm_map_newport[fan];
+        return write_fan_value(real_fan, "fantray_pwm", 0);
+    } else {
+        return write_fan_value(real_fan, "fantray%d_pwm", 0);
+    }
 #else
     return write_fan_value(real_fan, "pwm%d_en", 0);
 #endif
@@ -1096,11 +1061,13 @@ int write_fan_speed(const int fan, const int value) {
     int status;
 
 #if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
-    // Note that PWM for Wedge100 is in 32nds of a cycle
-    return write_fan_value(real_fan, "fantray%d_pwm", unit);
-#elif defined(CONFIG_JBAY)
-    unit--;
-    return write_fan_value(real_fan, "fantray_pwm", unit);
+    if (mav_board_type == BF_BOARD_NEW) {
+        unit = value * PWM_UNIT_MAX_NEWPORT / 100 - 1;
+        return write_fan_value(real_fan, "fantray_pwm", unit);
+    } else {
+        // Note that PWM for Wedge100 and Wedge100BF is in 32nds of a cycle
+        return write_fan_value(real_fan, "fantray%d_pwm", unit);
+    }
 #else
     if (unit == PWM_UNIT_MAX)
       unit = 0;
@@ -1129,20 +1096,22 @@ int temp_to_fan_speed(int temp, struct temp_to_pct_map *map, int map_size) {
 /* Set up fan LEDs */
 
 int write_fan_led(const int fan, const char *color) {
-#if defined(CONFIG_JBAY)
-    if (strstr(color, FAN_LED_GREEN))
-    {
-        return write_device(fan_led_g[fan], FAN_LED_ON);
-        return write_device(fan_led_r[fan], FAN_LED_OFF);
-    }
-    else if (strstr(color, FAN_LED_RED))
-    {
-        return write_device(fan_led_g[fan], FAN_LED_OFF);
-        return write_device(fan_led_r[fan], FAN_LED_ON);
-    }
-#elif defined(CONFIG_WEDGE100) || defined(CONFIG_WEDGE) \
+#if defined(CONFIG_WEDGE100) || defined(CONFIG_WEDGE) \
     || defined(CONFIG_MAVERICKS)
-	return write_device(fan_led[fan], color);
+    if (mav_board_type == BF_BOARD_NEW) {
+        if (strstr(color, FAN_LED_GREEN))
+        {
+            return write_device(fan_led_g[fan], FAN_LED_ON);
+            return write_device(fan_led_r[fan], FAN_LED_OFF);
+        }
+        else if (strstr(color, FAN_LED_RED))
+        {
+            return write_device(fan_led_g[fan], FAN_LED_OFF);
+            return write_device(fan_led_r[fan], FAN_LED_ON);
+        }
+    } else {
+        return write_device(fan_led[fan], color);
+    }
 #else
         return 0;
 #endif
@@ -1156,18 +1125,18 @@ int server_shutdown(const char *why) {
 
   syslog(LOG_EMERG, "Shutting down:  %s", why);
 
-#if defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+#if defined(CONFIG_MAVERICKS)
   syslog(LOG_CRIT, "resetting Tofino...");
   mav_syscpld_write(12, 0x31, 0x32, 0x3);
 #endif
 
-#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
   write_device(USERVER_POWER, "0");
   sleep(5);
   write_device(MAIN_POWER, "0");
 #endif
 #if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100) \
-                          && !defined(CONFIG_MAVERICKS) && !defined(CONFIG_JBAY)
+                          && !defined(CONFIG_MAVERICKS)
   write_device(GPIO_USERVER_POWER_DIRECTION, "out");
   write_device(GPIO_USERVER_POWER, "0");
   /*
@@ -1216,8 +1185,10 @@ void fand_interrupt(int sig)
   }
 
 #if defined(CONFIG_MAVERICKS)
-  for (fan = total_fans; fan < (total_fans + total_fans_upper); fan++) {
-    write_fan_speed(fan + fan_offset, fan_max);
+  if (mav_board_type == BF_BOARD_MAV) {
+    for (fan = total_fans; fan < (total_fans + total_fans_upper); fan++) {
+      write_fan_speed(fan + fan_offset, fan_max);
+    }
   }
 #endif
 
@@ -1261,12 +1232,8 @@ int main(int argc, char **argv) {
   int fan_failure_upper = 0;
   int fan_speed_changes_upper = 0;
   int old_speed_upper;
-  int fan_bad[FANS*2];
+  int fan_bad[FANS*2]; /*Mavericks:10, Montara:5, Newport:6*/
   int prev_fans_bad_upper = 0;
-#elif defined(CONFIG_JBAY)
-  int tofino_jct_temp;
-  int bad_reads_tofino = 0;
-  int fan_bad[FANS];
 #else
   int fan_bad[FANS];
 #endif
@@ -1291,7 +1258,7 @@ int main(int argc, char **argv) {
   openlog("fand", LOG_CONS, LOG_DAEMON);
 
 #if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100) \
-                          && !defined(CONFIG_MAVERICKS) && !defined(CONFIG_JBAY)
+                          && !defined(CONFIG_MAVERICKS)
   if (is_two_fan_board(false)) {
     /* Alternate, two fan configuration */
     total_fans = 2;
@@ -1308,21 +1275,18 @@ int main(int argc, char **argv) {
 #if defined(CONFIG_MAVERICKS)
   mav_board_type = bf_board_type_get();
   if (mav_board_type == BF_BOARD_MAV) {
-    total_fans_upper = FANS; /* remains 0 for montara */
+    total_fans_upper = FANS;
     fd_tofino_ext_tmp = mav_open_i2c_dev(9);
+  } else if (mav_board_type == BF_BOARD_MON) {
+    fd_tofino_ext_tmp = mav_open_i2c_dev(3);
+  } else if (mav_board_type == BF_BOARD_NEW) {
+    total_fans = 6; /*6 fans on lower fan board*/
+    fd_tofino_ext_tmp = mav_open_i2c_dev(3);
   } else {
     fd_tofino_ext_tmp = mav_open_i2c_dev(3);
   }
   if (fd_tofino_ext_tmp < 0) {
     syslog (LOG_CRIT, "Error opening Tofino Temp i2c device");
-  }
-#elif defined(CONFIG_JBAY)
-  mav_board_type = bf_board_type_get();
-  if (mav_board_type == BF_BOARD_JBA) {
-	  fd_tofino_ext_tmp = mav_open_i2c_dev(3);
-  }
-  if (fd_tofino_ext_tmp < 0) {
-	syslog (LOG_CRIT, "Error opening Tofino Temp i2c device");
   }
 #endif
 
@@ -1392,19 +1356,21 @@ int main(int argc, char **argv) {
   for (fan = 0; fan < total_fans; fan++) {
     fan_bad[fan] = 0;
     write_fan_speed(fan + fan_offset, fan_speed);
-#if defined(CONFIG_JBAY)
-    write_fan_led(fan + fan_offset, FAN_LED_GREEN);
-#else
-    write_fan_led(fan + fan_offset, FAN_LED_BLUE);
-#endif
+    if (mav_board_type == BF_BOARD_NEW) {
+        write_fan_led(fan + fan_offset, FAN_LED_GREEN);
+    } else {
+        write_fan_led(fan + fan_offset, FAN_LED_BLUE);
+    }
   }
 
 #if defined(CONFIG_MAVERICKS)
-  /* additional upper fan tray */
-  for (fan = total_fans; fan < (total_fans + total_fans_upper); fan++) {
-    fan_bad[fan] = 0;
-    write_fan_speed(fan + fan_offset, fan_speed_upper);
-    write_fan_led(fan + fan_offset, FAN_LED_BLUE);
+  if (mav_board_type == BF_BOARD_MAV) {
+    /* additional upper fan tray */
+    for (fan = total_fans; fan < (total_fans + total_fans_upper); fan++) {
+      fan_bad[fan] = 0;
+      write_fan_speed(fan + fan_offset, fan_speed_upper);
+      write_fan_led(fan + fan_offset, FAN_LED_BLUE);
+    }
   }
   if (ignore_upper_fan_tray) {
     total_fans_upper = 0;
@@ -1449,16 +1415,16 @@ int main(int argc, char **argv) {
     /* Read sensors */
 
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
-                          || defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+                          || defined(CONFIG_MAVERICKS)
     read_temp(INTAKE_TEMP_DEVICE, &intake_temp);
     read_temp(EXHAUST_TEMP_DEVICE, &exhaust_temp);
     read_temp(CHIP_TEMP_DEVICE, &switch_temp);
     read_temp(USERVER_TEMP_DEVICE, &userver_temp);
 
 #if defined(CONFIG_MAVERICKS)
-    old_speed_upper = fan_speed_upper;
-#endif
-#if defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+    if (mav_board_type == BF_BOARD_MAV) {
+      old_speed_upper = fan_speed_upper;
+    }
     mav_read_tofino_temp(&tofino_jct_temp);
     if (tofino_jct_temp == BAD_TEMP) {
       bad_reads_tofino++;
@@ -1492,7 +1458,7 @@ int main(int argc, char **argv) {
     for (int node = 1; node <= TOTAL_1S_SERVERS; node++) {
       float new_temp;
       if (!yosemite_sensor_read(node, BIC_SENSOR_SOC_THERM_MARGIN,
-			        &new_temp)) {
+                    &new_temp)) {
         if (userver_temp < new_temp) {
           userver_temp = new_temp;
         }
@@ -1507,7 +1473,7 @@ int main(int argc, char **argv) {
       server_shutdown("Some sensors couldn't be read");
     }
 
-#if defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+#if defined(CONFIG_MAVERICKS)
     if (bad_reads_tofino > BAD_READ_THRESHOLD) {
       syslog(LOG_CRIT, "resetting Tofino: bad read");
       server_shutdown("Tofino sensors couldn't be read");
@@ -1515,18 +1481,18 @@ int main(int argc, char **argv) {
 #endif
 
     if ((log_count++ % report_temp == 0) ||
-		(intake_temp > INTAKE_LIMIT) ||
+        (intake_temp > INTAKE_LIMIT) ||
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
-								  || defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
-		(switch_temp > SWITCH_LIMIT) ||
+                          || defined(CONFIG_MAVERICKS)
+        (switch_temp > SWITCH_LIMIT) ||
 #endif
-#if defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
-		(tofino_jct_temp > TOFINO_LIMIT) ||
+#if defined(CONFIG_MAVERICKS)
+        (tofino_jct_temp > TOFINO_LIMIT) ||
 #endif
-		(userver_temp + USERVER_TEMP_FUDGE > USERVER_LIMIT)){
+        (userver_temp + USERVER_TEMP_FUDGE > USERVER_LIMIT)){
       syslog(LOG_DEBUG,
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
-                          || defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+                          || defined(CONFIG_MAVERICKS)
              "Temp intake %d, switch %d, "
              "userver %d, exhaust %d, "
              "fan speed %d, speed changes %d",
@@ -1536,7 +1502,7 @@ int main(int argc, char **argv) {
 #endif
              intake_temp,
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
-                          || defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+                          || defined(CONFIG_MAVERICKS)
              switch_temp,
 #endif
              userver_temp,
@@ -1544,7 +1510,7 @@ int main(int argc, char **argv) {
              fan_speed,
              fan_speed_changes);
  
-#if defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+#if defined(CONFIG_MAVERICKS)
       syslog(LOG_DEBUG, "Temp Tofino %d ", tofino_jct_temp);
 #endif
     }
@@ -1556,13 +1522,13 @@ int main(int argc, char **argv) {
     }
 
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
-                          || defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+                          || defined(CONFIG_MAVERICKS)
     if (switch_temp > SWITCH_LIMIT) {
       server_shutdown("T2 temp limit reached");
     }
 #endif
 
-#if defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+#if defined(CONFIG_MAVERICKS)
     if (tofino_jct_temp > TOFINO_LIMIT) {
       syslog(LOG_CRIT, "resetting Tofinodue: high temperature");
       server_shutdown("Tofino temp limit reached");
@@ -1631,7 +1597,7 @@ int main(int argc, char **argv) {
 
 #if defined(CONFIG_MAVERICKS)
 
-    if (mav_board_type == BF_BOARD_MON) {
+    if ((mav_board_type == BF_BOARD_MON)||(mav_board_type == BF_BOARD_NEW)) {
       /* bump up the fan speed if Tofino temp mandates */
       if (tofino_jct_temp > TOFINO_THRESH) {
         /* change the lower fan tray speed if Tofino temp is high */
@@ -1670,23 +1636,6 @@ int main(int argc, char **argv) {
         }
       }
     }
-#elif defined(CONFIG_JBAY)
-
-    if (mav_board_type == BF_BOARD_JBA) {
-      /* bump up the fan speed if Tofino temp mandates */
-      if (tofino_jct_temp > TOFINO_THRESH) {
-        /* change the lower fan tray speed if Tofino temp is high */
-        fan_speed = fan_max;
-      } else if (tofino_jct_temp > TOFINO_MED) {
-        if (fan_speed < fan_high) {
-          fan_speed = fan_high;
-        }
-      } else if (tofino_jct_temp > TOFINO_LOW) {
-        if (fan_speed < fan_medium) {
-          fan_speed = fan_medium;
-        }
-      }
-    }
 #endif
 
 #endif
@@ -1708,15 +1657,16 @@ int main(int argc, char **argv) {
     }
 
 #if defined(CONFIG_MAVERICKS)
-    if (fan_failure_upper == 0 && total_fans_upper != 0
-        && fan_speed_upper != old_speed_upper) {
-      syslog(LOG_NOTICE,
+    if (mav_board_type == BF_BOARD_MAV) {
+      if (fan_failure_upper == 0 && fan_speed_upper != old_speed_upper) {
+        syslog(LOG_NOTICE,
              "Upper fan speed changing from %d to %d",
              old_speed_upper,
              fan_speed_upper);
-      fan_speed_changes_upper++;
-      for (fan = total_fans; fan < (total_fans + total_fans_upper); fan++) {
-        write_fan_speed(fan + fan_offset, fan_speed_upper);
+        fan_speed_changes_upper++;
+        for (fan = total_fans; fan < (total_fans + total_fans_upper); fan++) {
+          write_fan_speed(fan + fan_offset, fan_speed_upper);
+        }
       }
     }
 #endif
@@ -1741,11 +1691,11 @@ int main(int argc, char **argv) {
        */
       if (fan_speed_okay(fan + fan_offset, fan_speed, FAN_FAILURE_OFFSET)) {
         if (fan_bad[fan] > FAN_FAILURE_THRESHOLD) {
-#if defined(CONFIG_JBAY)
-          write_fan_led(fan + fan_offset, FAN_LED_GREEN);
-#else
-          write_fan_led(fan + fan_offset, FAN_LED_BLUE);
-#endif
+          if (mav_board_type == BF_BOARD_NEW) {
+            write_fan_led(fan + fan_offset, FAN_LED_GREEN);
+          } else {
+            write_fan_led(fan + fan_offset, FAN_LED_BLUE);
+          }
           syslog(LOG_CRIT,
                  "Fan %d has recovered",
                  fan);
@@ -1784,7 +1734,7 @@ int main(int argc, char **argv) {
       }
 
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
-                          || defined(CONFIG_MAVERICKS) || defined(CONFIG_JBAY)
+                          || defined(CONFIG_MAVERICKS)
       /*
        * On Wedge, we want to shut down everything if none of the fans
        * are visible, since there isn't automatic protection to shut
@@ -1815,7 +1765,6 @@ int main(int argc, char **argv) {
 
     /* Suppress multiple warnings for similar number of fan failures. */
     prev_fans_bad = fan_failure;
-
 
 #if defined(CONFIG_MAVERICKS)
     if (mav_board_type == BF_BOARD_MAV) {
@@ -1890,12 +1839,19 @@ int main(int argc, char **argv) {
           }
         }
       }
-    }
-    /* Suppress multiple warnings for similar number of fan failures. */
-    prev_fans_bad_upper = fan_failure_upper;
-    for (fan = 0; fan < (total_fans + total_fans_upper); fan++) {
-      if (fan_bad[fan] > 0) {
-        syslog(LOG_CRIT,"fan %d bad %d\n", fan, fan_bad[fan]);
+
+      /* Suppress multiple warnings for similar number of fan failures. */
+      prev_fans_bad_upper = fan_failure_upper;
+      for (fan = 0; fan < (total_fans + total_fans_upper); fan++) {
+        if (fan_bad[fan] > 0) {
+          syslog(LOG_CRIT,"fan %d bad %d\n", fan, fan_bad[fan]);
+        }
+      }
+    } else {
+      for (fan = 0; fan < (total_fans); fan++) {
+        if (fan_bad[fan] > 0) {
+          syslog(LOG_CRIT,"fan %d bad %d\n", fan, fan_bad[fan]);
+        }
       }
     }
 #endif
