@@ -567,6 +567,48 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     0x24, 0, 8,
   },
   {
+    "fan7_input",
+    NULL,
+    fancpld_fan_rpm_show_newport,
+    NULL,
+    0x15, 0, 8,
+  },
+  {
+    "fan8_input",
+    NULL,
+    fancpld_fan_rpm_show_newport,
+    NULL,
+    0x25, 0, 8,
+  },
+  {
+    "fan9_input",
+    NULL,
+    fancpld_fan_rpm_show_newport,
+    NULL,
+    0x16, 0, 8,
+  },
+  {
+    "fan10_input",
+    NULL,
+    fancpld_fan_rpm_show_newport,
+    NULL,
+    0x26, 0, 8,
+  },
+  {
+    "fan11_input",
+    NULL,
+    fancpld_fan_rpm_show_newport,
+    NULL,
+    0x17, 0, 8,
+  },
+  {
+    "fan12_input",
+    NULL,
+    fancpld_fan_rpm_show_newport,
+    NULL,
+    0x27, 0, 8,
+  },
+  {
     "fantray1_led_r",
     "0: Red\n"
     "1: off",

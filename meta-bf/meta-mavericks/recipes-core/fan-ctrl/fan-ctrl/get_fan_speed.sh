@@ -179,6 +179,6 @@ for fan in $FANS; do
     if [ "$board_type" == "MAVERICKS" ]; then
         echo "Fan $fan RPMs: $(show_rpm $fan), ($(show_pwm $fan))"
     elif [ "$board_type" == "NEWPORT" ]; then
-        echo "Fan $fan RPMs: $(show_rpm_newport $fan), ($show_pwm_newport)"
+        echo "Fan $fan RPMs: $(show_rpm_newport $fan), ($(show_pwm_newport))"
     fi
 done
