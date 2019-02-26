@@ -43,9 +43,16 @@ wedge_is_us_on() {
     fi
 }
 
+TMP_EEPROM_BOARD_TYPE="/tmp/eeprom_board_type"
+
 wedge_board_type() {
     local pn
-    pn=$(/usr/bin/weutil 2> /dev/null | grep -i '^Location on Fabric:')
+    if [ -e "$TMP_EEPROM_BOARD_TYPE" ]; then
+        pn=$(cat $TMP_EEPROM_BOARD_TYPE 2> /dev/null)
+    else
+        pn=$(/usr/bin/weutil 2> /dev/null | grep -i '^Location on Fabric:')
+        echo "$pn" > $TMP_EEPROM_BOARD_TYPE
+    fi
     case "$pn" in
         *Montara*)
             echo 'MAVERICKS'
@@ -70,7 +77,12 @@ wedge_board_type() {
 
 wedge_board_subtype() {
     local pn
-    pn=$(/usr/bin/weutil 2> /dev/null | grep -i '^Location on Fabric:')
+    if [ -e "$TMP_EEPROM_BOARD_TYPE" ]; then
+        pn=$(cat $TMP_EEPROM_BOARD_TYPE 2> /dev/null)
+    else
+        pn=$(/usr/bin/weutil 2> /dev/null | grep -i '^Location on Fabric:')
+        echo "$pn" > $TMP_EEPROM_BOARD_TYPE
+    fi
     case "$pn" in
         *Montara*)
             echo 'Montara'

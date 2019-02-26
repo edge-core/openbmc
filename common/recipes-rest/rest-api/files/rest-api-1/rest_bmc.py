@@ -109,35 +109,13 @@ def find_err_status(data):
 
     return err
 
-def get_project(cmd=['weutil']):
-    proc = subprocess.Popen(cmd,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
-    try:
-        data, err = bmc_command.timed_communicate(proc)
-    except bmc_command.TimeoutError as ex:
-        data = ex.output
-        err = ex.error
-
-    # need to remove the first info line from weutil
-    adata = data.split('\n', 1)
-    for sdata in adata[1].split('\n'):
-        tdata = sdata.split(':', 1)
-        if (len(tdata) < 2):
-            continue
-        if tdata[0].strip() == "Location on Fabric" :
-            return tdata[1].strip()
-
-    print "Error occured while capturing Location on Fabric"
-    return
-
 def get_bmc_tmp(param1):
 
     l = []
     output = []
     err = 0
     err_status = "exit status"
-    platform = get_project()
+    platform = btools.get_project()
 
     arg = ['btools.py', '--TMP', 'sh']
 
@@ -160,14 +138,14 @@ def get_bmc_tmp(param1):
 
     output.append(err)
 
-    if platform.lower() == "maverick" or platform.lower() == "mavericks" or platform.lower() == "mavericks-p0c":
+    if platform == "mavericks" or platform == "mavericks-p0c":
       for i in range(0, 9):
         output.append(int(l[2*i + 1] * 10))
 
       #Max device temperature
       output.append(int(l[19] * 10))
 
-    if platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
+    if platform == "montara" or platform == "newport":
       for i in range(0, 5):
         output.append(int(l[2*i + 1] * 10))
 
@@ -188,16 +166,16 @@ def get_bmc_ucd():
     output = []
     err = 0
     err_status = "exit status"
-    platform = get_project()
+    platform = btools.get_project()
     valid_range = 12
 
     arg = ['btools.py', '--UCD', 'sh', 'v']
 
-    if platform.lower() == "mavericks-p0c":
+    if platform == "mavericks-p0c":
          valid_range = 16
-    if platform.lower() == "maverick" or platform.lower() == "mavericks":
+    if platform == "mavericks":
          valid_range = 15
-    if platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
+    if platform == "montara" or platform == "newport":
          valid_range = 12
 
     with Capturing() as screen_op:

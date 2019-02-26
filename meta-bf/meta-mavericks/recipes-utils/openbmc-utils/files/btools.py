@@ -36,7 +36,7 @@ def usage():
 #
 # Read board_type of FRU EEPROM
 #
-def get_project(cmd=['weutil']):
+def get_project_by_weutil(cmd=['weutil']):
     proc = subprocess.Popen(cmd,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
@@ -53,10 +53,45 @@ def get_project(cmd=['weutil']):
         if (len(tdata) < 2):
             continue
         if tdata[0].strip() == "Location on Fabric" :
+            file = open("/tmp/eeprom_board_type", "w+")
+            file.write(sdata+'\n')
+            file.close()
             return tdata[1].strip()
 
     print "Error occured while capturing Location on Fabric"
     return
+
+def get_project():
+    if (not os.path.isfile("/tmp/eeprom_board_type")) :
+        print "Error: /tmp/eeprom_board_type not found"
+        board_type = get_project_by_weutil()
+    else:
+        try:
+            tmp_data = subprocess.check_output(["cat", "/tmp/eeprom_board_type"])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error while reading /tmp/eeprom_board_type"
+            return
+        tmp_board_type=tmp_data.split(':', 1)
+        if len(tmp_board_type) >= 2 :
+            board_type = tmp_board_type[1].strip()
+        else:
+            board_type = tmp_board_type[0].strip()
+
+    if board_type.lower() == "montara":
+        board_type = "montara"
+    elif board_type.lower() == "mavericks" or board_type.lower() == "maverick":
+        board_type = "mavericks"
+    elif board_type.lower() == "mavericks-p0c":
+        board_type = "mavericks-p0c"
+    elif board_type.lower() == "newports" or board_type.lower() == "newport":
+        board_type = "newport"
+    else:
+        print "Error: undefined board type [%s], defaulting to Montara" % board_type
+        board_type = "montara"
+
+    return board_type
+
 #
 # Usage for PSU related arguments
 #
@@ -636,18 +671,17 @@ def ucd_voltage_margin(arg):
         return
     # Get project name
     platform = get_project()
-    if platform.lower() == "maverick" or platform.lower() == "mavericks":
+    if platform == "mavericks":
     	if not 1 <= int(arg[1]) <= 15:
              error_ucd_usage()
              return
-    elif platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
+    elif platform == "montara" or platform == "newport":
     	if not 1 <= int(arg[1]) <= 12:
              error_ucd_usage()
              return
     else:
         error_ucd_usage()
         return
-
     if arg[2] == "l":
         opcode = str(UCD_LOW_MARGIN_OP)
     elif arg[2] == "h":
@@ -717,11 +751,11 @@ def ucd(argv):
             return
         # Get project name
         platform = get_project()
-        if platform.lower() == "maverick" or platform.lower() == "mavericks":
+        if platform == "mavericks":
             ucd_rail_voltage_mavericks(0)
-        elif platform.lower() == "mavericks-p0c" :
+        elif platform == "mavericks-p0c":
             ucd_rail_voltage_mavericks(1)
-        elif platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
+        elif platform == "montara" or platform == "newport":
             ucd_rail_voltage_montara()
         else :
             error_ucd_usage()
@@ -1557,11 +1591,11 @@ def ir(argv):
             return
         # Get project name
         platform = get_project()
-        if platform.lower() == "maverick" or platform.lower() == "mavericks":
+        if platform == "mavericks":
             ir_voltage_show_mavericks(0)
-        elif platform.lower() == "mavericks-p0c":
+        elif platform == "mavericks-p0c":
             ir_voltage_show_mavericks(1)
-        elif platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
+        elif platform == "montara" or platform == "newport":
             ir_voltage_show_montara()
         else :
             error_ir_usage()
@@ -1573,11 +1607,11 @@ def ir(argv):
             return
         # Get project name
         platform = get_project()
-        if platform.lower() == "maverick" or platform.lower() == "mavericks":
+        if platform == "mavericks":
             ir_voltage_set_mavericks(arg_ir, 0)
-        elif platform.lower() == "mavericks-p0c":
+        elif platform == "mavericks-p0c":
             ir_voltage_set_mavericks(arg_ir, 1)
-        elif platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
+        elif platform == "montara" or platform == "newport":
             ir_voltage_set_montara(arg_ir)
         else :
             error_ir_usage()
@@ -1589,9 +1623,9 @@ def ir(argv):
             return
         # Get project name
         platform = get_project()
-        if platform.lower() == "maverick" or platform.lower() == "mavericks":
-	     ir_set_vdd_core_dynamic_range_mavericks(arg_ir)
-        elif platform.lower() == "montara" or platform.lower() == "newport" or platform.lower() == "newports":
+        if platform == "mavericks":
+            ir_set_vdd_core_dynamic_range_mavericks(arg_ir)
+        elif platform == "montara" or platform == "newport":
             ir_set_vdd_core_dynamic_range_montara(arg_ir)
         else :
             error_ir_usage()
@@ -1836,16 +1870,16 @@ def tmp(argv):
             return
         # Get project name
         platform = get_project()
-        if platform.lower() == "montara":
+        if platform == "montara":
             tmp_lower("Montara")
-        elif platform.lower() == "newport" or platform.lower() == "newports":
+        elif platform == "newport":
             tmp_lower("Newport")
-        elif platform.lower() == "maverick" or platform.lower() == "mavericks":
+        elif platform == "mavericks":
             a = tmp_open_i2c_switch()
             tmp_lower("Mavericks")
             tmp_upper(0)
             tmp_restore_i2c_switch(a)
-        elif platform.lower() == "mavericks-p0c":
+        elif platform == "mavericks-p0c":
             a = tmp_open_i2c_switch()
             tmp_lower("Mavericks")
             tmp_upper(1)
