@@ -139,7 +139,7 @@ static const i2c_dev_attr_st syscpld_attr_table[] = {
     "0x12: SW reg 0x31_bit6 cold reset\n"
     "0x13: SW reg 0x31_bit7 power reset\n"
     "0x20: BMC request reset, BMC only\n"
-    "0x21: BMC request to reset tomahawk\n"
+    "0x21: BMC request to reset Tofino\n"
     "0x22: BMC request to reset micro-server\n"
     "0x23: BMC request to reset main power domain\n"
     "0x24: BMC request to reset all board\n"
@@ -430,16 +430,16 @@ static const i2c_dev_attr_st syscpld_attr_table[] = {
     0x10, 1, 1,
   },
   {
-    "th_sys_rst_n",
-    "0: write 0 to trigger tomahawk system reset\n"
+    "tofino_pwr_on_rst_n",
+    "0: write 0 to trigger TF power on reset\n"
     "1: normal",
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
     0x32, 1, 1,
   },
   {
-    "th_pcie_rst_n",
-    "0: write 0 to trigger tomahawk pcie reset\n"
+    "tofino_pcie_rst_n",
+    "0: write 0 to trigger TF pcie reset\n"
     "1: normal",
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,

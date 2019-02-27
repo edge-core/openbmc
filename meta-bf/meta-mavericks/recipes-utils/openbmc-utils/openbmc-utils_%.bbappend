@@ -27,7 +27,8 @@ SRC_URI += "file://disable_watchdog.sh \
             file://reset_qsfp_mux.sh \
             file://btools.py \
             file://rest_mntr.sh \
-	    file://mav_tty_switch_delay.sh \
+            file://mav_tty_switch_delay.sh \
+            file://reset_tofino.sh \
            "
 
 OPENBMC_UTILS_FILES += " \
@@ -38,6 +39,7 @@ OPENBMC_UTILS_FILES += " \
     cp2112_i2c_flush.sh \
     reset_qsfp_mux.sh \
     mav_tty_switch_delay.sh \
+    reset_tofino.sh \
     "
 
 DEPENDS_append = " update-rc.d-native"
