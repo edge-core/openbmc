@@ -10,6 +10,8 @@ import bmc_command
 import os.path
 from time import sleep
 
+h_platforms = "montara/mavericks/newport"
+h_platforms_with_p0c = "montara/mavericks/mavericks-p0c/newport"
 #
 # btool usage for modules. Individual module usage is printed separately
 #
@@ -269,8 +271,8 @@ def psu_init():
         # Open I2C swtich for PFE devices
         #i2cset -f -y 7 0x70 0x3
         subprocess.check_output([cmd, "-f", "-y", I2C_BUS, I2C_ADDR, OPCODE])
-        
-	# load driver for both devices
+
+        # load driver for both devices
         o = subprocess.check_output(["lsmod", "pfe1100"])
         rtn = o.find("pfe1100")
 
@@ -304,7 +306,7 @@ def psu(argv):
 
     arg_psu = argv[2:]
 
-    if arg_psu[0] == "help" or arg_psu[0] == "h":
+    if arg_psu[0] == "help" or arg_psu[0] == "h" or len(arg_psu) != 3:
         error_psu_usage()
         return
 
@@ -415,9 +417,9 @@ def error_ucd_usage():
 
     print " "
     print "Usage:"
-    print "./btools.py --UCD sh v     => Show Voltage of all rails"
+    print "./btools.py --UCD sh v [%s]    => Show Voltage of all rails" % h_platforms_with_p0c
     print "                  fault    => Show Voltage fault/warnings of all rails"
-    print "                  set_margin <rail number> <margin>"
+    print "                  set_margin <rail number> <margin> [%s]" % h_platforms
     print "                             <1 - 12>      l /h /n"
     print "                                           l => low"
     print "                                           h => high"
@@ -597,7 +599,7 @@ def ucd_rail_voltage_montara():
     print " RAIL                          Voltage(V)"
 
     string = {1: "01-  VDD12V", 2: "02-  VDD5V_stby", 3: "03-  VDD3_3V_iso",
-	      4: "04*- VDD3_3V", 5: "05-  VDD3_3V_stby", 6: "06-  VDD2_5V_stby",
+              4: "04*- VDD3_3V", 5: "05-  VDD3_3V_stby", 6: "06-  VDD2_5V_stby",
               7: "07-  VDD2_5V_tf", 8: "08-  VDD1_8V_stby", 9: "09-  VDD1_5V_stby",
               10: "10-  VDD1_2V_stby", 11: "11*-  VDD0_9V_anlg", 12: "12*-  VDD_core"}
 
@@ -655,7 +657,7 @@ def ucd_rail_voltage_montara():
 #
 # Functions set the voltage margins
 #
-def ucd_voltage_margin(arg):
+def ucd_voltage_margin(platform, arg):
 
     UCD_I2C_BUS = "2"
     UCD_I2C_ADDR = "0x34"
@@ -665,18 +667,12 @@ def ucd_voltage_margin(arg):
     UCD_PAGE_OP = "0x00"
     UCD_MARGIN_OP = "0x01"
 
-    # Check # of parameters
-    if len(arg) != 3:
-        error_ucd_usage()
-        return
-    # Get project name
-    platform = get_project()
     if platform == "mavericks":
-    	if not 1 <= int(arg[1]) <= 15:
+        if not 1 <= int(arg[1]) <= 15:
              error_ucd_usage()
              return
     elif platform == "montara" or platform == "newport":
-    	if not 1 <= int(arg[1]) <= 12:
+        if not 1 <= int(arg[1]) <= 12:
              error_ucd_usage()
              return
     else:
@@ -740,17 +736,35 @@ def ucd(argv):
 
     arg_ucd = argv[2:]
 
-    if arg_ucd[0] == "help" or arg_ucd[0] == "h" or len(arg_ucd) < 1:
+    if arg_ucd[0] == "help" or arg_ucd[0] == "h" or len(arg_ucd) <= 0:
         error_ucd_usage()
         return
 
+    # ./btools.py --UCD sh v [%s]
     if arg_ucd[0] == "sh":
-        # Check # of parameters
-        if len(arg_ucd) != 2:
+        if len(arg_ucd) == 3:
+            platform = arg_ucd[2]
+        elif len(arg_ucd) == 2:
+            platform = get_project()
+        else:
             error_ucd_usage()
             return
-        # Get project name
-        platform = get_project()
+    # ./btools.py --UCD fault
+    elif arg_ucd[0] == "fault":
+        if len(arg_ucd) != 1:
+            error_ucd_usage()
+            return
+    # ./btools.py --UCD set_margin <rail number> <margin> [%s]
+    elif arg_ucd[0] == "set_margin":
+        if len(arg_ucd) == 4:
+            platform = arg_ucd[3]
+        elif len(arg_ucd) == 3:
+            platform = get_project()
+        else:
+            error_ucd_usage()
+            return
+
+    if arg_ucd[0] == "sh":
         if platform == "mavericks":
             ucd_rail_voltage_mavericks(0)
         elif platform == "mavericks-p0c":
@@ -761,8 +775,8 @@ def ucd(argv):
             error_ucd_usage()
             return
     elif arg_ucd[0] == "set_margin":
-        ucd_voltage_margin(arg_ucd)
-	#ucd_ir_voltage_margin(argv)
+        ucd_voltage_margin(platform, arg_ucd)
+        #ucd_ir_voltage_margin(argv)
     elif arg_ucd[0] == "fault":
         ucd_rail_voltage_fault()
     else:
@@ -1082,8 +1096,9 @@ def error_ir_usage():
 
     print ""
     print "Usage:"
-    print "./btools.py --IR sh v                                  => Show IR voltages "
-    print "./btools.py --IR set <margin>          <voltage rail>  => Set IR voltages margin"
+    print "./btools.py --IR sh v [%s]                         => Show IR voltages " % h_platforms_with_p0c
+    print "./btools.py --IR set [%s] <margin> <voltage rail>  => Set IR voltages margin" % h_platforms_with_p0c
+    print "                     <margin>          <voltage rail>"
     print "                     l = low margin    AVDD"
     print "                     h = high margin   VDD_CORE"
     print "                     n = normal        QSFP_UPPER  (QSFP for Montara/Newport)"
@@ -1093,7 +1108,7 @@ def error_ir_usage():
     print "                                       REPEATER"
     print ""
     # Commenting this part as nobody other than Barefoot Hardware team should touch this functionality
-    #print "./btools.py --IR set_vdd_core <voltage>               => Set IR voltages margin for VDD_CORE"
+    #print "./btools.py --IR set_vdd_core [%s] <voltage>               => Set IR voltages margin for VDD_CORE" % h_platforms
     #print "                              <voltage> must be in range of .65-.95V else discarded"
     print "Eg."
     print "btools.py --IR sh v"
@@ -1137,7 +1152,7 @@ def read_vout(rail, I2C_BUS, I2C_ADDR):
 
     if not (rail == "VDD_CORE" or rail == "AVDD" or rail == "RETIMER_VDD" or
             rail == "RETIMER_VDDA"):
-	v = v * 2
+        v = v * 2
 
     print ("IR %s       %.3f V" % (rail, v))
 
@@ -1304,11 +1319,15 @@ def ir_set_vdd_core_dynamic_range_montara(arg_ir):
     IR_MARGIN_OFF = "0x80"
     IR_VOUT_CMD = "0x21"
 
-    v = float(arg_ir[1])
+    try:
+        v = float(arg_ir[1])
+    except ValueError:
+        error_ir_usage()
+        return
 
     if v < 0.65 or v > 0.95:
-	print "Voltage value not in range .65 - .95"
-	return
+        print "Voltage value not in range .65 - .95"
+        return
     voltage_scale = {0: "0x14D", 10: "0x152", 20: "0x157", 30: "0x15C", 40: "0x161", 50: "0x166", 60: "0x16c",
                     70: "0x171",  80: "0x176",  85: "0x178",  90: "0x17B", 100: "0x180", 105: "0x182", 110: "0x185", 
                    120: "0x18A", 125: "0x18D", 130: "0x18F", 135: "0x191", 140: "0x194", 150: "0x19A", 155: "0x19C",
@@ -1322,7 +1341,7 @@ def ir_set_vdd_core_dynamic_range_montara(arg_ir):
 
     if voltage == None:
         error_ir_usage()
-	return
+        return
 
     margin_cmd = IR_VOUT_CMD
     margin_apply = IR_MARGIN_OFF
@@ -1340,11 +1359,15 @@ def ir_set_vdd_core_dynamic_range_mavericks(arg_ir):
     IR_MARGIN_OFF = "0x80"
     IR_VOUT_CMD = "0x21"
 
-    v = float(arg_ir[1])
+    try:
+        v = float(arg_ir[1])
+    except ValueError:
+        error_ir_usage()
+        return
 
     if v < 0.65 or v > 0.95:
-	print "Voltage value not in range .65 - .95"
-	return
+        print "Voltage value not in range .65 - .95"
+        return
     voltage_scale = {0: "0xA6", 10: "0xA9", 20: "0xAC", 30: "0xAE", 40: "0xB1", 50: "0xB3", 60: "0xB6", 70: "0xB8",
                80: "0xBB",  85: "0xBC",  90: "0xBD", 100: "0xC0", 105: "0xC1", 110: "0xC2", 120: "0xC5", 125: "0xC6",
               130: "0xC8", 135: "0xC9", 140: "0xCA", 150: "0xCD", 155: "0xCE", 160: "0xCF", 170: "0xD2", 175: "0xD3",
@@ -1358,7 +1381,7 @@ def ir_set_vdd_core_dynamic_range_mavericks(arg_ir):
 
     if voltage == None:
         error_ir_usage()
-	return
+        return
  
     margin_cmd = IR_VOUT_CMD
     margin_apply = IR_MARGIN_OFF
@@ -1580,17 +1603,41 @@ def ir(argv):
 
     arg_ir = argv[2:]
 
-    if arg_ir[0] == "help" or arg_ir[0] == "h" or len(arg_ir) < 1:
+    if arg_ir[0] == "help" or arg_ir[0] == "h" or len(arg_ir) <= 0:
         error_ir_usage()
         return
 
+    # ./btools.py --IR sh v [%s]
     if arg_ir[0] == "sh":
-        # Check # of parameters
-        if len(arg_ir) != 2:
+        if len(arg_ir) == 3:
+            platform = arg_ir[2]
+        elif len(arg_ir) == 2:
+            platform = get_project()
+        else:
             error_ir_usage()
             return
-        # Get project name
-        platform = get_project()
+    # ./btools.py --IR set [%s] <margin> <voltage rail>
+    elif arg_ir[0] == "set":
+        if len(arg_ir) == 4:
+            platform = arg_ir[1]
+            arg_ir = arg_ir[0:1]+arg_ir[2:]
+        elif len(arg_ir) == 3:
+            platform = get_project()
+        else:
+            error_ir_usage()
+            return
+    # ./btools.py --IR set_vdd_core [%s] <voltage>
+    elif arg_ir[0] == "set_vdd_core":
+        if len(arg_ir) == 3:
+            platform = arg_ir[1]
+            arg_ir = arg_ir[0:1]+arg_ir[2:]
+        elif len(arg_ir) == 2:
+            platform = get_project()
+        else:
+            error_ir_usage()
+            return
+
+    if arg_ir[0] == "sh":
         if platform == "mavericks":
             ir_voltage_show_mavericks(0)
         elif platform == "mavericks-p0c":
@@ -1601,12 +1648,6 @@ def ir(argv):
             error_ir_usage()
             return
     elif arg_ir[0] == "set":
-        # Check # of parameters
-        if len(arg_ir) != 3:
-            error_ir_usage()
-            return
-        # Get project name
-        platform = get_project()
         if platform == "mavericks":
             ir_voltage_set_mavericks(arg_ir, 0)
         elif platform == "mavericks-p0c":
@@ -1617,12 +1658,6 @@ def ir(argv):
             error_ir_usage()
             return
     elif arg_ir[0] == "set_vdd_core":
-        # Check # of parameters
-        if len(arg_ir) != 2:
-            error_ir_usage()
-            return
-        # Get project name
-        platform = get_project()
         if platform == "mavericks":
             ir_set_vdd_core_dynamic_range_mavericks(arg_ir)
         elif platform == "montara" or platform == "newport":
@@ -1646,7 +1681,7 @@ def error_tmp_usage():
 
     print " "
     print "Usage:"
-    print "./btools.py --TMP sh   => Show Temp"
+    print "./btools.py --TMP [%s] sh   => Show Temp" % h_platforms_with_p0c
     print " "
     print "Eg."
     print "btools.py --TMP sh"
@@ -1859,17 +1894,26 @@ def tmp(argv):
 
     arg_tmp = argv[2:]
 
-    if arg_tmp[0] == "help" or arg_tmp[0] == "h" or len(arg_tmp) < 1:
+    if arg_tmp[0] == "help" or arg_tmp[0] == "h" or len(arg_tmp) <= 0:
         error_tmp_usage()
         return
 
+    # ./btools.py --TMP [%s] sh
     if arg_tmp[0] == "sh":
-        # Check # of parameters
         if len(arg_tmp) != 1:
             error_tmp_usage()
             return
-        # Get project name
-        platform = get_project()
+        else:
+            platform = get_project()
+    else:
+        if len(arg_tmp) == 2:
+            platform = arg_tmp[0]
+            arg_tmp = arg_tmp[1:]
+        else:
+            error_tmp_usage()
+            return
+
+    if arg_tmp[0] == "sh":
         if platform == "montara":
             tmp_lower("Montara")
         elif platform == "newport":
