@@ -1313,8 +1313,8 @@ def read_vout(rail, I2C_BUS, I2C_ADDR):
 
     v = (float(mantissa)/float(div))
 
-    if not (rail == "VDD_CORE" or rail == "AVDD" or rail == "RETIMER_VDD" or
-            rail == "RETIMER_VDDA"):
+    if (rail == "QSFP" or rail == "QSFP_UPPER" or rail == "QSFP_LOWER" or
+            rail == "REPEATER"):
         v = v * 2
 
     print ("IR %s       %.3f V" % (rail, v))
