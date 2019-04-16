@@ -171,11 +171,11 @@ def get_bmc_ucd():
 
     arg = ['btools.py', '--UCD', 'sh', 'v']
 
-    if platform == "mavericks-p0c":
+    if platform == "mavericks-p0c" or platform == "newport":
          valid_range = 16
     if platform == "mavericks":
          valid_range = 15
-    if platform == "montara" or platform == "newport":
+    if platform == "montara":
          valid_range = 12
 
     with Capturing() as screen_op:
