@@ -29,7 +29,13 @@
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 
+board_subtype=$(wedge_board_subtype)
+echo "board type is $board_subtype"
+
 tofino_set_vdd_core() {
+  if [ "$board_subtype" == "Newport" ] ; then
+    return 0
+  fi
 # set the Tofino VDD voltage here before powering-ON COMe
   CODE="$(i2cget -f -y 12 0x31 0xb)"
   CODE_M=$(($CODE & 0x7))

@@ -29,6 +29,7 @@ PWR_SYSTEM_SYSFS="${SYSCPLD_SYSFS_DIR}/pwr_cyc_all_n"
 PWR_USRV_RST_SYSFS="${SYSCPLD_SYSFS_DIR}/usrv_rst_n"
 PWR_TF_RST_SYSFS="${SYSCPLD_SYSFS_DIR}/tofino_pwr_on_rst_n"
 PWR_USRV_SYSFS="${SYSCPLD_SYSFS_DIR}/pwr_main_n"
+PWR_USRV_EN_SYSFS="${SYSCPLD_SYSFS_DIR}/pwr_usrv_en"
 
 usage() {
     echo "Usage: $prog <command> [command options]"
@@ -60,6 +61,12 @@ do_status() {
 }
 
 do_on_com_e() {
+    board_subtype=$(wedge_board_subtype)
+
+    if [ "$board_subtype" == "Newport" ] ; then
+        echo 1 > $PWR_USRV_EN_SYSFS
+        echo "wedge_power setting pwr_usrv_en also for $board_subtype"
+    fi
     echo 1 > $PWR_USRV_SYSFS
     return $?
 }

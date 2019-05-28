@@ -125,9 +125,15 @@ wedge_should_enable_oob() {
 
 wedge_power_on_board() {
     local val isolbuf
+    board_subtype=$(wedge_board_subtype)
+
     # power on main power, uServer power, and enable power button
     val=$(cat $PWR_MAIN_SYSFS | head -n 1)
     if [ "$val" != "0x1" ]; then
+        if [ "$board_subtype" == "Newport" ] ; then
+            echo 1 > $PWR_USRV_SYSFS
+            echo "setting pwr_usrv_en also for $board_subtype"
+        fi
         echo 1 > $PWR_MAIN_SYSFS
         sleep 2
     fi
