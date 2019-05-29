@@ -106,6 +106,8 @@
 
 #define BAD_TEMP INTERNAL_TEMPS(-60)
 
+#define OVER_NORMAL_TEMP_CHANGE INTERNAL_TEMPS(50)
+
 #define BAD_READ_THRESHOLD 4    /* How many times can reads fail */
 #define FAN_FAILURE_THRESHOLD 4 /* How many times can a fan fail */
 #define FAN_SHUTDOWN_THRESHOLD 20 /* How long fans can be failed before */
@@ -1213,6 +1215,12 @@ int main(int argc, char **argv) {
   int exhaust_temp;
   int switch_temp;
   int userver_temp;
+  /*The followings are to avoid mistaking temp value derived from EC*/
+  int ignore_userver_temp;
+  int prev_intake_temp = 0;
+  int prev_exhaust_temp = 0;
+  int prev_switch_temp = 0;
+  int prev_userver_temp = 0;
 #else
   float intake_temp;
   float exhaust_temp;
@@ -1421,6 +1429,13 @@ int main(int argc, char **argv) {
     read_temp(CHIP_TEMP_DEVICE, &switch_temp);
     read_temp(USERVER_TEMP_DEVICE, &userver_temp);
 
+    ignore_userver_temp = 0;
+    if ((prev_userver_temp != 0)
+        && (abs(prev_userver_temp-userver_temp) > OVER_NORMAL_TEMP_CHANGE)) {
+        syslog(LOG_CRIT, "Temp userver changes unnaturally from %d to %d", prev_userver_temp, userver_temp);
+        ignore_userver_temp = 1;
+    }
+
 #if defined(CONFIG_MAVERICKS)
     if (mav_board_type == BF_BOARD_MAV) {
       old_speed_upper = fan_speed_upper;
@@ -1489,7 +1504,7 @@ int main(int argc, char **argv) {
 #if defined(CONFIG_MAVERICKS)
         (tofino_jct_temp > TOFINO_LIMIT) ||
 #endif
-        (userver_temp + USERVER_TEMP_FUDGE > USERVER_LIMIT)){
+        ((ignore_userver_temp == 0)&&(userver_temp + USERVER_TEMP_FUDGE > USERVER_LIMIT))){
       syslog(LOG_DEBUG,
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
                           || defined(CONFIG_MAVERICKS)
@@ -1518,26 +1533,35 @@ int main(int argc, char **argv) {
     /* Protection heuristics */
 
     if (intake_temp > INTAKE_LIMIT) {
+      syslog(LOG_CRIT, "previous Temp intake %d", prev_intake_temp);
       server_shutdown("Intake temp limit reached");
     }
 
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
                           || defined(CONFIG_MAVERICKS)
     if (switch_temp > SWITCH_LIMIT) {
+      syslog(LOG_CRIT, "previous Temp switch %d", prev_switch_temp);
       server_shutdown("T2 temp limit reached");
     }
 #endif
 
 #if defined(CONFIG_MAVERICKS)
     if (tofino_jct_temp > TOFINO_LIMIT) {
-      syslog(LOG_CRIT, "resetting Tofinodue: high temperature");
+      syslog(LOG_CRIT, "previous Temp Tofino %d", prev_tofino_jct_temp);
       server_shutdown("Tofino temp limit reached");
     }
 #endif
 
-    if (userver_temp + USERVER_TEMP_FUDGE > USERVER_LIMIT) {
+    if ((ignore_userver_temp == 0)&&(userver_temp + USERVER_TEMP_FUDGE > USERVER_LIMIT)) {
+      syslog(LOG_CRIT, "previous Temp userver %d", prev_userver_temp);
       server_shutdown("uServer temp limit reached");
     }
+
+    prev_intake_temp = intake_temp;
+    prev_exhaust_temp = exhaust_temp;
+    prev_switch_temp = switch_temp;
+    prev_userver_temp = userver_temp;
+    prev_tofino_jct_temp = tofino_jct_temp;
 
     /*
      * Calculate change needed -- we should eventually
