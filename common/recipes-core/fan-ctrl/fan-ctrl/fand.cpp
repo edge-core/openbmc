@@ -1235,6 +1235,7 @@ int main(int argc, char **argv) {
 #if defined(CONFIG_MAVERICKS)
   int ignore_upper_fan_tray = 0;
   int tofino_jct_temp;
+  int prev_tofino_jct_temp = 0;
   int fan_speed_upper = MAV_FAN_HIGH;
   int bad_reads_tofino = 0;
   int fan_failure_upper = 0;
