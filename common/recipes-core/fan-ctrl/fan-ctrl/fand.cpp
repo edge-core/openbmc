@@ -333,6 +333,8 @@ int fan_to_pwm_map[] = {1, 2, 3, 4, 5};
 #define MAV_FAN_MEDIUM 60
 #define MAV_FAN_HIGH 70
 #define MAV_FAN_MAX 100
+#define NP_FAN_FIX 44 // FIXME; newport-temporary
+
 /* make upper  fan tray numbers arbitrarily off by 100, more than the largest
  * value
  **/
@@ -757,6 +759,162 @@ static void close_and_remove_file(FILE *fp, const char *file_name) {
 }
 
 static int fd_tofino_ext_tmp = -1;
+#if 1 /* FIXME; newport-temporary read misc.PVT register for temperature measurement */
+static int tofino_ext_pvt_en = 1; // Turn off to read the temp in legacy way
+static int tofino_open_i2c_dev(int i2cbus, char *filename, size_t size, int quiet)
+{
+  int file;
+
+  snprintf(filename, size, "/dev/i2c/%d", i2cbus);
+  filename[size - 1] = '\0';
+  file = open(filename, O_RDWR);
+
+  if (file < 0 && (errno == ENOENT || errno == ENOTDIR)) {
+    sprintf(filename, "/dev/i2c-%d", i2cbus);
+    file = open(filename, O_RDWR);
+  }
+
+  if (file < 0 && !quiet) {
+    if (errno == ENOENT) {
+      fprintf(stderr, "Error: Could not open file "
+                      "`/dev/i2c-%d' or `/dev/i2c/%d': %s\n",
+                      i2cbus, i2cbus, strerror(ENOENT));
+    } else {
+      fprintf(stderr, "Error: Could not open file "
+                      "`%s': %s\n", filename, strerror(errno));
+      if (errno == EACCES) {
+        fprintf(stderr, "Run as root?\n");
+      }
+    }
+  }
+  return file;
+}
+
+static int set_slave_addr(int file, int address, int force)
+{
+  /* With force, let the user read from/write to the registers
+     even when a driver is also running */
+  if (ioctl(file, force ? I2C_SLAVE_FORCE : I2C_SLAVE, address) < 0) {
+    fprintf(stderr,
+            "Error: Could not set address to 0x%02x: %s\n",
+            address, strerror(errno));
+    return -errno;
+  }
+
+  return 0;
+}
+
+/* write pvt_ctrl register to perform continuous temp monitoring */
+static void np_write_tofino_pvt_ctrl(void)
+{
+  struct i2c_rdwr_ioctl_data i2c_rdwr_data;
+  struct i2c_msg i2c_msg_data[1];
+  unsigned char wr_buf[12];
+  unsigned short i2c_addr = 0x58;
+
+  memset(i2c_msg_data, 0 , sizeof(i2c_msg_data));
+
+  wr_buf[0] = 0x80; /* cmd */
+  wr_buf[1] = 0xf4; /* reg address 0x000801fc */
+  wr_buf[2] = 0x01;
+  wr_buf[3] = 0x08;
+  wr_buf[4] = 0x00;
+  wr_buf[5] = 0xe3;
+  wr_buf[6] = 0x01;
+  wr_buf[7] = 0x81;
+  wr_buf[8] = 0x00;
+
+  i2c_msg_data[0].addr = i2c_addr;
+  i2c_msg_data[0].flags = 0;
+  i2c_msg_data[0].len = 9;
+  i2c_msg_data[0].buf = (char *)wr_buf;
+  i2c_rdwr_data.msgs = i2c_msg_data;
+  i2c_rdwr_data.nmsgs = 1;
+
+  if (ioctl(fd_tofino_ext_tmp, I2C_RDWR, &i2c_rdwr_data) == -1) {
+    syslog(LOG_CRIT, "tofino i2c_rdwrd ioctl error");
+  }
+
+  return;
+}
+
+/* read pvt_status register that has temperature value */
+static void np_read_tofino_temp_pvt(int *temp)
+{
+  const char *lock_file_name = "/tmp/mav_9548_10_lock";
+  FILE *lock_file_fp;
+  struct i2c_rdwr_ioctl_data i2c_rdwr_data;
+  struct i2c_msg i2c_msg_data[2];
+  unsigned char wr_buf[12];
+  unsigned char rd_buf[8];
+  unsigned short i2c_addr = 0x58;
+  int timeout_counter = 0;
+  double tmpr, temp2, temp3, temp4, temperature;
+
+  *temp = BAD_TEMP;
+  /* Acquire the file lock */
+  while (file_exists(lock_file_name) == true) {
+    timeout_counter++;
+    if (timeout_counter >= 2) {
+      /* It's possible that the other process using the lock might have
+         malfunctioned. Hence explicitly delete the file and proceed*/
+      syslog(LOG_CRIT, "Some process didn't clean up the lock file. Hence explicitly cleaning it up and proceeding");
+      remove(lock_file_name);
+      break;
+    }
+    sleep(1);
+    /* Periodically kick the watch dog while trying to acquire the file lock */
+    kick_watchdog();
+  }
+
+  kick_watchdog();
+
+  lock_file_fp = fopen(lock_file_name, "w+");
+
+  memset(i2c_msg_data, 0 , sizeof(i2c_msg_data));
+
+  wr_buf[0] = 0xa0; /* cmd */
+  wr_buf[1] = 0xfc; /* reg address 0x000801fc */
+  wr_buf[2] = 0x01;
+  wr_buf[3] = 0x08;
+  wr_buf[4] = 0x00;
+
+  i2c_msg_data[0].addr = i2c_addr;
+  i2c_msg_data[0].flags = 0;
+  i2c_msg_data[0].len = 5;
+  i2c_msg_data[0].buf = (char *)wr_buf;
+  i2c_msg_data[1].addr = i2c_addr;
+  i2c_msg_data[1].flags = I2C_M_RD;
+  i2c_msg_data[1].len = 4;
+  i2c_msg_data[1].buf = (char *)rd_buf;
+
+  i2c_rdwr_data.msgs = i2c_msg_data;
+  i2c_rdwr_data.nmsgs = 2;
+
+  if (ioctl(fd_tofino_ext_tmp, I2C_RDWR, &i2c_rdwr_data) == -1) {
+    syslog(LOG_CRIT, "i2c_rdwrd ioctl error ");
+    close_and_remove_file(lock_file_fp, lock_file_name);
+    return;
+  }
+  close_and_remove_file(lock_file_fp, lock_file_name);
+
+  if ((rd_buf[1] & 0x10) == 0) {
+    syslog(LOG_CRIT, "error Tofino Temp meaurement not ready 0x%x", *(unsigned long *)rd_buf);
+    np_write_tofino_pvt_ctrl(); /* restart temp monitoring just in case */
+    return;
+  }
+
+  rd_buf[1] &= 0x3; /* strip off other bits */
+  tmpr = (double)(rd_buf[0] | (rd_buf[1] << 8));
+  temp2 = tmpr * tmpr;
+  temp3 = temp2 * tmpr;
+  temp4 = temp2 * temp2;
+  temperature = (temp4 * 1.6034E-11) + (temp3 * 1.5608E-08) - (temp2 * 1.5089E-04) + (tmpr * 3.3408E-01) - 6.2861E+01;
+  *temp = (int)temperature;
+  return;
+}
+#endif
+
 static void mav_read_tofino_temp(int *temp) {
   uint8_t val;
   char full_name[LARGEST_DEVICE_NAME];
@@ -1283,6 +1441,7 @@ int main(int argc, char **argv) {
 
 #if defined(CONFIG_MAVERICKS)
   mav_board_type = bf_board_type_get();
+  syslog(LOG_CRIT, "board type is %d\n", mav_board_type);
   if (mav_board_type == BF_BOARD_MAV) {
     total_fans_upper = FANS;
     fd_tofino_ext_tmp = mav_open_i2c_dev(9);
@@ -1290,7 +1449,17 @@ int main(int argc, char **argv) {
     fd_tofino_ext_tmp = mav_open_i2c_dev(3);
   } else if (mav_board_type == BF_BOARD_NEW) {
     total_fans = 6; /*6 fans on lower fan board*/
-    fd_tofino_ext_tmp = mav_open_i2c_dev(3);
+    if (tofino_ext_pvt_en == 0) {
+      fd_tofino_ext_tmp = mav_open_i2c_dev(3);
+    } else { // read it thru PVT register
+      char filename[32];
+      /* i2c read from tofino */
+      fd_tofino_ext_tmp = tofino_open_i2c_dev(11, filename, sizeof(filename), 0);
+      if (fd_tofino_ext_tmp < 0 || set_slave_addr(fd_tofino_ext_tmp, 0x58, 1)) {
+        syslog(LOG_CRIT, "Error: cannot open i2c device file");
+      }
+      np_write_tofino_pvt_ctrl();
+    }
   } else {
     fd_tofino_ext_tmp = mav_open_i2c_dev(3);
   }
@@ -1362,6 +1531,9 @@ int main(int argc, char **argv) {
            total_fans);
   }
 
+  if (mav_board_type == BF_BOARD_NEW) { //FIXME; newport-temporary
+    fan_speed =  NP_FAN_FIX;
+  }
   for (fan = 0; fan < total_fans; fan++) {
     fan_bad[fan] = 0;
     write_fan_speed(fan + fan_offset, fan_speed);
@@ -1420,6 +1592,7 @@ int main(int argc, char **argv) {
   while (1) {
     int max_temp;
     old_speed = fan_speed;
+    static int newport_itr_cnt = 0;
 
     /* Read sensors */
 
@@ -1441,9 +1614,20 @@ int main(int argc, char **argv) {
     if (mav_board_type == BF_BOARD_MAV) {
       old_speed_upper = fan_speed_upper;
     }
-    mav_read_tofino_temp(&tofino_jct_temp);
+    if (mav_board_type == BF_BOARD_NEW && tofino_ext_pvt_en) {
+      np_read_tofino_temp_pvt(&tofino_jct_temp);
+      if (newport_itr_cnt++ >= 5) {
+        /* write pvt_ctrl register, just in case it was changed in background */
+        newport_itr_cnt= 0;
+        np_write_tofino_pvt_ctrl();
+      }
+    } else {
+      mav_read_tofino_temp(&tofino_jct_temp);
+    }
+
     if (tofino_jct_temp == BAD_TEMP) {
       bad_reads_tofino++;
+      np_write_tofino_pvt_ctrl(); /* restart temp. monitoring just in case */
     }
     else {
       bad_reads_tofino = 0;
@@ -1714,6 +1898,9 @@ int main(int argc, char **argv) {
        * Make sure that we're within some percentage
        * of the requested speed.
        */
+      if (mav_board_type == BF_BOARD_NEW) { // FIXME; newport-temporary
+        break;
+      }
       if (fan_speed_okay(fan + fan_offset, fan_speed, FAN_FAILURE_OFFSET)) {
         if (fan_bad[fan] > FAN_FAILURE_THRESHOLD) {
           if (mav_board_type == BF_BOARD_NEW) {

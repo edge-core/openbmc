@@ -2093,6 +2093,11 @@ def tmp_lower(board):
 
     if board == "Montara" or board == "Newport":
 
+        if board == "Newport":
+            np_tvp_workaround = 1 # turn on for PVT reading
+        else:
+            np_tvp_workaround = 0
+
         cmd = "i2cget"
 
         try:
@@ -2114,10 +2119,32 @@ def tmp_lower(board):
             output = int(output, 16)
             print " TMP SENSOR MAX LOCAL           %.3f C" % output
 
-            output = subprocess.check_output([cmd, "-f", "-y", "3",
+            if np_tvp_workaround == 0: # read regular thermistor thru BMC i2c instead
+              output = subprocess.check_output([cmd, "-f", "-y", "3",
                                              "0x4c", "0x01"])
-            output = int(output, 16)
-            print " TMP SENSOR MAX Tofino          %.3f C" % (output)
+              output = int(output, 16)
+              print " TMP SENSOR MAX Tofino          %.3f C" % (output)
+            else:  # read PVT register thru BMC i2c instead
+              cmd = "i2c_set_get"
+              open_upper_PCA9548_lock() # using the same lock mechanism though the name is not quite right
+              output = subprocess.check_output([cmd, "11", "0x58", "5", "4",
+                              "0xa0", "0xfc", "0x01", "0x08", "0x00"])
+              close_upper_PCA9548_lock()
+              oplist = output.split(" ", 3)
+              lower = int(oplist[0], 0)
+              upper = int(oplist[1], 0) & 0x3
+              valid = int(oplist[1], 0) & 0x10
+              if valid == 0: # reading is not valid
+                print " TMP SENSOR MAX Tofino 0.0 C"
+                return
+              upper = (upper << 8) | lower
+              x = float(upper)
+              x2 = x * x
+              x3 = x2 * x
+              x4 = x2 * x2
+              temperature = (x4 * 1.6034E-11) + (x3 * 1.5608E-08) - \
+                 (x2 * 1.5089E-04) + (x * 3.3408E-01) - 6.2861E+01
+              print " TMP SENSOR MAX Tofino          %.3f C" % (temperature)
 
         except subprocess.CalledProcessError as e:
             print e

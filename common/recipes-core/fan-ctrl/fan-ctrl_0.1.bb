@@ -26,11 +26,13 @@ SRC_URI = "file://README \
            file://fand.cpp \
            file://watchdog.h \
            file://watchdog.cpp \
+           file://i2c_set_get.c \
           "
 
 S = "${WORKDIR}"
 
 binfiles = "fand \
+            i2c_set_get \
            "
 
 otherfiles = "README"

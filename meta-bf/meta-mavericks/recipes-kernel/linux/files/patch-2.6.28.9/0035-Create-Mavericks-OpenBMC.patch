@@ -40,16 +40,10 @@ index 2e29737..b470df8 100644
  	ast_scu_multi_func_eth(0);
  
 diff --git a/arch/arm/plat-aspeed/dev-i2c.c b/arch/arm/plat-aspeed/dev-i2c.c
-index fc1a0d6..6f91a75 100644
+index 2cb5b50..6758eeb 100644
 --- a/arch/arm/plat-aspeed/dev-i2c.c
 +++ b/arch/arm/plat-aspeed/dev-i2c.c
-@@ -1,4 +1,5 @@
- /********************************************************************************
-+*
- * File Name     : linux/arch/arm/plat-aspeed/dev-i2c.c
- * Author        : Ryan chen
- * Description   : ASPEED I2C Device
-@@ -1051,6 +1052,126 @@ static struct i2c_board_info __initdata ast_i2c_board_info_14[] = {
+@@ -1052,6 +1052,133 @@ static struct i2c_board_info __initdata ast_i2c_board_info_14[] = {
  
  /* end of defined(CONFIG_LIGHTNING) */
  
@@ -159,6 +153,13 @@ index fc1a0d6..6f91a75 100644
 +};
 +
 +/* i2c bus 11,12 on mavericks are not connected as i2c bus */
++/* i2c bus 12 on Newport is connected to ASIC */
++
++static struct i2c_board_info __initdata mavericks_i2c_bus12[] = {
++  {
++    I2C_BOARD_INFO("tofino", 0x58),
++  },
++};
 +
 +static struct i2c_board_info __initdata mavericks_i2c_bus13[] = {
 +  {
@@ -176,7 +177,7 @@ index fc1a0d6..6f91a75 100644
  #else
  
  /* wedge */
-@@ -1386,6 +1507,48 @@ void __init ast_add_device_i2c(void)
+@@ -1387,6 +1514,52 @@ void __init ast_add_device_i2c(void)
  
  	platform_device_register(&ast_i2c_dev14_device);
  	i2c_register_board_info(13, ast_i2c_board_info_14, ARRAY_SIZE(ast_i2c_board_info_14));
@@ -214,6 +215,10 @@ index fc1a0d6..6f91a75 100644
 +  i2c_register_board_info(9, mavericks_i2c_bus10, ARRAY_SIZE(mavericks_i2c_bus10));
 +
 +  /* i2c bus 11, 12 are not used as i2c on mavericks */
++  /* i2c bus 12 is used as i2c on Newport */
++
++  platform_device_register(&ast_i2c_dev12_device);
++  i2c_register_board_info(11, mavericks_i2c_bus12, ARRAY_SIZE(mavericks_i2c_bus12));
 +
 +  platform_device_register(&ast_i2c_dev13_device);
 +  i2c_register_board_info(12, mavericks_i2c_bus13, ARRAY_SIZE(mavericks_i2c_bus13));

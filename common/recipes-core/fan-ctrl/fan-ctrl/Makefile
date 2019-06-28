@@ -15,12 +15,15 @@
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
-all: fand
+all: fand i2c_set_get
 
 fand: fand.cpp watchdog.cpp
 	$(CXX) $(CXXFLAGS) -pthread -o $@ $^ $(LDFLAGS)
 
+i2c_set_get: i2c_set_get.c
+	$(CC) $(CFLAGS) -std=gnu99 -o $@ $^ $(LDFLAGS)
+
 .PHONY: clean
 
 clean:
-	rm -rf *.o fand
+	rm -rf *.o fand i2c_set_get

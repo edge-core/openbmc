@@ -31,6 +31,7 @@ binfiles = "                                    \
     set_fan_speed.sh                            \
     fand                                        \
     get_fantray_present.sh                      \
+    i2c_set_get                                 \
     "
 
 CXXFLAGS_prepend = "-DCONFIG_MAVERICKS "
