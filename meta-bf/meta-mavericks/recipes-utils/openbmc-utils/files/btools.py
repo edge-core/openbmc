@@ -20,7 +20,7 @@ def usage():
     print " "
     print "USAGE:"
     print "./btools.py --<device>"
-    print "              PSU  => PFE1100 power supply unit"
+    print "              PSU  => psu_driver power supply unit"
     print "              UCD  => UCD90120A power supply sequencer"
     print "              IR   => Multiphase Controller"
     print "              TMP  => Temperature Sensors"
@@ -180,84 +180,11 @@ def psu_cpld_features(power_supply, feature):
     return
 
 #
-# Function reads power supplies output voltage
-#
-def psu_read_output_voltage(power_supply):
-
-    PSU_I2C_BUS = "7"
-    PSU_I2C_READ_VOUT = "0x8b"
-
-    if power_supply == 1:
-        PSU_I2C_ADDR = "0x5a"
-    else:
-        PSU_I2C_ADDR = "0x59"
-
-    try:
-        get_cmd = "i2cget"
-        output = subprocess.check_output([get_cmd, "-f", "-y", PSU_I2C_BUS,
-                                     PSU_I2C_ADDR, PSU_I2C_READ_VOUT, "w"])
-    except subprocess.CalledProcessError as e:
-        print e
-        print "Error occured while processing output for PSU %d " % power_supply
-        return
-
-    # From PFE specs READ_VOUT1
-    PSU_VOLTAGE_LN_FMT = 0x1 << 6
-
-    # 11 bits are usable
-    output = int(output, 16) & 0x7ff
-
-    output = float(output) / PSU_VOLTAGE_LN_FMT
-
-    print "Output Voltage  %.1fV" % output
-
-    return
-
-#
-# Function is retrive current withdrawn on both power supplies
-#
-def psu_read_load_sharing():
-
-    PSU_I2C_BUS = "7"
-    PSU_I2C_READ_IOUT = "0x8C"
-
-    try:
-        #Read 1st power supply
-        PSU_I2C_ADDR = "0x5a"
-        get_cmd = "i2cget"
-        output1 = subprocess.check_output([get_cmd, "-f", "-y", PSU_I2C_BUS,
-                                          PSU_I2C_ADDR, PSU_I2C_READ_IOUT, "w"])
-
-        PSU_I2C_ADDR = "0x59"
-        output2 = subprocess.check_output([get_cmd, "-f", "-y", PSU_I2C_BUS,
-                                          PSU_I2C_ADDR, PSU_I2C_READ_IOUT, "w"])
-
-    except subprocess.CalledProcessError as e:
-        print e
-        print "Error occured while processing load sharing for PSU"
-        return
-
-    # From PFE specs READ_IOUT1
-    PSU_CURRENT_LN_FMT = 0x1 << 3
-
-    # 11 bits are usable
-    output1 = int(output1, 16) & 0x7ff
-    output1 = float(output1) / PSU_CURRENT_LN_FMT
-
-    output2 = int(output2, 16) & 0x7ff
-    output2 = float(output2) / PSU_CURRENT_LN_FMT
-
-    print "Power Supply 1 output current  %.3f amp" % output1
-    print "Power Supply 2 output current  %.3f amp" % output2
-
-    return
-
-#
 #open I2C sw before pfe devices and then load drivers
 #
 def psu_init():
 
-    #check if pfe1100 driver is loaded properly
+    #check if psu_driver driver is loaded properly
     if os.path.isfile("/sys/class/i2c-adapter/i2c-7/7-0059/in1_input") \
        and os.path.isfile("/sys/class/i2c-adapter/i2c-7/7-005a/in1_input"):
         return
@@ -273,15 +200,15 @@ def psu_init():
         subprocess.check_output([cmd, "-f", "-y", I2C_BUS, I2C_ADDR, OPCODE])
 
         # load driver for both devices
-        o = subprocess.check_output(["lsmod", "pfe1100"])
-        rtn = o.find("pfe1100")
+        o = subprocess.check_output(["lsmod", "psu_driver"])
+        rtn = o.find("psu_driver")
 
         if rtn != -1:
             # load driver for both devices
-            subprocess.check_output(["rmmod", "pfe1100"])
+            subprocess.check_output(["rmmod", "psu_driver"])
 
         # load driver for both devices
-        subprocess.check_output(["modprobe", "pfe1100"])
+        subprocess.check_output(["modprobe", "psu_driver"])
 
     except subprocess.CalledProcessError as e:
         print e
@@ -332,7 +259,7 @@ def psu(argv):
         return
 
     if arg_psu[2] == "v":
-        val = "in1_input"
+        val = "in0_input"
         s = "V"
     elif arg_psu[2] == "i":
         val = "curr1_input"
@@ -356,19 +283,19 @@ def psu(argv):
         psu_cpld_features(power_supply, "sts_op_power")
         return
     elif arg_psu[2] == "vo":
-        psu_read_output_voltage(power_supply)
-        return
+        val = "in1_input"
+        s = "V"
     elif arg_psu[2] == "ld":
-        psu_read_load_sharing()
-        return
+        val = "curr2_input"
+        s = "A"
     elif arg_psu[2] == "psmodel":
-        val = "mfr_model_label"
+        val = "mfr_model"
         s = "model"
     elif arg_psu[2] == "psserial":
-        val = "mfr_serial_label"
+        val = "mfr_serial"
         s = "serial"
     elif arg_psu[2] == "psrev":
-        val = "mfr_revision_label"
+        val = "mfr_revision"
         s = "rev"
     else:
         error_psu_usage()
@@ -385,8 +312,18 @@ def psu(argv):
         #i2cset -f -y 7 0x70 0x3
         subprocess.check_output(["i2cset", "-f", "-y", I2C_BUS, I2C_ADDR, OPCODE])
 
-
-        output = subprocess.check_output([cmd, path])
+        # load sharing checking
+        if val == "curr2_input":
+            ps = "5a/"
+            path = i2c_dev + ps + val
+            output = subprocess.check_output([cmd, path])
+            print "Power Supply 1 output current  %.3f amp" % (float(output)/1000) # unit: A
+            ps = "59/"
+            path = i2c_dev + ps + val
+            output = subprocess.check_output([cmd, path])
+            print "Power Supply 2 output current  %.3f amp" % (float(output)/1000) # unit: A
+        else:
+            output = subprocess.check_output([cmd, path])
     except subprocess.CalledProcessError as e:
         print e
         print "Error while executing psu i2c command "
@@ -397,7 +334,7 @@ def psu(argv):
     elif s == "mA":
         print "{}{}".format(float(output), "mA")                   # current is in milli Amperes
     elif s == "mW":
-        print "{}{}".format(float(output) / 1000 , "mW")           # Power in milli watts
+        print "{}{}".format(float(output), "mW")                   # Power in milli watts
     elif s == "rpm":
         print "{}{}".format(int(output), "rpm")                    # Speed of FAN
     elif s == "ffault":

@@ -58,6 +58,8 @@ def main():
         if len(live_channels) == 0:
             syslog.syslog(syslog.LOG_WARNING, "No ltc4151 (passthrough card voltage monitor) detected")
             pcard_channel = None
+            ch = 0x3
+            set_mux_channel(ch)
         if len(live_channels) == 1:
             ch = live_channels[0]
             if pcard_channel is None:

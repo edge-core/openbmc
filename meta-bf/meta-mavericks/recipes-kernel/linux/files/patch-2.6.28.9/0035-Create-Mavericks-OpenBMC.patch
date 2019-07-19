@@ -113,10 +113,10 @@ index 2cb5b50..6758eeb 100644
 +  },
 +  /* PSU driver */
 +  {
-+    I2C_BOARD_INFO("pfe1100", 0x59),
++    I2C_BOARD_INFO("psu_driver", 0x59),
 +  },
 +  {
-+    I2C_BOARD_INFO("pfe1100", 0x5a),
++    I2C_BOARD_INFO("psu_driver", 0x5a),
 +  },
 +  {
 +    I2C_BOARD_INFO("ltc4151", 0x6f),

@@ -435,7 +435,7 @@ def get_bmc_ps(param1):
         output.append("None")
         pass
 
-    # ps ver
+    # ps verion
     arg[4] = 'psrev'
     with Capturing() as screen_op:
          btools.main(arg)
