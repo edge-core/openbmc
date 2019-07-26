@@ -111,6 +111,13 @@ do_on() {
 }
 
 do_off_com_e() {
+    board_subtype=$(wedge_board_subtype)
+
+    if [ "$board_subtype" == "Newport" ] ; then
+        echo 0 > $PWR_USRV_EN_SYSFS
+        echo "wedge_power setting pwr_usrv_en also for $board_subtype"
+    fi
+
     echo 0 > $PWR_USRV_SYSFS
     return $?
 }
