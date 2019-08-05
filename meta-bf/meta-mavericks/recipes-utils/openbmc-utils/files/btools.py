@@ -2077,10 +2077,7 @@ def tmp_lower(board):
               upper = (upper << 8) | lower
               x = float(upper)
               x2 = x * x
-              x3 = x2 * x
-              x4 = x2 * x2
-              temperature = (x4 * 1.6034E-11) + (x3 * 1.5608E-08) - \
-                 (x2 * 1.5089E-04) + (x * 3.3408E-01) - 6.2861E+01
+              temperature = (x2 * (-0.000011677)) + (x * 0.28031) - 66.599
               print " TMP SENSOR MAX Tofino          %.3f C" % (temperature)
 
         except subprocess.CalledProcessError as e:

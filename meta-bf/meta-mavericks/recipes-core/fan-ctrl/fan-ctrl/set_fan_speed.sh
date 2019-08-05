@@ -140,7 +140,7 @@ if [ "$board_type" == "MAVERICKS" ]; then
     done
 elif [ "$board_type" == "NEWPORT" ]; then
     #For Newport, Convert the percentage to our 1/16th unit (0-15).
-    unit=$(( ( $1 * 16 ) / 100 - 1 ))
+    unit=$(( ( $1 * 16 ) / 100 ))
 
     pwm="${FAN_DIR}/fantray_pwm"
     echo "$unit" > $pwm

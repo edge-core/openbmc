@@ -333,7 +333,7 @@ int fan_to_pwm_map[] = {1, 2, 3, 4, 5};
 #define MAV_FAN_MEDIUM 60
 #define MAV_FAN_HIGH 70
 #define MAV_FAN_MAX 100
-#define NP_FAN_FIX 44 // FIXME; newport-temporary
+#define NP_FAN_FIX 80 // FIXME; newport-temporary
 
 /* make upper  fan tray numbers arbitrarily off by 100, more than the largest
  * value
@@ -849,7 +849,7 @@ static void np_read_tofino_temp_pvt(int *temp)
   unsigned char rd_buf[8];
   unsigned short i2c_addr = 0x58;
   int timeout_counter = 0;
-  double tmpr, temp2, temp3, temp4, temperature;
+  double tmpr, temp2, temperature;
 
   *temp = BAD_TEMP;
   /* Acquire the file lock */
@@ -907,9 +907,7 @@ static void np_read_tofino_temp_pvt(int *temp)
   rd_buf[1] &= 0x3; /* strip off other bits */
   tmpr = (double)(rd_buf[0] | (rd_buf[1] << 8));
   temp2 = tmpr * tmpr;
-  temp3 = temp2 * tmpr;
-  temp4 = temp2 * temp2;
-  temperature = (temp4 * 1.6034E-11) + (temp3 * 1.5608E-08) - (temp2 * 1.5089E-04) + (tmpr * 3.3408E-01) - 6.2861E+01;
+  temperature = (temp2 * -0.000011677) + (tmpr * 0.28031) - 66.599;
   *temp = (int)temperature;
   return;
 }
@@ -1287,6 +1285,7 @@ int server_shutdown(const char *why) {
 
 #if defined(CONFIG_MAVERICKS)
   syslog(LOG_CRIT, "resetting Tofino...");
+  system("/usr/local/bin/reset_tofino.sh");
   mav_syscpld_write(12, 0x31, 0x32, 0x3);
 #endif
 
@@ -1392,6 +1391,8 @@ int main(int argc, char **argv) {
   int old_speed;
 #if defined(CONFIG_MAVERICKS)
   int ignore_upper_fan_tray = 0;
+  int enable_high_temp_profile = 0;
+  int base_temperature = 95;
   int tofino_jct_temp;
   int prev_tofino_jct_temp = 0;
   int fan_speed_upper = MAV_FAN_HIGH;
@@ -1468,7 +1469,7 @@ int main(int argc, char **argv) {
   }
 #endif
 
-  while ((opt = getopt(argc, argv, "l:m:h:b:t:r:v:d")) != -1) {
+  while ((opt = getopt(argc, argv, "l:m:h:b:t:r:v:d:")) != -1) {
     switch (opt) {
     case 'l':
       fan_low = atoi(optarg);
@@ -1495,6 +1496,14 @@ int main(int argc, char **argv) {
     case 'd':
       /* ignore upper fan tray errors */
       ignore_upper_fan_tray = 1;
+      enable_high_temp_profile = 1; /* enable high temperature profile */
+      base_temperature = atoi(optarg);
+      if (base_temperature < 70 || base_temperature > 105) {
+        printf("error in -d parameter, setting default to 95\n");
+        base_temperature = 95;
+      } else {
+        printf("base_temperature is %d\n", base_temperature);
+      }
       break;
 #endif
     default:
@@ -1616,6 +1625,9 @@ int main(int argc, char **argv) {
     }
     if (mav_board_type == BF_BOARD_NEW && tofino_ext_pvt_en) {
       np_read_tofino_temp_pvt(&tofino_jct_temp);
+      if (tofino_jct_temp == BAD_TEMP) {
+        tofino_jct_temp = TOFINO_THRESH; //FIXME; newport temporary until we understand PVT better
+      }
       if (newport_itr_cnt++ >= 5) {
         /* write pvt_ctrl register, just in case it was changed in background */
         newport_itr_cnt= 0;
@@ -1627,7 +1639,6 @@ int main(int argc, char **argv) {
 
     if (tofino_jct_temp == BAD_TEMP) {
       bad_reads_tofino++;
-      np_write_tofino_pvt_ctrl(); /* restart temp. monitoring just in case */
     }
     else {
       bad_reads_tofino = 0;

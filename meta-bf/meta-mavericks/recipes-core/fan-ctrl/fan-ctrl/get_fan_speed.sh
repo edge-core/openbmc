@@ -78,6 +78,7 @@ show_pwm_newport()
     pwm="${FAN_DIR}/fantray_pwm"
     val=$(cat $pwm | head -n 1)
 
+    # new fantray firmware supports lower rpms
     # According to Fan_board_CPLD_Specification,
     # 0000(0): 0x6.25% = 0% duty cycle      1000(8): 9x6.25% = 56.25% duty cycle
     # 0001(1): 5x6.25% = 31.25% duty cycle  1001(9): 10x6.25% = 62.50% duty cycle
@@ -88,12 +89,6 @@ show_pwm_newport()
     # 0110(6): 7x6.25% = 43.75% duty cycle  1110(14): 15x6.25% = 93.75% duty cycle
     # 0111(7): 8x6.25% = 50.00% duty cycle  1111(15): 16x6.25% = 100.0% duty cycle
     # The fan module PWM is the same if register value is between 1 and 4.
-    if [[ $val -gt 0 ]]; then
-        if [[ $val -lt 4 ]]; then
-            val=4
-        fi
-        val=$(( val + 1 ))
-    fi
 
     echo "$((val * 100 / 16))%"
 }
