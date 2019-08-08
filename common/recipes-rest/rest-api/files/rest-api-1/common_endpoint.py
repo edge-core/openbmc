@@ -167,8 +167,8 @@ def rest_slotid_hdl():
     return rest_slotid.get_slotid()
 
 # Handler for sys/bmc/sensors info
-@bottle.route('/api/sys/bmc/sensors', defaults={'agrs':""})
-@bottle.route('/api/sys/bmc/sensors/', defaults={'agrs':""})
+@bottle.route('/api/sys/bmc/sensors', defaults={'args':""})
+@bottle.route('/api/sys/bmc/sensors/', defaults={'args':""})
 @bottle.route('/api/sys/bmc/sensors/<args>')
 def rest_bmc_ps_hdl(args=""):
     from subprocess import call

@@ -2062,7 +2062,7 @@ def tmp_lower(board):
               output = int(output, 16)
               print " TMP SENSOR MAX Tofino          %.3f C" % (output)
             else:  # read PVT register thru BMC i2c instead
-              cmd = "i2c_set_get"
+              cmd = "/usr/local/bin/i2c_set_get"
               open_upper_PCA9548_lock() # using the same lock mechanism though the name is not quite right
               output = subprocess.check_output([cmd, "11", "0x58", "5", "4",
                               "0xa0", "0xfc", "0x01", "0x08", "0x00"])
