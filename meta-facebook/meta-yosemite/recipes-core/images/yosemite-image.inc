@@ -40,17 +40,13 @@ NTP_PKGS = " \
 
 # Include modules in rootfs
 IMAGE_INSTALL += " \
-  kernel-modules \
-  u-boot \
-  u-boot-fw-utils \
+  packagegroup-openbmc-base \
   healthd \
   fbutils \
   fan-util \
   fscd \
   watchdog-ctrl \
-  i2c-tools \
   sensor-setup \
-  lmsensors-sensors \
   rest-api \
   bottle \
   ipmid \
@@ -79,7 +75,6 @@ IMAGE_INSTALL += " \
   fan-util \
   spatula \
   passwd-util \
-  logrotate \
   conf-util \
   "
 

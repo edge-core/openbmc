@@ -38,17 +38,14 @@ NTP_PKGS = " \
 
 # Include modules in rootfs
 IMAGE_INSTALL += " \
-  kernel-modules \
-  u-boot \
-  u-boot-fw-utils \
   fbutils \
   ipmid \
   healthd \
   watchdog-ctrl \
-  i2c-tools \
   usb-console \
   sensor-util \
   sensor-mon \
+  packagegroup-openbmc-base \
   ${PYTHON_PKGS} \
   ${NTP_PKGS} \
   iproute2 \
