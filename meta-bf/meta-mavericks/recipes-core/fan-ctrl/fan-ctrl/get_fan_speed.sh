@@ -80,17 +80,15 @@ show_pwm_newport()
 
     # new fantray firmware supports lower rpms
     # According to Fan_board_CPLD_Specification,
-    # 0000(0): 0x6.25% = 0% duty cycle      1000(8): 9x6.25% = 56.25% duty cycle
-    # 0001(1): 5x6.25% = 31.25% duty cycle  1001(9): 10x6.25% = 62.50% duty cycle
-    # 0010(2): 5x6.25% = 31.25% duty cycle  1010(10): 11x6.25% = 68.75% duty cycle
-    # 0011(3): 5x6.25% = 31.25% duty cycle  1011(11): 12x6.25% = 75.00% duty cycle
+    # 0000(0): 1x6.25% = 06.25% duty cycle  1000(8):   9x6.25% = 56.25% duty cycle
+    # 0001(1): 2x6.25% = 12.50% duty cycle  1001(9):  10x6.25% = 62.50% duty cycle
+    # 0010(2): 3x6.25% = 18.75% duty cycle  1010(10): 11x6.25% = 68.75% duty cycle
+    # 0011(3): 4x6.25% = 25.00% duty cycle  1011(11): 12x6.25% = 75.00% duty cycle
     # 0100(4): 5x6.25% = 31.25% duty cycle  1100(12): 13x6.25% = 81.25% duty cycle
     # 0101(5): 6x6.25% = 37.50% duty cycle  1101(13): 14x6.25% = 87.50% duty cycle
     # 0110(6): 7x6.25% = 43.75% duty cycle  1110(14): 15x6.25% = 93.75% duty cycle
     # 0111(7): 8x6.25% = 50.00% duty cycle  1111(15): 16x6.25% = 100.0% duty cycle
-    # The fan module PWM is the same if register value is between 1 and 4.
-
-    echo "$((val * 100 / 16))%"
+    echo "$(((val + 1) * 100 / 16))%"
 }
 
 show_rpm_newport()
@@ -154,7 +152,7 @@ elif [ "$#" -eq 2 ]; then
             exit 1
         fi
     else
-        usgae
+        usage
         exit 1
     fi
 

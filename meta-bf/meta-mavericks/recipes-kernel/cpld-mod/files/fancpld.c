@@ -824,6 +824,48 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     NULL,
     0, 0, 0,
   },
+  {
+    "fan7_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan8_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan9_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan10_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan11_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
+  {
+    "fan12_min",
+    NULL,
+    show_fan_min_value,
+    NULL,
+    0, 0, 0,
+  },
 };
 
 static i2c_dev_data_st fancpld_data;

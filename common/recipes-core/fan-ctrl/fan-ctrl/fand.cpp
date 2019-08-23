@@ -419,6 +419,42 @@ struct rpm_to_pct_map rpm_rear_map[] = {{20, 2130},
                                         {95, 14370},
                                         {100, 14850}};
 #define REAR_MAP_SIZE (sizeof(rpm_rear_map) / sizeof(struct rpm_to_pct_map))
+
+struct rpm_to_pct_map rpm_front_map_newport[] = {{6, 2100},
+                                         {13, 3600},
+                                         {19, 5000},
+                                         {25, 6400},
+                                         {31, 7600},
+                                         {38, 8800},
+                                         {44, 10000},
+                                         {50, 11200},
+                                         {56, 12400},
+                                         {63, 13700},
+                                         {69, 14900},
+                                         {75, 16200},
+                                         {81, 17400},
+                                         {88, 18600},
+                                         {94, 20000},
+                                         {100, 21500}};
+#define FRONT_MAP_SIZE_NEWPORT (sizeof(rpm_front_map_newport) / sizeof(struct rpm_to_pct_map))
+
+struct rpm_to_pct_map rpm_rear_map_newport[] = {{6, 1800},
+                                         {13, 3200},
+                                         {19, 4300},
+                                         {25, 5300},
+                                         {31, 6500},
+                                         {38, 7500},
+                                         {44, 8600},
+                                         {50, 9500},
+                                         {56, 10500},
+                                         {63, 11600},
+                                         {69, 12500},
+                                         {75, 13600},
+                                         {81, 14500},
+                                         {88, 15600},
+                                         {94, 16500},
+                                         {100, 18000}};
+#define REAR_MAP_SIZE_NEWPORT (sizeof(rpm_rear_map_newport) / sizeof(struct rpm_to_pct_map))
 #elif defined(CONFIG_WEDGE)
 struct rpm_to_pct_map rpm_front_map[] = {{30, 6150},
                                          {35, 7208},
@@ -1141,19 +1177,25 @@ int fan_speed_okay(const int fan, const int speed, const int slop) {
 
   if (mav_board_type == BF_BOARD_NEW) {
     real_fan = fan_to_rpm_map_newport[fan];
+    front_fan = 0;
+    read_fan_value(real_fan, FAN_READ_RPM_FORMAT, &front_fan);
+    front_pct = fan_rpm_to_pct(rpm_front_map_newport, FRONT_MAP_SIZE_NEWPORT, front_fan);
+#ifdef BACK_TO_BACK_FANS
+    rear_fan = 0;
+    read_fan_value(real_fan + REAR_FAN_OFFSET, FAN_READ_RPM_FORMAT, &rear_fan);
+    rear_pct = fan_rpm_to_pct(rpm_rear_map_newport, REAR_MAP_SIZE_NEWPORT, rear_fan);
+#endif
   } else {
     real_fan = fan_to_rpm_map[fan];
-  }
-
-  front_fan = 0;
-  read_fan_value(real_fan, FAN_READ_RPM_FORMAT, &front_fan);
-  front_pct = fan_rpm_to_pct(rpm_front_map, FRONT_MAP_SIZE, front_fan);
+    front_fan = 0;
+    read_fan_value(real_fan, FAN_READ_RPM_FORMAT, &front_fan);
+    front_pct = fan_rpm_to_pct(rpm_front_map, FRONT_MAP_SIZE, front_fan);
 #ifdef BACK_TO_BACK_FANS
-  rear_fan = 0;
-  read_fan_value(real_fan + REAR_FAN_OFFSET, FAN_READ_RPM_FORMAT, &rear_fan);
-  rear_pct = fan_rpm_to_pct(rpm_rear_map, REAR_MAP_SIZE, rear_fan);
+    rear_fan = 0;
+    read_fan_value(real_fan + REAR_FAN_OFFSET, FAN_READ_RPM_FORMAT, &rear_fan);
+    rear_pct = fan_rpm_to_pct(rpm_rear_map, REAR_MAP_SIZE, rear_fan);
 #endif
-
+  }
 
   /*
    * If the fans are broken, the measured rate will be rather
@@ -1220,7 +1262,11 @@ int write_fan_speed(const int fan, const int value) {
 
 #if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
     if (mav_board_type == BF_BOARD_NEW) {
-        unit = value * PWM_UNIT_MAX_NEWPORT / 100 - 1;
+        // According to Fan_board_CPLD_Specification
+        unit = value * PWM_UNIT_MAX_NEWPORT / 100;
+        if ((value==25) || (value==50) || (value==75) || (value==100)) {
+            unit = unit - 1;
+        }
         return write_fan_value(real_fan, "fantray_pwm", unit);
     } else {
         // Note that PWM for Wedge100 and Wedge100BF is in 32nds of a cycle
@@ -1909,9 +1955,6 @@ int main(int argc, char **argv) {
        * Make sure that we're within some percentage
        * of the requested speed.
        */
-      if (mav_board_type == BF_BOARD_NEW) { // FIXME; newport-temporary
-        break;
-      }
       if (fan_speed_okay(fan + fan_offset, fan_speed, FAN_FAILURE_OFFSET)) {
         if (fan_bad[fan] > FAN_FAILURE_THRESHOLD) {
           if (mav_board_type == BF_BOARD_NEW) {
