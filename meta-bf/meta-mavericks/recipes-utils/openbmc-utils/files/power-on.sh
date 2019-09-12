@@ -34,6 +34,8 @@ echo "board type is $board_subtype"
 
 tofino_set_vdd_core() {
   if [ "$board_subtype" == "Newport" ] ; then
+    btools.py --IR set_vdd_core 0.8
+    echo "setting Newport Tofino VDD_CORE to 0.800V..."
     return 0
   fi
 # set the Tofino VDD voltage here before powering-ON COMe
