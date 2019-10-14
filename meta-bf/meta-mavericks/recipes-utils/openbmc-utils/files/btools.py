@@ -1504,8 +1504,8 @@ def ir_set_vdd_core_dynamic_range_newport(arg_ir):
         error_ir_usage()
         return
 
-    if v < 0.65 or v > 0.85:
-        print "Voltage value not in range .65 - .85"
+    if v < 0.65 or v > 0.90:
+        print "Voltage value not in range .65 - .90"
         return
 #    voltage_scale = {0: "0xA66", 10: "0xA8F", 20: "0xAB8", 30: "0xAE1", 40: "0xB0A", 50: "0xB33", 60: "0xB5C", 70: "0xB85",
 #               80: "0xBAE", 90: "0xBD7", 100: "0xC00", 110: "0xC29", 120: "0xC52",
