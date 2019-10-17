@@ -1,0 +1,33 @@
+From 1fed4ab166f559af91efef3f0952dac5540f6c9f Mon Sep 17 00:00:00 2001
+From: JeremyChen1004 <jeremy_chen@accton.com>
+Date: Thu, 17 Oct 2019 16:17:51 +0800
+Subject: [PATCH] mtd: m25p80: add support for Winbond W25Q256
+
+---
+ drivers/mtd/devices/m25p80.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/mtd/devices/m25p80.c b/drivers/mtd/devices/m25p80.c
+index 13634c3..5b7e0d6 100644
+--- a/drivers/mtd/devices/m25p80.c
++++ b/drivers/mtd/devices/m25p80.c
+@@ -679,7 +679,7 @@ static struct flash_info __devinitdata m25p_data [] = {
+ 	{ "s25sl016a", 0x010214, 0, 64 * 1024, 32, },
+ 	{ "s25sl032a", 0x010215, 0, 64 * 1024, 64, },
+ 	{ "s25sl064a", 0x010216, 0, 64 * 1024, 128, },
+-    { "s25sl12800", 0x012018, 0x0300, 256 * 1024, 64, },
++	{ "s25sl12800", 0x012018, 0x0300, 256 * 1024, 64, },
+ 	{ "s25sl12801", 0x012018, 0x0301, 64 * 1024, 256, },
+ 
+ 	/* SST -- large erase sizes are "overlays", "sectors" are 4K */
+@@ -714,6 +714,7 @@ static struct flash_info __devinitdata m25p_data [] = {
+ 	{ "w25x32", INFO(0xef3016, 0, 64 * 1024,  64, SECT_4K) },
+ 	{ "w25x64", INFO(0xef3017, 0, 64 * 1024, 128, SECT_4K) },
+ 	{ "w25q64", INFO(0xef4017, 0, 64 * 1024, 128, SECT_4K) },
++	{ "w25q256", INFO(0xef4019, 0, 64 * 1024, 512, SECT_4K) },
+ 
+ 	/* Catalyst / On Semiconductor -- non-JEDEC */
+ 	{ "cat25c11", CAT25_INFO(  16, 8, 16, 1) },
+-- 
+1.9.1
+
