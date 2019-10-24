@@ -502,7 +502,37 @@ def set_bmc_fan(param1, param2, param3):
     output = []
     error = ["error", "Error", "ERROR"]
     err = 0
-    cmd = "/usr/local/bin/set_fan_speed.sh %s %s %s" % (param3, param2, param1)
+
+    platform = btools.get_project()
+    if platform == "newport":
+        cmd = "/usr/local/bin/set_fan_speed.sh %s" % (param3)
+    else:
+        cmd = "/usr/local/bin/set_fan_speed.sh %s %s %s" % (param3, param2, param1)
+
+    data = Popen(cmd, \
+                      shell=True, stdout=PIPE).stdout.read()
+
+    # if error while data collection
+    if any(x in data for x in error):
+        err = 1
+
+    output.append(err)
+    result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+
+    return result;
+
+def set_bmc_all_fan(param1):
+
+    output = []
+    error = ["error", "Error", "ERROR"]
+    err = 0
+
+    cmd = "/usr/local/bin/set_fan_speed.sh %s" % (param1)
+
     data = Popen(cmd, \
                       shell=True, stdout=PIPE).stdout.read()
 
@@ -520,6 +550,7 @@ def set_bmc_fan(param1, param2, param3):
     return result;
 
 def get_bmc_sensors(args):
+
     output = []
     error = ["error", "Error", "ERROR"]
     err = 0

@@ -109,6 +109,11 @@ def rest_bmc_ucd_hdl():
 def rest_bmc_fan_set_hdl(param1, param2, param3):
     return rest_bmc.set_bmc_fan(param1, param2, param3)
 
+# Handler for sys/bmc/fan/setall resource endpoint
+@bottle.route('/api/sys/bmc/fan/setall/<param1>')
+def rest_bmc_all_fan_set_hdl(param1):
+    return rest_bmc.set_bmc_all_fan(param1)
+
 # Handler for sys/bmc/fan/get resource endpoint
 @bottle.route('/api/sys/bmc/fan/get/<param1>')
 def rest_bmc_fan_get_hdl(param1):
