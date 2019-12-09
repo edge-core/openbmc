@@ -172,6 +172,7 @@
 #define FAN8_LED PWM_UPPER_DIR "fantray4_led_ctrl"
 #define FAN9_LED PWM_UPPER_DIR "fantray5_led_ctrl"
 /*For Newport*/
+#define FAN_LED_DEBUG_MODE PWM_DIR_NEWPORT "led_debug_mode"
 #define FAN0_LED_R PWM_DIR_NEWPORT "fantray1_led_r"
 #define FAN0_LED_G PWM_DIR_NEWPORT "fantray1_led_g"
 #define FAN1_LED_R PWM_DIR_NEWPORT "fantray2_led_r"
@@ -187,8 +188,6 @@
 
 #define FAN_LED_BLUE "0x1"
 #define FAN_LED_RED "0x2"
-/*For Newport*/
-#define FAN_LED_GREEN "0x3"
 
 /*For Newport*/
 #define FAN_LED_ON "0x0"
@@ -1175,6 +1174,7 @@ int fan_speed_okay(const int fan, const int speed, const int slop) {
    * in the box, so we have to map them:
    */
 
+#if defined(CONFIG_MAVERICKS)
   if (mav_board_type == BF_BOARD_NEW) {
     real_fan = fan_to_rpm_map_newport[fan];
     front_fan = 0;
@@ -1185,7 +1185,9 @@ int fan_speed_okay(const int fan, const int speed, const int slop) {
     read_fan_value(real_fan + REAR_FAN_OFFSET, FAN_READ_RPM_FORMAT, &rear_fan);
     rear_pct = fan_rpm_to_pct(rpm_rear_map_newport, REAR_MAP_SIZE_NEWPORT, rear_fan);
 #endif
-  } else {
+  } else
+#endif
+  {
     real_fan = fan_to_rpm_map[fan];
     front_fan = 0;
     read_fan_value(real_fan, FAN_READ_RPM_FORMAT, &front_fan);
@@ -1303,16 +1305,17 @@ int write_fan_led(const int fan, const char *color) {
 #if defined(CONFIG_WEDGE100) || defined(CONFIG_WEDGE) \
     || defined(CONFIG_MAVERICKS)
     if (mav_board_type == BF_BOARD_NEW) {
-        if (strstr(color, FAN_LED_GREEN))
+        if (strstr(color, FAN_LED_BLUE))
         {
-            return write_device(fan_led_g[fan], FAN_LED_ON);
-            return write_device(fan_led_r[fan], FAN_LED_OFF);
+            write_device(fan_led_g[fan], FAN_LED_ON);
+            write_device(fan_led_r[fan], FAN_LED_OFF);
         }
         else if (strstr(color, FAN_LED_RED))
         {
-            return write_device(fan_led_g[fan], FAN_LED_OFF);
-            return write_device(fan_led_r[fan], FAN_LED_ON);
+            write_device(fan_led_g[fan], FAN_LED_OFF);
+            write_device(fan_led_r[fan], FAN_LED_ON);
         }
+        return 0;
     } else {
         return write_device(fan_led[fan], color);
     }
@@ -1586,17 +1589,16 @@ int main(int argc, char **argv) {
            total_fans);
   }
 
+#if defined(CONFIG_MAVERICKS)
   if (mav_board_type == BF_BOARD_NEW) { //FIXME; newport-temporary
     fan_speed =  NP_FAN_FIX;
   }
+#endif
+
   for (fan = 0; fan < total_fans; fan++) {
     fan_bad[fan] = 0;
     write_fan_speed(fan + fan_offset, fan_speed);
-    if (mav_board_type == BF_BOARD_NEW) {
-        write_fan_led(fan + fan_offset, FAN_LED_GREEN);
-    } else {
-        write_fan_led(fan + fan_offset, FAN_LED_BLUE);
-    }
+    write_fan_led(fan + fan_offset, FAN_LED_BLUE);
   }
 
 #if defined(CONFIG_MAVERICKS)
@@ -1957,11 +1959,7 @@ int main(int argc, char **argv) {
        */
       if (fan_speed_okay(fan + fan_offset, fan_speed, FAN_FAILURE_OFFSET)) {
         if (fan_bad[fan] > FAN_FAILURE_THRESHOLD) {
-          if (mav_board_type == BF_BOARD_NEW) {
-            write_fan_led(fan + fan_offset, FAN_LED_GREEN);
-          } else {
-            write_fan_led(fan + fan_offset, FAN_LED_BLUE);
-          }
+          write_fan_led(fan + fan_offset, FAN_LED_BLUE);
           syslog(LOG_CRIT,
                  "Fan %d has recovered",
                  fan);
@@ -1976,6 +1974,11 @@ int main(int argc, char **argv) {
     for (fan = 0; fan < total_fans; fan++) {
       if (fan_bad[fan] > FAN_FAILURE_THRESHOLD) {
         fan_failure++;
+#if defined(CONFIG_MAVERICKS)
+        if (mav_board_type == BF_BOARD_NEW) {
+            write_device(FAN_LED_DEBUG_MODE, "1"); /*LED debug mode on because fan LED change requires */
+        }
+#endif
         write_fan_led(fan + fan_offset, FAN_LED_RED);
       }
     }
@@ -2028,6 +2031,13 @@ int main(int argc, char **argv) {
        * to a more suitable rpm. The fan daemon does not need to be restarted.
        */
     }
+#if defined(CONFIG_MAVERICKS)
+    else {
+        if (mav_board_type == BF_BOARD_NEW) {
+            write_device(FAN_LED_DEBUG_MODE, "0"); /*LED debug mode off*/
+        }
+    }
+#endif
 
     /* Suppress multiple warnings for similar number of fan failures. */
     prev_fans_bad = fan_failure;
