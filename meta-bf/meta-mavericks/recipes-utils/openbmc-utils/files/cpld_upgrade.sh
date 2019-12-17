@@ -28,11 +28,12 @@ usage() {
 
 upgrade_upper_syscpld() {
     echo "Started Upper SYSCPLD upgrade .."
+    # Select BMC channel
     echo out > /tmp/gpionames/CPLD_UPPER_JTAG_SEL/direction
     echo 1 > /tmp/gpionames/CPLD_UPPER_JTAG_SEL/value
-
     #disable heartbeat
-    i2cset -y -f 12 0x31 0x2e 0x18
+    i2cset -y -f 12 0x30 0x2e 0x18
+
     #program syscpld
     rc=$(jbi -r -aPROGRAM -gc57 -gi56 -go58 -gs147 $1 | grep -i "Success")
     if [[ $rc == *"Success"* ]]; then
@@ -44,11 +45,12 @@ upgrade_upper_syscpld() {
 
 upgrade_lower_syscpld() {
     echo "Started Lower SYSCPLD upgrade .."
+    # Select BMC channel
     echo out > /tmp/gpionames/CPLD_JTAG_SEL/direction
     echo 1 > /tmp/gpionames/CPLD_JTAG_SEL/value
-
     #disable heartbeat
     i2cset -y -f 12 0x31 0x2e 0x18
+
     #program syscpld
     rc=$(jbi -r -aPROGRAM -gc102 -gi101 -go103 -gs100 $1 | grep -i "Success")
     if [[ $rc == *"Success"* ]]; then
@@ -60,9 +62,10 @@ upgrade_lower_syscpld() {
 
 upgrade_upper_fancpld() {
     echo "Started Upper FANCPLD upgrade .."
+    # Enable CPLD update (UPD)
     echo out > /tmp/gpionames/UPPER_FANCARD_CPLD_UPD_EN/direction
     echo 0 > /tmp/gpionames/UPPER_FANCARD_CPLD_UPD_EN/value
-
+    # Select upper channel
     echo out > /tmp/gpionames/BMC_FANCARD_CPLD_JTAG__SEL/direction
     echo 1 > /tmp/gpionames/BMC_FANCARD_CPLD_JTAG__SEL/value
 
@@ -77,11 +80,18 @@ upgrade_upper_fancpld() {
 
 upgrade_lower_fancpld() {
     echo "Started Lower FANCPLD upgrade .."
-    echo out > /tmp/gpionames/CPLD_UPD_EN/direction
-    echo 0 > /tmp/gpionames/CPLD_UPD_EN/value
 
-    echo out > /tmp/gpionames/BMC_FANCARD_CPLD_JTAG__SEL/direction
-    echo 0 > /tmp/gpionames/BMC_FANCARD_CPLD_JTAG__SEL/value
+    if [ "$board_subtype" == "Montara" ] || [ "$board_subtype" == "Mavericks" ] ; then
+        # Enable CPLD update (UPD)
+        echo out > /tmp/gpionames/CPLD_UPD_EN/direction
+        echo 0 > /tmp/gpionames/CPLD_UPD_EN/value
+    fi
+
+    if [ "$board_subtype" == "Mavericks" ] ; then
+        # Select lower channel
+        echo out > /tmp/gpionames/BMC_FANCARD_CPLD_JTAG__SEL/direction
+        echo 0 > /tmp/gpionames/BMC_FANCARD_CPLD_JTAG__SEL/value
+    fi
 
     #program fancpld
     rc=$(jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success")
