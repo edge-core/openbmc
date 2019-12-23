@@ -37,6 +37,7 @@ IMAGE_INSTALL += " \
   bitbang \
   jbi \
   flashrom \
+  memtester \
   psumuxmon \
   mTerm \
   spatula \
