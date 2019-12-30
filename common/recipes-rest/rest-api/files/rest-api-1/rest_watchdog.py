@@ -83,9 +83,9 @@ def main():
             try:
                 f = urllib2.urlopen(checkurl, timeout=timeout, context=sslctx)
                 f.read()
-            except Exception:
+            except Exception as e:
                 global graceleft
-                syslog.syslog(syslog.LOG_WARNING, "REST API not responding")
+                syslog.syslog(syslog.LOG_WARNING, "REST API not responding due to {}".format(str(e)))
                 if graceleft <= 0:
                     syslog.syslog(syslog.LOG_ERR,
                                   "Killing unresponsive REST service")
