@@ -17,10 +17,14 @@
 #   Run 1 days      2233074
 #
 # For example:
-# System CPLD I2C      => BMC# stress_i2c_rw.sh one 4737 12 0x31 0x24 0x00 0x80
-# Fan CPLD I2C         => BMC# stress_i2c_rw.sh one 4737 8 0x66 0x06 0x00 0x01
+# root@bmc:~# stress_i2c_rw.sh one 4737 12 0x31 0x24 0x00 0x80
 #
-# Warning: If I2C MUX exists, please carefully run this tool.
+# The above will do System CPLD (12, 0x31) stress test around 3 minutes. It'd
+# iteratively rewrite its register 0x24 with 0x00 and 0x80.
+#
+# Warning:
+# 1. If I2C MUX exists, please carefully run this tool.
+# 2. Choose the 'reserved register' to be the test target
 #
 # Created by Jeremy Chen, 2019.12.16
 #
@@ -29,145 +33,220 @@
 board_type=$(wedge_board_type)
 board_subtype=$(wedge_board_subtype)
 
-#Macro define
-chg_val_12=0;
-OK=0;
-NG=0;
+#User Define
+DBG_MODE=0 #1:output all messages
+RETRY_TIMES=3 #Max. retry times of i2cget
+# Timing for message output
+# - First time
+# - Every N-times
+N_ROUND_TO_PRINT=2000
+# - Each error time
+# - Last time
 
-DATETIME_PRINT() {
-  datatime=$(date +"%Y-%m-%d %H:%M:%S")
-  echo $datatime
-}
 
-DBG_PRINT() {
-   #echo $1
-   printf ""
-}
+#Macro Define
+chg_val_1_2=0;
+CNT_OK=0;
+CNT_NG_W=0;
+CNT_NG_R=0;
+CNT_RETRY_R_OK=0;
+ROUND_TIMES=1
+FLAG_E_W=1; #for write error counter
+FLAG_E_R=2; #for read error counter
+MSG_LV_NOR=1; #Message level Normal
+MSG_LV_ERR=2; #Message level Error
+MSG_LV_DBG=3; #Message level Debug
+remainder=$(($N_ROUND_TO_PRINT-1))
 
-#Project dependency
-if [ "$board_subtype" == "Mavericks" ]; then
-  sys_cpld_reg=(0x00 0x01 0x02 0x08 0x0B 0x0D 0x0E 0x0F 0x10 0x11 0x12 0x13 0x14 0x1B 0x20 0x21 0x22 0x23 0x24 0x25 0x26 0x28 0x29 0x2E 0x2F 0x30 0x31 0x32 0x33 0x38 0x39 0x3A 0x3B 0x3E 0x3F)
-  sys_cpld_val=(0x01 0x0a 0x01 0xf5 0x01 0x00 0x00 0x00 0xeb 0x01 0x2e 0xff 0x1a 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xff 0x00 0x98 0xf2 0xfb 0xff 0x0f 0x06 0xff 0xff 0x00 0x0f 0x09 0x02)
-elif [ "$board_subtype" == "Montara" ]; then
-#FIX ME: Montara is not ready
-  sys_cpld_reg=(0x00 0x01 0x02 0x08 0x0B 0x0D 0x0E 0x0F 0x10 0x11 0x12 0x13 0x14 0x1B 0x20 0x21 0x22 0x23 0x24 0x25 0x26 0x28 0x29 0x2E 0x2F 0x30 0x31 0x32 0x33 0x38 0x39 0x3A 0x3B 0x3E 0x3F)
-  sys_cpld_val=(0x01 0x0a 0x01 0xf5 0x01 0x00 0x00 0x00 0xeb 0x01 0x2e 0xff 0x1a 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xff 0x00 0x98 0xf2 0xfb 0xff 0x0f 0x06 0xff 0xff 0x00 0x0f 0x09 0x02)
-elif [ "$board_subtype" == "Newport" ]; then
-  sys_cpld_reg=(0x00 0x01 0x02 0x08 0x0B 0x0D 0x0E 0x0F 0x10 0x11 0x12 0x13 0x14 0x1B 0x20 0x21 0x22 0x23 0x24 0x25 0x26 0x28 0x29 0x2E 0x2F 0x30 0x31 0x32 0x33 0x38 0x39 0x3A 0x3B 0x3E 0x3F)
-  sys_cpld_val=(0x21 0x02 0x04 0xf0 0x07 0x00 0x00 0x00 0xe8 0x03 0x5f 0xff 0x3a 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xff 0x00 0x98 0xf2 0xdf 0xff 0x0f 0x07 0xff 0xff 0x00 0x0f 0x09 0x02)
-fi
 
+#User input
 MODE=$1
 TIMES=$2
-ROUND_TIMES=1
-BUS=$3
-ADDR=$4
+CFG_BUS=$3
+CHIP_SEL_I2C_ADDR=$4
 REG=$5
 val1=$6
 val2=$7
 
-DATETIME_PRINT
+
+show_help() {
+    echo ""
+    echo "USAGE:"
+    echo "./stress_i2c_rw.sh one <times> <bus> <addr> <reg> <val1> <val2>"
+    echo "    <times> 1,2,3,.."
+    echo "            0 is infinite"
+    echo ""
+    echo "EX:"
+    echo "root@bmc:~# stress_i2c_rw.sh one 4737 12 0x31 0x24 0x00 0x80"
+
+    exit 1
+}
+
+if [[ "$MODE" != "one" && "$MODE" != "syscpld" && "$MODE" != "syscpld_dbg" ]]; then
+    show_help
+fi
+
+if [[ $TIMES -lt 0 ]]; then
+    show_help
+fi
+
+PRINT() {
+    MSG_LEVEL=$1
+    MSG_ROUND=$(($2-1))
+    MSG_TXT=$3
+
+    if [ $DBG_MODE -eq 1 ]; then
+        MSG_LEVEL=$MSG_LV_DBG
+    fi
+
+    if [[ $MSG_LEVEL -eq $MSG_LV_ERR || $MSG_LEVEL -eq $MSG_LV_DBG ]]; then
+        echo $MSG_TXT
+    elif [[ $MSG_ROUND -eq 0 || $MSG_ROUND -eq $(($TIMES-1)) || $(($MSG_ROUND % $N_ROUND_TO_PRINT)) -eq $remainder ]]; then
+        echo $MSG_TXT
+    fi
+}
+
+read_data=0
+i2c_read() {
+    read_data=`i2cget -f -y $CFG_BUS $CHIP_SEL_I2C_ADDR $1`
+}
+
+i2c_write() {
+   i2cset -f -y $CFG_BUS $CHIP_SEL_I2C_ADDR $1 $2
+}
+
+convert_datetime=""
+convert_num_2_datetime() {
+    i=$1
+    ((sec=i%60, i/=60, min=i%60, i=i/60, hrs=i%24, day=i/24))
+    if [ $day -ne 0 ]; then
+        convert_datetime=$(printf "%02dd, %02dh, %02dm, %02ds" $day $hrs $min $sec)
+    elif [ $hrs -ne 0 ]; then
+        convert_datetime=$(printf "%02dh, %02dm, %02ds" $hrs $min $sec)
+    elif [ $min -ne 0 ]; then
+        convert_datetime=$(printf "%02dm, %02ds" $min $sec)
+    else
+        convert_datetime=$(printf "%02ds" $sec)
+    fi
+}
+
+
+#
+#Main
+#
+Start_time_show=$(date +"%Y-%m-%d %H:%M:%S")
+Start_time=$(date +%s)
+
 if [ "$MODE" == "one" ]; then
-# Store the original value
-  ori=$(i2cget -f -y $BUS $ADDR $REG)
+  # Store the original value
+  i2c_read $REG
+  ori=$read_data
 
   for ((i=0; i<=$TIMES; i++)); do
     if [[ $TIMES -gt 0 && $i -eq $TIMES ]]; then
       break
     fi
-    echo "Test Count $ROUND_TIMES:"
 
-    if [ $chg_val_12 -eq 0 ]; then
-      i2cset -f -y $BUS $ADDR $REG $val1
-      chg_val_12=1
+    if [ $chg_val_1_2 -eq 0 ]; then
+      val=$val1
+      chg_val_1_2=1
     else
-      i2cset -f -y $BUS $ADDR $REG $val2
-      chg_val_12=0
+      val=$val2
+      chg_val_1_2=0
     fi
-    i2cget -f -y $BUS $ADDR $REG
-    ret=$?
-    if [ $ret -eq 0 ]; then
-      OK=$(($OK+1))
+
+    flag_NG=0
+
+    i2c_write $REG $val
+    rtn=$?
+    if [ $rtn -ne 0 ]; then
+        PRINT $MSG_LV_ERR 0 "Test Count $ROUND_TIMES:"
+        flag_NG=$FLAG_E_W
+        PRINT $MSG_LV_ERR 0 "WRITE Error: i2cset -f -y $CFG_BUS $CHIP_SEL_I2C_ADDR $REG $val"
     else
-      NG=$(($NG+1))
-    fi
-
-    echo -e "Test Result: $ret(T:$ROUND_TIMES, OK:$OK, NG:$NG)\r\n\r\n"
-
-    ROUND_TIMES=$(($ROUND_TIMES+1))
-
-    if [ $TIMES -eq 0 ]; then
-      i=$(($i-1))
-    fi
-  done
-
-# Recover the original value
-  i2cset -f -y $BUS $ADDR $REG $ori
-
-elif [ "$MODE" == "syscpld" ]; then
-# Show CPLD version
-  printf "CPLD version:"
-  cpld_rev.sh lower sys
-
-  for ((i=0; i<=$TIMES; i++)); do
-    if [[ $TIMES -gt 0 && $i -eq $TIMES ]]; then
-      break
-    fi
-    cnt_no_match=0
-    echo "Test Count $ROUND_TIMES:"
-
-# TEST AREA
-    for ((r=0; r<${#sys_cpld_reg[@]}; r++)); do
-      rtn=$(i2cget -f -y 12 0x31 ${sys_cpld_reg[$r]})
-      DBG_PRINT "Read register ${sys_cpld_reg[$r]}, value is $rtn."
-      if [[ "$rtn" != "${sys_cpld_val[$r]}" ]]; then
-        # In case there are variable values (Two or more) for some registers
-        if [ "$board_subtype" == "Mavericks" ]; then
-            if [[ "0x08" == "${sys_cpld_reg[$r]}" && "${sys_cpld_val[$r]}"=="0xf1" ]]; then
-              echo "Match reg[${sys_cpld_reg[$r]}]{EXP, RTN}={0xf1, $rtn}"
-              continue
-            elif [[ "0x26" == "${sys_cpld_reg[$r]}" && "${sys_cpld_val[$r]}"=="0x01" ]]; then
-              echo "Match reg[${sys_cpld_reg[$r]}]{EXP, RTN}={0xf1, $rtn}"
-              continue
+        for ((j=0; j<$RETRY_TIMES; j++)); do
+            i2c_read $REG
+            rtn=$?
+            # To run 'sync' could decreases the error frequency.
+            sync
+            if [ $rtn -ne 0 ]; then
+                if [ $j -eq 0 ]; then
+                    PRINT $MSG_LV_ERR 0 "Test Count $ROUND_TIMES:"
+                    flag_NG=$FLAG_E_R
+                fi
+                PRINT $MSG_LV_ERR 0 "READ Error: i2cget -f -y $CFG_BUS $CHIP_SEL_I2C_ADDR $REG"
+                continue
             fi
-        elif [ "$board_subtype" == "Montara" ]; then
-            #FIX ME: Montara is not ready
-            print ""
-        elif [ "$board_subtype" == "Newport" ]; then
-            print ""
-        fi
 
-        cnt_no_match=$(($cnt_no_match+1))
-        echo "No match reg[${sys_cpld_reg[$r]}]{EXP, RTN}={${sys_cpld_val[$r]}, $rtn}"
-      else
-        DBG_PRINT "Match reg[${sys_cpld_reg[$r]}]{EXP, RTN}={${sys_cpld_val[$r]}, $rtn}"
-      fi
-    done
-# END
+            if [ "$read_data" != "$val" ]; then
+                if [ $j -eq 0 ]; then
+                    PRINT $MSG_LV_ERR 0 "Test Count $ROUND_TIMES:"
+                    flag_NG=$FLAG_E_R
+                fi
+                PRINT $MSG_LV_ERR 0 "DATA Error: Expect $val, Return $read_data"
+                continue
+            else
+                if [ $j -gt 0 ]; then
+                    CNT_RETRY_R_OK=$(($CNT_RETRY_R_OK+1))
+                fi
+                break
+            fi
+        done
+    fi
 
-    if [ $cnt_no_match -eq 0 ]; then
-      OK=$(($OK+1))
-      echo -e "Test Result: Pass(T:$ROUND_TIMES, OK:$OK, NG:$NG)\r\n\r\n"
+    if [ $flag_NG -eq $FLAG_E_W ]; then
+        CNT_NG_W=$(($CNT_NG_W+1))
+        PRINT $MSG_LV_ERR 0 "Test Result: Total:$ROUND_TIMES, OK:$CNT_OK, NG_Write:$CNT_NG_W, NG_Read:$CNT_NG_R, RETRY_READ_OK:$CNT_RETRY_R_OK"
+    elif [ $flag_NG -eq $FLAG_E_R ]; then
+        CNT_NG_R=$(($CNT_NG_R+1))
+        PRINT $MSG_LV_ERR 0 "Test Result: Total:$ROUND_TIMES, OK:$CNT_OK, NG_Write:$CNT_NG_W, NG_Read:$CNT_NG_R, RETRY_READ_OK:$CNT_RETRY_R_OK"
     else
-      NG=$(($NG+1))
-      echo -e "Test Result: Fail(T:$ROUND_TIMES, OK:$OK, NG:$NG)\r\n\r\n"
+        PRINT $MSG_LV_NOR $ROUND_TIMES "Test Count $ROUND_TIMES:"
+        CNT_OK=$(($CNT_OK+1))
+        PRINT $MSG_LV_NOR $ROUND_TIMES "Test Result: Total:$ROUND_TIMES, OK:$CNT_OK, NG_Write:$CNT_NG_W, NG_Read:$CNT_NG_R, RETRY_READ_OK:$CNT_RETRY_R_OK"
     fi
 
     ROUND_TIMES=$(($ROUND_TIMES+1))
 
+    #<times>=0 is infinite.
     if [ $TIMES -eq 0 ]; then
       i=$(($i-1))
     fi
   done
 
-elif [ "$MODE" == "syscpld_dbg" ]; then
-  for ((r=0; r<${#sys_cpld_reg[@]}; r++)); do
-    rtn=$(i2cget -f -y 12 0x31 ${sys_cpld_reg[$r]})
-    echo "$rtn"
-  done
+  # Recover the original value
+  i2c_write $REG $ori
+
 else
   echo "Error!"
   exit 1
+
 fi
 
-DATETIME_PRINT
+End_time_show=$(date +"%Y-%m-%d %H:%M:%S")
+End_time=$(date +%s)
+
+
+#
+#Output Test Result
+#
+echo -e "\r\nI2C Stress Test Summary"
+echo "Bus                     : $CFG_BUS"
+echo "Address                 : $CHIP_SEL_I2C_ADDR"
+if [[ $CFG_BUS -eq 12 && "$CHIP_SEL_I2C_ADDR" = "0x31" ]]; then
+  printf "  %s%s\r\n" "CPLD version          : " $(cpld_rev.sh lower sys)
+fi
+echo "Register                : $REG"
+echo "Executed Command        : stress_i2c_rw.sh $MODE $TIMES $CFG_BUS $CHIP_SEL_I2C_ADDR $REG $val1 $val2"
+echo "Start Time              : $Start_time_show"
+echo "End Time                : $End_time_show"
+convert_num_2_datetime $(($End_time-$Start_time))
+echo "Executed Time           : $convert_datetime"
+echo "Total Test Counts       : $(($ROUND_TIMES-1))"
+echo "# of OK Counts          : $CNT_OK"
+echo "# of Write NG Counts    : $CNT_NG_W"
+echo "# of Read NG Counts     : $CNT_NG_R"
+echo "  # of $RETRY_TIMES RETRY Read OK Counts : $CNT_RETRY_R_OK"
+echo "  # of $RETRY_TIMES RETRY Read NG Counts : $(($CNT_NG_R-$CNT_RETRY_R_OK))"
+echo ""
+
