@@ -709,7 +709,7 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     "1: Enable\n"
     "0: Disable",
     I2C_DEV_ATTR_SHOW_DEFAULT,
-    NULL,
+    I2C_DEV_ATTR_STORE_DEFAULT,
     0x30, 0, 1,    //Offset 0x30, [5]~[0] Fan_PowerN - Read & Write
   },
   {
@@ -717,7 +717,7 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     "1: Enable\n"
     "0: Disable",
     I2C_DEV_ATTR_SHOW_DEFAULT,
-    NULL,
+    I2C_DEV_ATTR_STORE_DEFAULT,
     0x30, 1, 1,
   },
   {
@@ -725,7 +725,7 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     "1: Enable\n"
     "0: Disable",
     I2C_DEV_ATTR_SHOW_DEFAULT,
-    NULL,
+    I2C_DEV_ATTR_STORE_DEFAULT,
     0x30, 2, 1,
   },
   {
@@ -733,7 +733,7 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     "1: Enable\n"
     "0: Disable",
     I2C_DEV_ATTR_SHOW_DEFAULT,
-    NULL,
+    I2C_DEV_ATTR_STORE_DEFAULT,
     0x30, 3, 1,
   },
   {
@@ -741,7 +741,7 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     "1: Enable\n"
     "0: Disable",
     I2C_DEV_ATTR_SHOW_DEFAULT,
-    NULL,
+    I2C_DEV_ATTR_STORE_DEFAULT,
     0x30, 4, 1,
   },
   {
@@ -749,21 +749,21 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     "1: Enable\n"
     "0: Disable",
     I2C_DEV_ATTR_SHOW_DEFAULT,
-    NULL,
+    I2C_DEV_ATTR_STORE_DEFAULT,
     0x30, 5, 1,
   },
   {
     "watchdog_timer",
     NULL,
     I2C_DEV_ATTR_SHOW_DEFAULT,
-    NULL,
+    I2C_DEV_ATTR_STORE_DEFAULT,
     0x31, 0, 8,    //Offset 0x31, [7:0] Watchdog timer - Read & Write
   },
   {
     "watchdog_max_pwm_value",
     NULL,
     I2C_DEV_ATTR_SHOW_DEFAULT,
-    NULL,
+    I2C_DEV_ATTR_STORE_DEFAULT,
     0x32, 0, 4,    //Offset 0x32, [3:0] Watchdog Maximum PWM value - Read & Write
   },
   {
@@ -771,7 +771,7 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     "1: Enable\n"
     "0: Disable",
     I2C_DEV_ATTR_SHOW_DEFAULT,
-    NULL,
+    I2C_DEV_ATTR_STORE_DEFAULT,
     0x33, 0, 1,    //Offset 0x33, [0] Watchdog disable - Read & Write
   },
   {
@@ -779,7 +779,7 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     "1: on\n"
     "0: off",
     I2C_DEV_ATTR_SHOW_DEFAULT,
-    NULL,
+    I2C_DEV_ATTR_STORE_DEFAULT,
     0x42, 7, 1,    //Offset 0x42, [7] LED_Debug_mode - Read & Write
   },
   {
