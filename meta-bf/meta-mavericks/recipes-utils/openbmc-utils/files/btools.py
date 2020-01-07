@@ -371,7 +371,7 @@ def error_ucd_usage():
 #
 # Reads voltage faults on all rails
 #
-def ucd_rail_voltage_fault():
+def ucd_rail_voltage_fault(platform):
 
     i = 1
 
@@ -379,12 +379,26 @@ def ucd_rail_voltage_fault():
     UCD_I2C_ADDR = "0x34"
     UCD_STATUS_VOUT_OP = "0x7A"
     UCD_PAGE_OP = "0x00"
+    UCD_NUM_PAGES = "0xD6"
 
     print " "
     print " RAIL      Voltage Warnings"
 
-    # Parse 1 to 12 voltage rails
-    for i in range(0, 12):
+    if platform == "newport":
+        try:
+            get_cmd = "i2cget"
+            output = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
+                                     UCD_I2C_ADDR, UCD_NUM_PAGES])
+            numpages = int(output, 16)
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing i2cget NUM_PAGES"
+            return
+    else:
+        numpages = 12
+
+    # Parse 1 to N voltage rails
+    for i in range(0, numpages):
 
         try:
             # i2cset -f -y 2 0x34 0x00 i
@@ -761,7 +775,9 @@ def ucd(argv):
             return
     # ./btools.py --UCD fault
     elif arg_ucd[0] == "fault":
-        if len(arg_ucd) != 1:
+        if len(arg_ucd) == 1:
+            platform = get_project()
+        else:
             error_ucd_usage()
             return
     # ./btools.py --UCD set_margin <rail number> <margin> [%s]
@@ -790,7 +806,7 @@ def ucd(argv):
         ucd_voltage_margin(platform, arg_ucd)
         #ucd_ir_voltage_margin(argv)
     elif arg_ucd[0] == "fault":
-        ucd_rail_voltage_fault()
+        ucd_rail_voltage_fault(platform)
     else:
         error_ucd_usage()
         return
