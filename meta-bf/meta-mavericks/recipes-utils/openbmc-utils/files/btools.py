@@ -193,11 +193,12 @@ def psu_init():
         cmd = "i2cset"
         I2C_ADDR = "0x70"
         I2C_BUS = "7"
-        OPCODE = "0x3"
+        OPCODE_ON = "0x3"
+        OPCODE_OFF = "0x0"
 
         # Open I2C swtich for PFE devices
-        #i2cset -f -y 7 0x70 0x3
-        subprocess.check_output([cmd, "-f", "-y", I2C_BUS, I2C_ADDR, OPCODE])
+        subprocess.check_output([cmd, "-f", "-y", I2C_BUS, I2C_ADDR, OPCODE_OFF])
+        subprocess.check_output([cmd, "-f", "-y", I2C_BUS, I2C_ADDR, OPCODE_ON])
 
         # load driver for both devices
         o = subprocess.check_output(["lsmod", "psu_driver"])
@@ -306,11 +307,12 @@ def psu(argv):
     try:
         I2C_ADDR = "0x70"
         I2C_BUS = "7"
-        OPCODE = "0x3"
+        OPCODE_ON = "0x3"
+        OPCODE_OFF = "0x0"
 
         # Force Open I2C swtich for PFE devices. Facebook psu mon messes up i2c mux
-        #i2cset -f -y 7 0x70 0x3
-        subprocess.check_output(["i2cset", "-f", "-y", I2C_BUS, I2C_ADDR, OPCODE])
+        subprocess.check_output(["i2cset", "-f", "-y", I2C_BUS, I2C_ADDR, OPCODE_OFF])
+        subprocess.check_output(["i2cset", "-f", "-y", I2C_BUS, I2C_ADDR, OPCODE_ON])
 
         # load sharing checking
         if val == "curr2_input":
@@ -324,6 +326,7 @@ def psu(argv):
             print "Power Supply 2 output current  %.3f amp" % (float(output)/1000) # unit: A
         else:
             output = subprocess.check_output([cmd, path])
+
     except subprocess.CalledProcessError as e:
         print e
         print "Error while executing psu i2c command "

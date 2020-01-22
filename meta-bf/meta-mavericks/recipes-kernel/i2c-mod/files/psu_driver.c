@@ -116,7 +116,7 @@ static int psu_convert(struct device *dev, struct device_attribute *attr)
   i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
   const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
   int value = -1;
-  int count = 10;
+  int count;
   int ret = -1;
   u8 length, model_chr;
 
@@ -126,12 +126,16 @@ static int psu_convert(struct device *dev, struct device_attribute *attr)
    * If read block length byte > 32, it will cause kernel panic.
    * Using read word to replace read block to identifer PSU model.
    */
-  ret = i2c_smbus_read_word_data(client, PMBUS_MFR_MODEL);
-  length = ret & 0xff;
+  count=10;
+  while((ret < 0 || length > 32) && count--) {
+    ret = i2c_smbus_read_word_data(client, PMBUS_MFR_MODEL);
+    length = ret & 0xff;
+  }
   //PSU_DEBUG("1st char+length = %d + %d\n", ((ret >> 8) & 0xff), (ret & 0xff));
   if (ret < 0 || length > 32) {
     PSU_DEBUG("Failed to read Manufacturer Model\n");
   } else {
+    count=10;
     while((value < 0 || value == 0xffff) && count--) {
       value = i2c_smbus_read_word_data(client, (dev_attr->ida_reg));
     }

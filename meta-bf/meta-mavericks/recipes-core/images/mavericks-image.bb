@@ -38,7 +38,6 @@ IMAGE_INSTALL += " \
   jbi \
   flashrom \
   memtester \
-  psumuxmon \
   mTerm \
   spatula \
   trousers \

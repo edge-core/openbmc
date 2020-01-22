@@ -235,7 +235,7 @@ def get_bmc_ps(param1):
     r = btools.psu_check_pwr_presence(int(param1))
     if r != 0 :
         # 0. error status
-        output.append("0")
+        output.append(int(0))
         output.append("absent")
         result = {
                 "Information": {"Description": output},
@@ -278,7 +278,7 @@ def get_bmc_ps(param1):
     # ouput voltage data
     t = re.findall('\d+\.\d+', data)
     try:
-      l.append(float(t[0]))
+        l.append(float(t[0]))
     except ValueError:
         l.append(float(0))
         pass
@@ -295,7 +295,7 @@ def get_bmc_ps(param1):
 
     t = re.findall('\d+\.\d+', data)
     try:
-      l.append(float(t[0]))
+        l.append(float(t[0]))
     except ValueError:
         l.append(float(0))
         pass
@@ -312,7 +312,7 @@ def get_bmc_ps(param1):
 
     t = re.findall('\d+\.\d+', data)
     try:
-      l.append(float(t[0]))
+        l.append(float(t[0]))
     except ValueError:
         l.append(float(0))
         pass
@@ -329,7 +329,7 @@ def get_bmc_ps(param1):
 
     t = re.findall('\d+', data)
     try:
-      l.append(float(t[0]))
+        l.append(float(t[0]))
     except ValueError:
         l.append(float(0))
         pass
@@ -346,7 +346,7 @@ def get_bmc_ps(param1):
 
     t = re.findall('\d+', data)
     try:
-      l.append(float(t[0]))
+        l.append(float(t[0]))
     except ValueError:
         l.append(float(0))
         pass
