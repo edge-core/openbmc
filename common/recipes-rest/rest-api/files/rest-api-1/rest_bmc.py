@@ -228,7 +228,7 @@ def get_bmc_ps(param1):
     l = []
     output = []
     load_sharing = []
-    err = [0] * 8
+    err = [0] * 11
     err_status = "exit status"
     not_present = "not_present"
 
@@ -245,10 +245,9 @@ def get_bmc_ps(param1):
         return result;
 
 
+# input voltage data
     arg = ['btools.py', '--PSU', '1', 'r', 'v']
     arg[2] = str(param1)
-
-    # input voltage data
     with Capturing() as screen_op:
          btools.main(arg)
     data = str(screen_op)
@@ -256,16 +255,18 @@ def get_bmc_ps(param1):
     # if error while data collection
     if err_status in data:
       err[0] = find_err_status(data)
+      l.append(float(0))
+    else:
+      t = re.findall('\d+\.\d+', data)
+      try:
+          l.append(float(t[0]))
+      except ValueError:
+          l.append(float(0))
+      except IndexError:
+          l.append(float(0))
 
-    t = re.findall('\d+\.\d+', data)
-    try:
-        l.append(float(t[0]))
-    except ValueError:
-        l.append(float(0))
-        pass
 
-    # output voltage
-
+# output voltage
     arg[4] = 'vo'
     with Capturing() as screen_op:
          btools.main(arg)
@@ -274,16 +275,18 @@ def get_bmc_ps(param1):
     # if error while data collection
     if err_status in data:
       err[1] = find_err_status(data)
+      l.append(float(0))
+    else:
+      t = re.findall('\d+\.\d+', data)
+      try:
+          l.append(float(t[0]))
+      except ValueError:
+          l.append(float(0))
+      except IndexError:
+          l.append(float(0))
 
-    # ouput voltage data
-    t = re.findall('\d+\.\d+', data)
-    try:
-        l.append(float(t[0]))
-    except ValueError:
-        l.append(float(0))
-        pass
 
-    # input current
+# input current
     arg[4] = 'i'
     with Capturing() as screen_op:
          btools.main(arg)
@@ -292,15 +295,18 @@ def get_bmc_ps(param1):
     # if error while data collection
     if err_status in data:
       err[2] = find_err_status(data)
+      l.append(float(0))
+    else:
+      t = re.findall('\d+\.\d+', data)
+      try:
+          l.append(float(t[0]))
+      except ValueError:
+          l.append(float(0))
+      except IndexError:
+          l.append(float(0))
 
-    t = re.findall('\d+\.\d+', data)
-    try:
-        l.append(float(t[0]))
-    except ValueError:
-        l.append(float(0))
-        pass
 
-    #  power supply
+#  power supply
     arg[4] = 'p'
     with Capturing() as screen_op:
          btools.main(arg)
@@ -309,15 +315,18 @@ def get_bmc_ps(param1):
     # if error while data collection
     if err_status in data:
       err[3] = find_err_status(data)
+      l.append(float(0))
+    else:
+      t = re.findall('\d+\.\d+', data)
+      try:
+          l.append(float(t[0]))
+      except ValueError:
+          l.append(float(0))
+      except IndexError:
+          l.append(float(0))
 
-    t = re.findall('\d+\.\d+', data)
-    try:
-        l.append(float(t[0]))
-    except ValueError:
-        l.append(float(0))
-        pass
 
-    # fan speed
+# fan speed
     arg[4] = 'fspeed'
     with Capturing() as screen_op:
          btools.main(arg)
@@ -326,15 +335,18 @@ def get_bmc_ps(param1):
     # if error while data collection
     if err_status in data:
       err[4] = find_err_status(data)
+      l.append(float(0))
+    else:
+      t = re.findall('\d+', data)
+      try:
+          l.append(float(t[0]))
+      except ValueError:
+          l.append(float(0))
+      except IndexError:
+          l.append(float(0))
 
-    t = re.findall('\d+', data)
-    try:
-        l.append(float(t[0]))
-    except ValueError:
-        l.append(float(0))
-        pass
 
-    # fan fault
+# fan fault
     arg[4] = 'ffault'
     with Capturing() as screen_op:
          btools.main(arg)
@@ -343,15 +355,18 @@ def get_bmc_ps(param1):
     # if error while data collection
     if err_status in data:
       err[5] = find_err_status(data)
+      l.append(float(0))
+    else:
+      t = re.findall('\d+', data)
+      try:
+          l.append(float(t[0]))
+      except ValueError:
+          l.append(float(0))
+      except IndexError:
+          l.append(float(0))
 
-    t = re.findall('\d+', data)
-    try:
-        l.append(float(t[0]))
-    except ValueError:
-        l.append(float(0))
-        pass
 
-    # presence
+# presence
     arg[4] = 'presence'
     with Capturing() as screen_op:
          btools.main(arg)
@@ -360,13 +375,15 @@ def get_bmc_ps(param1):
     # if error while data collection
     if err_status in data:
       err[6] = find_err_status(data)
+      l.append(float(0))
+    else:
+      if not_present in data:
+          l.append(float(0))
+      else :
+          l.append(float(1))
 
-    if not_present in data:
-        l.append(float(0))
-    else :
-        l.append(float(1))
 
-    #  load sharing
+#  load sharing
     arg[4] = 'ld'
     with Capturing() as screen_op:
          btools.main(arg)
@@ -375,33 +392,36 @@ def get_bmc_ps(param1):
     # if error while data collection
     if err_status in data:
       err[7] = find_err_status(data)
+      l.append(float(0))
+    else:
+      t = re.findall('\d+\.\d+', data)
 
-    t = re.findall('\d+\.\d+', data)
+      # if current is shared between supplies then load sharing
+      # is true
+      try :
+          if float(t[0]) > 0.0 and float(t[1]) > 0.0 :
+              l.append(float(1))
+          else :
+              l.append(float(0))
+      except Exception :
+          l.append(float(0))
+          err[7] = 0
 
-    # if current is shared between supplies then load sharing
-    # is true
-    try :
-        if float(t[0]) > 0.0 and float(t[1]) > 0.0 :
-            l.append(float(1))
-        else :
-            l.append(float(0))
-    except Exception :
-        l.append(float(0))
-        err[7] = 0
 
-    #if err is present append it to output
+#Append error status to output 1st value(0:Correct, 1:Wrong)
     a = 0
     for x in err:
         if x != 0:
             a = x
             break
-
     output.append(a)
 
+#Append the other data to output
     for x in l:
       output.append(int(x))
 
-    # ps model
+
+# ps model
     arg[4] = 'psmodel'
     with Capturing() as screen_op:
          btools.main(arg)
@@ -410,15 +430,18 @@ def get_bmc_ps(param1):
     # if error while data collection
     if err_status in data:
       err[8] = find_err_status(data)
+      output.append("None")
+    else:
+      t = re.findall('[\w\.-]+', data)
+      try:
+        output.append(t[0])
+      except ValueError:
+          output.append("None")
+      except IndexError:
+          output.append("None")
 
-    t = re.findall('[\w\.-]+', data)
-    try:
-      output.append(t[0])
-    except ValueError:
-        output.append("None")
-        pass
 
-    # ps serial
+# ps serial
     arg[4] = 'psserial'
     with Capturing() as screen_op:
          btools.main(arg)
@@ -427,15 +450,18 @@ def get_bmc_ps(param1):
     # if error while data collection
     if err_status in data:
       err[9] = find_err_status(data)
-         
-    t = re.findall('[\w\.-]+', data)
-    try:
-      output.append(t[0])
-    except ValueError:
-        output.append("None")
-        pass
+      output.append("None")
+    else:
+      t = re.findall('[\w\.-]+', data)
+      try:
+        output.append(t[0])
+      except ValueError:
+          output.append("None")
+      except IndexError:
+          output.append("None")
 
-    # ps verion
+
+# ps verion
     arg[4] = 'psrev'
     with Capturing() as screen_op:
          btools.main(arg)
@@ -444,13 +470,16 @@ def get_bmc_ps(param1):
     # if error while data collection
     if err_status in data:
       err[10] = find_err_status(data)
+      output.append("None")
+    else:
+      t = re.findall('[\w\.-]+', data)
+      try:
+        output.append(t[0])
+      except ValueError:
+          output.append("None")
+      except IndexError:
+          output.append("None")
 
-    t = re.findall('[\w\.-]+', data)
-    try:
-      output.append(t[0])
-    except ValueError:
-        output.append("None")
-        pass
 
     result = {
                 "Information": {"Description": output},
@@ -573,4 +602,5 @@ def get_bmc_sensors(args):
              }
 
     return result;
+
 
