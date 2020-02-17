@@ -305,7 +305,7 @@ static ssize_t i2c_dev_show_temp1_max(struct device *dev,
 
 static const i2c_dev_attr_st com_e_attr_table[] = {
   {
-    "temp2_input", // cpu_temp
+    "temp1_input", // cpu_temp : fand uses this temp
     NULL,
     i2c_dev_show_cpu_temp,
     NULL,
@@ -326,7 +326,7 @@ static const i2c_dev_attr_st com_e_attr_table[] = {
     0, 0, 0,
   },
   {
-    "temp1_input", // mem_temp : fand uses this temp
+    "temp2_input", // mem_temp
     NULL,
     i2c_dev_show_mem_temp,
     NULL,
