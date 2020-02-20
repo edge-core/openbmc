@@ -658,8 +658,14 @@ int read_temp(const char *device, int *value) {
 
   /* We set an impossible value to check for errors */
   *value = BAD_TEMP;
-  snprintf(
-      full_name, LARGEST_DEVICE_NAME, "%s/temp1_input", device);
+  if (((mav_board_type == BF_BOARD_MON)||(mav_board_type == BF_BOARD_MAV)) && (strstr(device, USERVER_TEMP_DEVICE))) {
+    /* On Wedge100BF-series, the DIMM temp register is still treated as com-e temperature. */
+    snprintf(
+        full_name, LARGEST_DEVICE_NAME, "%s/temp2_input", device);
+  } else {
+    snprintf(
+        full_name, LARGEST_DEVICE_NAME, "%s/temp1_input", device);
+  }
 
   int rc = read_device(full_name, value);
 #if defined(CONFIG_WEDGE100)
