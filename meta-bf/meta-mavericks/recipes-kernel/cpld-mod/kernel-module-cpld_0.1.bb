@@ -40,4 +40,5 @@ RDEPENDS_${PN} += "kernel-module-i2c-dev-sysfs"
 KERNEL_MODULE_AUTOLOAD += "                     \
  syscpld                                        \
  fancpld                                        \
+ pca9548                                        \
 "

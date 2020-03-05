@@ -1,5 +1,5 @@
 /*
- * pca9548.c - The i2c driver for SYSCPLD
+ * pca9548.c - The i2c driver for PCA9548
  *
  * Copyright 2015-present Facebook. All Rights Reserved.
  *
@@ -89,7 +89,7 @@ static int pca9548_detect(struct i2c_client *client, int kind,
                           struct i2c_board_info *info)
 {
   /*
-   * We don't currently do any detection of the SYSCPLD
+   * We don't currently do any detection of the PCA9548
    */
   strlcpy(info->type, "pca9548", I2C_NAME_SIZE);
   return 0;

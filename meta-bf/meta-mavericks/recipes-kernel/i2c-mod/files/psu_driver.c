@@ -731,7 +731,7 @@ static const struct i2c_device_id psu_id[] = {
 MODULE_DEVICE_TABLE(i2c, psu_id);
 
 /* Return 0 if detection is successful, -ENODEV otherwise */
-static int psu_detect(struct i2c_client *client,
+static int psu_detect(struct i2c_client *client, int kind,
                          struct i2c_board_info *info)
 {
   /*
