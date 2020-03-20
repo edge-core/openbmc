@@ -1,0 +1,26 @@
+From 27b4fa0b3ca13bede929ef81614c03f52aa037a7 Mon Sep 17 00:00:00 2001
+From: JeremyChen1004 <jeremy_chen@accton.com>
+Date: Thu, 19 Mar 2020 17:51:20 +0800
+Subject: [PATCH] register i2c device for tmp75 0x4d
+
+---
+ arch/arm/plat-aspeed/dev-i2c.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm/plat-aspeed/dev-i2c.c b/arch/arm/plat-aspeed/dev-i2c.c
+index 4c3bd09cee4d..5dd2af000ee8 100644
+--- a/arch/arm/plat-aspeed/dev-i2c.c
++++ b/arch/arm/plat-aspeed/dev-i2c.c
+@@ -1081,6 +1081,9 @@ static struct i2c_board_info __initdata mavericks_i2c_bus4[] = {
+   {
+     I2C_BOARD_INFO("tmp75", 0x4c),
+   },
++  {
++    I2C_BOARD_INFO("tmp75", 0x4d),
++  },
+ };
+ 
+ static struct i2c_board_info __initdata mavericks_i2c_bus5[] = {
+-- 
+2.25.0
+
