@@ -18,6 +18,8 @@
 # Boston, MA 02110-1301 USA
 #
 
+TTY_LOCK_FILE=/var/lock/LCK..ttyS1
+
 usage() {
     echo "$0 <connect | disconnect>"
 }
@@ -32,6 +34,10 @@ fi
 if [ "$1" == "connect" ]; then
     VALUE=1
 elif [ "$1" == "disconnect" ]; then
+    #if it's due to duplicated sol.sh, don't change GPIOE0.
+    if [ -a $TTY_LOCK_FILE ]; then
+        exit 1
+    fi
     VALUE=0
 else
     usage
