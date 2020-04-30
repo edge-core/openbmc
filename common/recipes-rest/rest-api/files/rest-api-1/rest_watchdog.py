@@ -28,9 +28,10 @@ interval = 5
 timeout = 5
 service = "restapi"
 # intervals before forced kill
-grace = 1
+grace = 3
 graceleft = grace
 
+output_okmsg_in_retry_or_rcv = 0
 
 def killall(killcmd=b'python\x00/usr/local/bin/rest.py\x00'):
     try:
@@ -51,6 +52,7 @@ def killall(killcmd=b'python\x00/usr/local/bin/rest.py\x00'):
                     # already anyway
                     os.kill(int(pid), signal.SIGKILL)
         except IOError:
+            syslog.syslog(syslog.LOG_ERR, 'IOError')
             continue
 
 
@@ -59,15 +61,27 @@ def runit_status(svc):
 
 
 def runit_kill_restart(svc):
+    # Distinguish which one makes REST restart.
+    # If kill by watchdog, recover by watchdog.
+    file = open("/tmp/wdt_rcv_rest", "w+")
+    file.write('1')
+    file.close()
+    syslog.syslog(syslog.LOG_INFO, 'REST API WDT recovery enable(1)')
     # force-stop is SIGTERM, wait 7s, if still alive, SIGKILL
     subprocess.call(["/usr/bin/sv", "force-stop", svc])
     # kill any lingering hung forks
     killall()
     # bring it back
     subprocess.call(["/usr/bin/sv", "start", svc])
+    file = open("/tmp/wdt_rcv_rest", "w+")
+    file.write('0')
+    file.close()
+    syslog.syslog(syslog.LOG_INFO, 'REST API WDT recovery disable(0)')
 
 
 def main():
+    global graceleft
+    global output_okmsg_in_retry_or_rcv
     syslog.openlog(b"restwatchdog")
     syslog.syslog(syslog.LOG_INFO,
                   "REST API watchdog checking %s, every %d seconds"
@@ -83,8 +97,11 @@ def main():
             try:
                 f = urllib2.urlopen(checkurl, timeout=timeout, context=sslctx)
                 f.read()
+                graceleft = grace
+                if output_okmsg_in_retry_or_rcv != 0:
+                    syslog.syslog(syslog.LOG_INFO, 'Successful!')
+                    output_okmsg_in_retry_or_rcv = 0
             except Exception as e:
-                global graceleft
                 syslog.syslog(syslog.LOG_WARNING, "REST API not responding due to {}".format(str(e)))
                 if graceleft <= 0:
                     syslog.syslog(syslog.LOG_ERR,
@@ -92,6 +109,8 @@ def main():
                     runit_kill_restart(service)
                     graceleft = grace
                 else:
+                    output_okmsg_in_retry_or_rcv = 1
+                    syslog.syslog(syslog.LOG_WARNING, 'Retry remaining times: %d' % (graceleft))
                     graceleft -= 1
 
 if __name__ == "__main__":
