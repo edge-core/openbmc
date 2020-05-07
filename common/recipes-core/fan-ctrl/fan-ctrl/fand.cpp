@@ -860,7 +860,7 @@ static void np_write_tofino_pvt_ctrl(void)
   wr_buf[2] = 0x01;
   wr_buf[3] = 0x08;
   wr_buf[4] = 0x00;
-  wr_buf[5] = 0xe3;
+  wr_buf[5] = 0xe2;
   wr_buf[6] = 0x01;
   wr_buf[7] = 0x81;
   wr_buf[8] = 0x00;
@@ -873,7 +873,12 @@ static void np_write_tofino_pvt_ctrl(void)
   i2c_rdwr_data.nmsgs = 1;
 
   if (ioctl(fd_tofino_ext_tmp, I2C_RDWR, &i2c_rdwr_data) == -1) {
-    syslog(LOG_CRIT, "tofino i2c_rdwrd ioctl error");
+    syslog(LOG_CRIT, "tofino pvt sensor disable ioctl error");
+  }
+
+  wr_buf[5] = 0xe3;
+  if (ioctl(fd_tofino_ext_tmp, I2C_RDWR, &i2c_rdwr_data) == -1) {
+    syslog(LOG_CRIT, "tofino pvt sensor enable ioctl error");
   }
 
   return;
