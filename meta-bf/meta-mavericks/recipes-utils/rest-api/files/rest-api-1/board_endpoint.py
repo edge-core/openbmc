@@ -20,6 +20,7 @@
 import bottle
 import rest_usb2i2c_reset
 import rest_i2cflush
+import rest_cpld
 
 boardApp = bottle.Bottle()
 
@@ -32,3 +33,12 @@ boardApp = bottle.Bottle()
 @boardApp.route('/api/sys/i2cflush')
 def rest_i2cflush_hdl():
     return rest_i2cflush.i2cflush()
+
+@boardApp.route('/api/sys/cpldget/<param1>/<param2>')
+def rest_cpld_get(param1, param2):
+    return rest_cpld.get_reg(param1, param2)
+
+@boardApp.route('/api/sys/cpldset/<param1>/<param2>/<param3>')
+def rest_cpld_set(param1, param2, param3):
+    return rest_cpld.set_reg(param1, param2, param3)
+
