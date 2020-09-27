@@ -25,7 +25,7 @@ SRC_URI += " \
           file://setup_board.py \
           "
 OPENBMC_GPIO_SOC_TABLE = "ast2400_gpio_table.py"
-
+addtask board_defined_soc_table after do_unpack before do_install
 do_install_append() {
      install -d ${D}${sysconfdir}/init.d
      install -d ${D}${sysconfdir}/rcS.d
