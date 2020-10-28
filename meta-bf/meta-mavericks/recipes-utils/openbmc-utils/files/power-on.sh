@@ -34,8 +34,18 @@ echo "board type is $board_subtype"
 
 tofino_set_vdd_core() {
   if [ "$board_subtype" == "Newport" ] ; then
-    btools.py --IR set_vdd_core 0.825
-    echo "setting Newport Tofino VDD_CORE to 0.825V..."
+    local apn
+    apn=$(wedge_board_sys_assembly_pn)
+    case "$apn" in
+      *015-000004-03)
+        btools.py --IR set_vdd_core 0.780
+        echo "setting Newport-P0B Tofino VDD_CORE to 0.780V..."
+        ;;
+      *)
+        btools.py --IR set_vdd_core 0.825
+        echo "setting Newport Tofino VDD_CORE to 0.825V..."
+        ;;
+    esac
     return 0
   fi
 # set the Tofino VDD voltage here before powering-ON COMe

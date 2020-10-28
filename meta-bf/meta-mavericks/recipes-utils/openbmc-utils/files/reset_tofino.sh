@@ -25,20 +25,17 @@ echo "POR to Tofino...."
 
 # gracefully reduce Tofino-2 power current before toggling reset
 board_subtype=$(wedge_board_subtype)
-if [ "$board_subtype" == "Newport" ] ; then
-# write 0x88ff1800 to pps_pll_ctrl0_address = 0x80018
-    i2c_set_get 11 0x58 9 0 0x80 0x18 0x00 0x08 0x00 0x00 0x18 0xff 0x88
-    usleep 50
-# write 0x88d71800 to core_pll_ctrl0_address = 0x80020
-    i2c_set_get 11 0x58 9 0 0x80 0x20 0x00 0x08 0x00 0x00 0x18 0xd7 0x88
-# write 0x891f1801 to mac0_pll_ctrl0_address = 0x80028
-    i2c_set_get 11 0x58 9 0 0x80 0x28 0x00 0x08 0x00 0x01 0x18 0x1f 0x89
-# write 0x891f1801 to mac1_pll_ctrl0_address = 0x80030
-    i2c_set_get 11 0x58 9 0 0x80 0x30 0x00 0x08 0x00 0x01 0x18 0x1f 0x89
-    usleep 10
-fi
+
 echo 0 > $PWR_TF_RST_SYSFS
 usleep 10000
 echo 1 > $PWR_TF_RST_SYSFS
 
+if [ "$board_subtype" == "Newport" ] ; then
+    # sequence is important
+    wedge_ucd_gpio_set 21 0
+    wedge_ucd_gpio_set 20 0
+    wedge_ucd_gpio_set 13 0
+    wedge_ucd_gpio_set 12 0
+    wedge_ucd_gpio_set 22 0
+fi
 logger "Reset Tofino"

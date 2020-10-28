@@ -756,6 +756,7 @@ bool is_two_fan_board(bool verbose) {
 #endif
 
 #if defined(CONFIG_MAVERICKS)
+static int tofino_ext_pvt_en = 1;
 
 /* returns different BF board types */
 static int bf_board_type_get() {
@@ -776,6 +777,19 @@ static int bf_board_type_get() {
     } else if ((!strncasecmp(eeprom.fbw_location, "Newport", strlen("Newport")))
                  || (!strncasecmp(eeprom.fbw_location, "Newports", strlen("Newports")))){
       syslog(LOG_INFO, "BF board type is %s", eeprom.fbw_location);
+      /* Restore thermal sensor access from Newport R0B
+       * System Assembly Part Number xxx-000004-02 is for R0A
+       * System Assembly Part Number xxx-000004-03 is for R0B. - Aug. 14, 2020
+       * Warning: If update this eeprom field, MUST restart the fand daemon.
+       */
+      char *cmp_pn=&eeprom.fbw_assembly_number[4];
+      if (strcmp(cmp_pn, "000004-02")==0) {
+          syslog(LOG_DEBUG, "Turn On for PVT reading (%s)", eeprom.fbw_assembly_number);
+          tofino_ext_pvt_en=1;
+      } else {
+          syslog(LOG_DEBUG, "Turn Off for PVT reading (%s)", eeprom.fbw_assembly_number);
+          tofino_ext_pvt_en=0;
+      }
       return BF_BOARD_NEW;
     } else {
       syslog(LOG_WARNING, "BF invalid board type. defaulting to Montara");
@@ -800,8 +814,7 @@ static void close_and_remove_file(FILE *fp, const char *file_name) {
 }
 
 static int fd_tofino_ext_tmp = -1;
-#if 1 /* FIXME; newport-temporary read misc.PVT register for temperature measurement */
-static int tofino_ext_pvt_en = 1; // Turn off to read the temp in legacy way
+#if 1
 static int tofino_open_i2c_dev(int i2cbus, char *filename, size_t size, int quiet)
 {
   int file;

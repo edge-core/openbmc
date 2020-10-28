@@ -9,6 +9,7 @@ import subprocess
 import bmc_command
 import os.path
 from time import sleep
+import syslog
 
 h_platforms = "montara/mavericks/newport"
 h_platforms_with_p0c = "montara/mavericks/mavericks-p0c/newport"
@@ -54,6 +55,10 @@ def get_project_by_weutil(cmd=['weutil']):
         tdata = sdata.split(':', 1)
         if (len(tdata) < 2):
             continue
+        if tdata[0].strip() == "System Assembly Part Number" :
+            file = open("/tmp/eeprom_sys_assembly_pn", "w+")
+            file.write(sdata+'\n')
+            file.close()
         if tdata[0].strip() == "Location on Fabric" :
             file = open("/tmp/eeprom_board_type", "w+")
             file.write(sdata+'\n')
@@ -62,6 +67,20 @@ def get_project_by_weutil(cmd=['weutil']):
 
     print "Error occured while capturing Location on Fabric"
     return
+
+def get_sys_assembly_pn():
+    if (not os.path.isfile("/tmp/eeprom_sys_assembly_pn")) :
+        print "Error: /tmp/eeprom_sys_assembly_pn not found"
+        board_type = get_project_by_weutil()
+
+    try:
+        tmp_data = subprocess.check_output(["cat", "/tmp/eeprom_sys_assembly_pn"])
+    except subprocess.CalledProcessError as e:
+        print e
+        print "Error while reading /tmp/eeprom_sys_assembly_pn"
+        return
+
+    return tmp_data
 
 def get_project():
     if (not os.path.isfile("/tmp/eeprom_board_type")) :
@@ -365,6 +384,7 @@ def error_ucd_usage():
     print "                                           h => high"
     print "                                           n => none"
     print " "
+    print "                  set_gpio <gpio_number> <l or h> [%s]" % h_platforms
     print "Eg."
     print "btools.py --UCD sh v"
     print "btools.py --UCD set_margin 5 l"
@@ -684,6 +704,96 @@ def ucd_rail_voltage_montara():
 #
 # Functions set the voltage margins
 #
+def ucd_set_gpio(platform, arg):
+
+    UCD_I2C_BUS = "2"
+    UCD_I2C_ADDR = "0x34"
+    UCD_GPIO_SEL_OP = "0xFA"
+    UCD_GPIO_CONFIG_OP = "0xFB"
+
+    gpio = int(arg[1])
+    if arg[2] == "l":
+      gpio_val = 0
+    else:
+      gpio_val = 1
+
+    if platform == "newport":
+        if gpio != 3 and gpio != 4 and gpio != 13 and gpio != 14 and gpio != 15:
+             error_ucd_usage()
+             return
+    else:
+        error_ucd_usage()
+        return
+    #convert GPIO to "Pin Id" as understood by UCD PMBUS GPIO_SEL operation
+    if gpio == 3:
+      gpio_mod = 20
+    if gpio == 4:
+      gpio_mod = 21
+    if gpio == 13:
+      gpio_mod = 22
+    if gpio == 14:
+      gpio_mod = 12
+    if gpio == 15:
+      gpio_mod = 13
+
+    #set gpio selection
+    try:
+        set_cmd = "i2cset"
+        output = subprocess.check_output([set_cmd, "-f", "-y", UCD_I2C_BUS,
+                                         UCD_I2C_ADDR, UCD_GPIO_SEL_OP, str(gpio_mod)])
+
+    except subprocess.CalledProcessError as e:
+        print e
+        print "Error occured while selecting GPIO %.2d " % (gpio)
+        return
+
+    #set gpio value
+    try:
+        set_cmd = "i2cset"
+        if gpio_val == 0:
+            val = "3" # en-true, out_en-true, out_val-false status-false
+        else:
+            val = "7" # en-true, out_en-true, out_val-true status-false
+
+        output = subprocess.check_output([set_cmd, "-f", "-y", UCD_I2C_BUS,
+                                         UCD_I2C_ADDR, UCD_GPIO_CONFIG_OP, val])
+
+    except subprocess.CalledProcessError as e:
+        print e
+        print "Error occured while programming-1 GPIO %.2d" % (gpio)
+        return
+
+    #set gpio value but dont write it to flash
+    try:
+        set_cmd = "i2cset"
+        if gpio_val == 0:
+            val = "0" # en-false, out_en-false, out_val-false status-false
+        else:
+            val = "4" # en-false, out_en-false, out_val-true status-false
+        output = subprocess.check_output([set_cmd, "-f", "-y", UCD_I2C_BUS,
+                                         UCD_I2C_ADDR, UCD_GPIO_CONFIG_OP, val])
+
+    except subprocess.CalledProcessError as e:
+        print e
+        print "Error occured while setting GPIO %.2d low" % (gpio)
+        return
+
+    # read status
+    try:
+        set_cmd = "i2cget"
+        output = subprocess.check_output([set_cmd, "-f", "-y", UCD_I2C_BUS,
+                                         UCD_I2C_ADDR, UCD_GPIO_CONFIG_OP])
+
+    except subprocess.CalledProcessError as e:
+        print e
+        print "Error occured while setting GPIO %.2d low" % (gpio)
+        return
+
+    return
+
+#
+# Functions set the voltage margins
+#
 def ucd_voltage_margin(platform, arg):
 
     UCD_I2C_BUS = "2"
@@ -784,7 +894,7 @@ def ucd(argv):
             error_ucd_usage()
             return
     # ./btools.py --UCD set_margin <rail number> <margin> [%s]
-    elif arg_ucd[0] == "set_margin":
+    elif arg_ucd[0] == "set_margin" or arg_ucd[0] == "set_gpio":
         if len(arg_ucd) == 4:
             platform = arg_ucd[3]
         elif len(arg_ucd) == 3:
@@ -810,6 +920,8 @@ def ucd(argv):
         #ucd_ir_voltage_margin(argv)
     elif arg_ucd[0] == "fault":
         ucd_rail_voltage_fault(platform)
+    elif arg_ucd[0] == "set_gpio":
+        ucd_set_gpio(platform, arg_ucd)
     else:
         error_ucd_usage()
         return
@@ -2049,9 +2161,15 @@ def tmp_lower(board):
 
     if board == "Montara" or board == "Newport":
 
-        if board == "Newport":
-            np_tvp_workaround = 1 # turn on for PVT reading
+        # Restore thermal sensor access from Newport R0B
+        # System Assembly Part Number xxx-000004-02 is for R0A
+        # System Assembly Part Number xxx-000004-03 is for R0B. - Aug. 14, 2020
+        sys_pn = get_sys_assembly_pn()
+        if board == "Newport" and sys_pn.find("000004-02") > 0:
+            syslog.syslog(syslog.LOG_INFO, "Turn On for PVT reading (%s)" % (sys_pn.rstrip()))
+            np_tvp_workaround = 1
         else:
+            syslog.syslog(syslog.LOG_INFO, "Turn Off for PVT reading (%s)" % (sys_pn.rstrip()))
             np_tvp_workaround = 0
 
         cmd = "i2cget"

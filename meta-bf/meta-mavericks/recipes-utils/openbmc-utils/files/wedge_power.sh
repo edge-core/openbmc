@@ -31,6 +31,27 @@ PWR_TF_RST_SYSFS="${SYSCPLD_SYSFS_DIR}/tofino_pwr_on_rst_n"
 PWR_USRV_SYSFS="${SYSCPLD_SYSFS_DIR}/pwr_main_n"
 PWR_USRV_EN_SYSFS="${SYSCPLD_SYSFS_DIR}/pwr_usrv_en"
 
+board_subtype=$(wedge_board_subtype)
+echo "board type is $board_subtype"
+
+tofino_set_vdd_core() {
+  if [ "$board_subtype" == "Newport" ] ; then
+    local apn
+    apn=$(wedge_board_sys_assembly_pn)
+    case "$apn" in
+      *015-000004-03)
+          btools.py --IR set_vdd_core 0.780
+          echo "setting Newport-P0B Tofino VDD_CORE to 0.780V..."
+          ;;
+      *)
+          btools.py --IR set_vdd_core 0.825
+          echo "setting Newport Tofino VDD_CORE to 0.825V..."
+          ;;
+    esac
+    return 0
+  fi
+}
+
 usage() {
     echo "Usage: $prog <command> [command options]"
     echo
@@ -60,10 +81,28 @@ do_status() {
     return 0
 }
 
+do_on_ucd_gpio_en() {
+  # sequence is important
+  wedge_ucd_gpio_set 22 1
+  wedge_ucd_gpio_set 12 1
+  wedge_ucd_gpio_set 13 1
+  wedge_ucd_gpio_set 20 1
+  wedge_ucd_gpio_set 21 1
+}
+
 do_on_com_e() {
     board_subtype=$(wedge_board_subtype)
 
     if [ "$board_subtype" == "Newport" ] ; then
+        # turn ON the power rails that might have been forced down
+        do_on_ucd_gpio_en
+        tofino_set_vdd_core
+        usleep 100000
+        # issue reset to Tofino-2
+        i2cset -f -y 12 0x31 0x32 0x9
+        usleep 50000
+        i2cset -f -y 12 0x31 0x32 0xf
+
         echo 1 > $PWR_USRV_EN_SYSFS
         echo "wedge_power setting pwr_usrv_en also for $board_subtype"
     fi
