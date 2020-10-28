@@ -702,7 +702,7 @@ def ucd_rail_voltage_montara():
     return
 
 #
-# Functions set the voltage margins
+# Functions set the UCD GPIO
 #
 def ucd_set_gpio(platform, arg):
 
