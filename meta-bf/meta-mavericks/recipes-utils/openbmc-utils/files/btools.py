@@ -1103,13 +1103,15 @@ def ir_restore_i2c_switch(res):
 
     return
 
-def ir_voltage_show_newport():
+def ir_voltage_show_newport(arg_ir):
 
     IR_I2C_BUS = "0x1"
     IR_PMBUS_ADDR = {1: "0x40", 2: "0x42", 3: "0x44", 4:"0x44", 5:"0x46"}
     IR_VOUT_MODE_OP = "0x20"
     IR_READ_VOUT_OP = "0x8b"
     IR_READ_IOUT_OP = "0x8c"
+    IR_READ_POUT_OP = "0x96"
+    IR_READ_TEMP1_OP = "0x8d"
     PAGE_ADDR = "0"
     string = {1: "VDD_CORE_0.75V", 2: "VDDT_0.9V", 3: "VDDA_1.5V", 4:"VDDA_AGC_1.8V", 5:"VDD_QSFP_3.3V"}
     for i in range(1, 6):
@@ -1127,53 +1129,100 @@ def ir_voltage_show_newport():
             print "Error occured while processing VOUT_MODE for IR "
             continue
 
-        try:
-            get_cmd = "i2cget"
-            mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                         IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cget for IR "
-            continue
-
         # 2 ^ exponent
         # exponent is 5 bit signed value. Thus calculating first exponent.
         exp = int(exponent, 16) | ~0x1f
         exp = ~exp + 1
         div = 1 << exp
 
-        mantissa = int(mantissa, 16)
+        if arg_ir[1] == "pout":
+            try:
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                             IR_PMBUS_ADDR.get(i), IR_READ_POUT_OP, "w"])
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for IR pout"
+                continue
 
-        v = (float(mantissa)/float(div))
+            m = int(mantissa, 16) & 0x07ff
 
-        # As referred by hardware spec QSFP voltage need to be * 2
-        if i == 5:
-            v = v * 2
+            # 2 ^ exponent
+            # exponent is 5 bit signed value. Thus calculating first exponent.
+            exp = int(mantissa, 16) & 0xf800
+            exp = exp >> 11
+            exp = ~exp + 1
+            exp = exp & 0x1f
+            div = 1 << exp
 
-        # find current
-        try:
-            # i2cget -f -y 1 0x70 0x8c w
-            get_cmd = "i2cget"
-            mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                        IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cget for IR "
-            continue
+            pout = (float(m)/float(div))
 
-        m = int(mantissa, 16) & 0x07ff
+            print "IR %-*s       %.3f W" % (15, string.get(i), pout)
+        elif arg_ir[1] == "temp1":
+            try:
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                             IR_PMBUS_ADDR.get(i), IR_READ_TEMP1_OP, "w"])
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for IR temp1"
+                continue
 
-        # 2 ^ exponent
-        # exponent is 5 bit signed value. Thus calculating first exponent.
-        exp = int(mantissa, 16) & 0xf800
-        exp = exp >> 11
-        exp = ~exp + 1
-        exp = exp & 0x1f
-        div = 1 << exp
+            m = int(mantissa, 16) & 0x07ff
 
-        amp = (float(m)/float(div))
+            # 2 ^ exponent
+            # exponent is 5 bit signed value. Thus calculating first exponent.
+            exp = int(mantissa, 16) & 0xf800
+            exp = exp >> 11
+            exp = ~exp + 1
+            exp = exp & 0x1f
+            div = 1 << exp
 
-        print "IR %-*s       %.3f V    %.3f A      %.3f W" % (15, string.get(i), v, amp, (v * amp))
+            temp1 = (float(m)/float(div))
+
+            print "IR %-*s       %.3f C" % (15, string.get(i), temp1)
+        else:
+            try:
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                             IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for IR "
+                continue
+
+            mantissa = int(mantissa, 16)
+
+            v = (float(mantissa)/float(div))
+
+            # As referred by hardware spec QSFP voltage need to be * 2
+            if i == 5:
+                v = v * 2
+
+            # find current
+            try:
+                # i2cget -f -y 1 0x70 0x8c w
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                            IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for IR "
+                continue
+
+            m = int(mantissa, 16) & 0x07ff
+
+            # 2 ^ exponent
+            # exponent is 5 bit signed value. Thus calculating first exponent.
+            exp = int(mantissa, 16) & 0xf800
+            exp = exp >> 11
+            exp = ~exp + 1
+            exp = exp & 0x1f
+            div = 1 << exp
+
+            amp = (float(m)/float(div))
+
+            print "IR %-*s       %.3f V    %.3f A      %.3f W" % (15, string.get(i), v, amp, (v * amp))
     return
 
 def ir_voltage_show_mavericks(poc):
@@ -2084,7 +2133,7 @@ def ir(argv):
         elif platform == "montara":
             ir_voltage_show_montara()
         elif platform == "newport":
-            ir_voltage_show_newport()
+            ir_voltage_show_newport(arg_ir)
         else :
             error_ir_usage()
             return
