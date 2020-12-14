@@ -260,12 +260,13 @@ def get_bmc_ps(param1):
       t = re.findall('\d+\.\d+', data)
       try:
           l.append(float(t[0]))
-      except ValueError:
+      except Exception as e:
           l.append(float(0))
-      except IndexError:
-          l.append(float(0))
+          pass
 
 
+      #except IndexError:
+          #l.append(float(0))
 # output voltage
     arg[4] = 'vo'
     with Capturing() as screen_op:
@@ -280,10 +281,11 @@ def get_bmc_ps(param1):
       t = re.findall('\d+\.\d+', data)
       try:
           l.append(float(t[0]))
-      except ValueError:
+      except Exception as e:
           l.append(float(0))
-      except IndexError:
-          l.append(float(0))
+          pass
+      #except IndexError:
+          #l.append(float(0))
 
 
 # input current
@@ -300,10 +302,12 @@ def get_bmc_ps(param1):
       t = re.findall('\d+\.\d+', data)
       try:
           l.append(float(t[0]))
-      except ValueError:
+      except Exception as e:
           l.append(float(0))
-      except IndexError:
-          l.append(float(0))
+          pass
+
+      #except IndexError:
+          #l.append(float(0))
 
 
 #  power supply
@@ -320,10 +324,12 @@ def get_bmc_ps(param1):
       t = re.findall('\d+\.\d+', data)
       try:
           l.append(float(t[0]))
-      except ValueError:
+      except Exception as e:
           l.append(float(0))
-      except IndexError:
-          l.append(float(0))
+          pass
+
+      #except IndexError:
+          #l.append(float(0))
 
 
 # fan speed
@@ -340,10 +346,12 @@ def get_bmc_ps(param1):
       t = re.findall('\d+', data)
       try:
           l.append(float(t[0]))
-      except ValueError:
+      except Exception as e:
           l.append(float(0))
-      except IndexError:
-          l.append(float(0))
+          pass
+
+      #except IndexError:
+          #l.append(float(0))
 
 
 # fan fault
@@ -360,10 +368,12 @@ def get_bmc_ps(param1):
       t = re.findall('\d+', data)
       try:
           l.append(float(t[0]))
-      except ValueError:
+      except Exception as e:
           l.append(float(0))
-      except IndexError:
-          l.append(float(0))
+          pass
+
+      #except IndexError:
+          #l.append(float(0))
 
 
 # presence
@@ -435,10 +445,12 @@ def get_bmc_ps(param1):
       t = re.findall('[\w\.-]+', data)
       try:
         output.append(t[0])
-      except ValueError:
+      except Exception as e:
           output.append("None")
-      except IndexError:
-          output.append("None")
+          pass
+
+      #except IndexError:
+          #output.append("None")
 
 
 # ps serial
@@ -455,10 +467,12 @@ def get_bmc_ps(param1):
       t = re.findall('[\w\.-]+', data)
       try:
         output.append(t[0])
-      except ValueError:
+      except Exception as e:
           output.append("None")
-      except IndexError:
-          output.append("None")
+          pass
+
+      #except IndexError:
+          #output.append("None")
 
 
 # ps verion
@@ -475,10 +489,12 @@ def get_bmc_ps(param1):
       t = re.findall('[\w\.-]+', data)
       try:
         output.append(t[0])
-      except ValueError:
+      except Exception as e:
           output.append("None")
-      except IndexError:
-          output.append("None")
+          pass
+
+      #except IndexError:
+          #output.append("None")
 
 
     result = {

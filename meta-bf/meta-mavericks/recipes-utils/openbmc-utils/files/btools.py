@@ -151,7 +151,7 @@ def psu_cpld_features(power_supply, feature):
             path = cpld_dev + "psu2_present"
         else:
             error_psu_usage()
-            return
+            return -1
     elif feature == "sts_in_power":
         if power_supply == 1:
             path = cpld_dev + "psu1_in_pwr_sts"
@@ -170,14 +170,14 @@ def psu_cpld_features(power_supply, feature):
             return
     else:
         error_psu_usage()
-        return
+        return -1
 
     try:
         output = subprocess.check_output([cmd, path])
     except subprocess.CalledProcessError as e:
         print e
         print "Error while executing psu cpld feature commands"
-        return
+        return -1
 
     if feature == "presence":
         res = int(output, 16)
@@ -196,7 +196,7 @@ def psu_cpld_features(power_supply, feature):
             print "Power supply status: OK"
         else:
             print "Error while reading power supply status"
-    return
+    return -1
 
 #
 #open I2C sw before pfe devices and then load drivers
@@ -233,12 +233,14 @@ def psu_init():
     except subprocess.CalledProcessError as e:
         print e
         print "Error occured while initializing PSU"
-        return
+        return -1
 
 #function just for power supply check
 def psu_check_pwr_presence(power_supply):
 
-  psu_init()
+  s = psu_init()
+  if s == -1:
+      return -1
 
   r = psu_cpld_features(power_supply, "presence")
 
@@ -261,7 +263,10 @@ def psu(argv):
         error_psu_usage()
         return
 
-    psu_init()
+    s = psu_init()
+    if s == -1:
+        error_psu_usage()
+        return
 
     # Mapping i2c bus address according to power supply number
     # 2018.09.10 Swap PSUs mapping because of reverse.
@@ -350,25 +355,28 @@ def psu(argv):
         print e
         print "Error while executing psu i2c command "
         return
-
-    if s == "V":
-        print "{}{}".format(float(output) / 1000, "V")             # convert milli volts to volts
-    elif s == "mA":
-        print "{}{}".format(float(output), "mA")                   # current is in milli Amperes
-    elif s == "mW":
-        print "{}{}".format(float(output), "mW")                   # Power in milli watts
-    elif s == "rpm":
-        print "{}{}".format(int(output), "rpm")                    # Speed of FAN
-    elif s == "ffault":
-        print "{}".format(int(output))
-    elif s == "model":
-        print "{}".format(output)
-    elif s == "serial":
-        print "{}".format(output)
-    elif s == "rev":
-        print "{}".format(output)
-    return
-
+    try:
+        if s == "V":
+            print "{}{}".format(float(output) / 1000, "V")             # convert milli volts to volts
+        elif s == "mA":
+            print "{}{}".format(float(output), "mA")                   # current is in milli Amperes
+        elif s == "mW":
+            print "{}{}".format(float(output), "mW")                   # Power in milli watts
+        elif s == "rpm":
+            print "{}{}".format(int(output), "rpm")                    # Speed of FAN
+        elif s == "ffault":
+            print "{}".format(int(output))
+        elif s == "model":
+            print "{}".format(output)
+        elif s == "serial":
+            print "{}".format(output)
+        elif s == "rev":
+            print "{}".format(output)
+        return
+    except Exception as e:
+        print e
+        print "Error while format output "
+        return
 #
 # Usage for UCD device
 #

@@ -5,8 +5,10 @@ FILE_WDT_RCV_REST="/tmp/wdt_rcv_rest"
 
 check_8080_port(){
     for ((i=0; i<=12; i++)); do
-        netstat -tanu | grep 8080 | grep LISTEN
+        netstat -tanu | grep 8080 | grep LISTEN > /dev/null
         cmd=$?
+        string=`netstat -tanu | grep 8080 | grep LISTEN`
+        logger "$string"
         if [ "$cmd" == 0 ]; then
             return
         fi
@@ -25,7 +27,7 @@ do
         fi
         if [ $wdt_rcv_rest -eq 0 ]; then
             logger "REST MNTR rest.py not running"
-            /usr/local/bin/setup-rest-api.sh restart
+            /usr/local/bin/setup-rest-api.sh restart > /dev/null
         fi
         check_8080_port
         if [ -e "/tmp/mav_9548_10_lock" ]; then
