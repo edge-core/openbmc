@@ -68,11 +68,21 @@ def runit_kill_restart(svc):
     file.close()
     syslog.syslog(syslog.LOG_INFO, 'REST API WDT recovery enable(1)')
     # force-stop is SIGTERM, wait 7s, if still alive, SIGKILL
-    subprocess.call(["/usr/bin/sv", "force-stop", svc])
+    devnull = open(os.devnull, 'w')
+    try:
+    #subprocess.call(["/usr/bin/sv", "force-stop", svc])
+        subprocess.call(["/usr/bin/sv", "force-stop", svc], stdout=devnull,stderr=devnull)
+    finally:
+        devnull.close()
     # kill any lingering hung forks
     killall()
     # bring it back
-    subprocess.call(["/usr/bin/sv", "start", svc])
+    devnull = open(os.devnull, 'w')
+    try:
+    #subprocess.call(["/usr/bin/sv", "start", svc])
+        subprocess.call(["/usr/bin/sv", "start", svc], stdout=devnull,stderr=devnull)
+    finally:
+        devnull.close()
     file = open("/tmp/wdt_rcv_rest", "w+")
     file.write('0')
     file.close()
