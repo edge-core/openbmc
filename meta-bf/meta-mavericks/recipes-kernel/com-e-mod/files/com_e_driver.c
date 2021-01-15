@@ -84,7 +84,7 @@ static ssize_t i2c_dev_show_version(struct device *dev,
   //values[0] : Version_R
   //values[1] : Version_E
   //values[2] : Version_T
-  return scnprintf(buf, PAGE_SIZE, "EC Version R=0x%02x E=0x%02x T=0x%2x\n",
+  return scnprintf(buf, PAGE_SIZE, "EC Version R=0x%02x E=0x%02x T=0x%02x\n",
                    values[0], values[1], values[2]);
 
 }
