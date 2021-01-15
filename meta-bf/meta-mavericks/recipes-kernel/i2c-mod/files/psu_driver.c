@@ -363,16 +363,20 @@ static ssize_t psu_fan_status_show(struct device *dev,
                                 char *buf)
 {
   uint8_t values;
-  int result;
+  int result = -1;
+  uint8_t retry = 3;
 
   switch (model) {
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
-      result = i2c_dev_read_nbytes(dev, attr, &values, 1);
-      if (result < 0) {
-        return -1;
+      while(((result < 0) || (values == 0xff)) && retry--)
+      {
+          result = i2c_dev_read_nbytes(dev, attr, &values, 1);
+          mdelay(10);
       }
+      if ((result < 0) || (values == 0xff))
+          return -1;
       break;
     default:
       break;
