@@ -159,7 +159,7 @@ def psu_cpld_features(power_supply, feature):
             path = cpld_dev + "psu2_in_pwr_sts"
         else:
             error_psu_usage()
-            return
+            return -1
     elif feature == "sts_op_power":
         if power_supply == 1:
             path = cpld_dev + "psu1_output_pwr_sts"
@@ -167,7 +167,7 @@ def psu_cpld_features(power_supply, feature):
             path = cpld_dev + "psu2_output_pwr_sts"
         else:
             error_psu_usage()
-            return
+            return -1
     else:
         error_psu_usage()
         return -1
@@ -196,6 +196,7 @@ def psu_cpld_features(power_supply, feature):
             print "Power supply status: OK"
         else:
             print "Error while reading power supply status"
+        return 0
     return -1
 
 #
@@ -206,7 +207,7 @@ def psu_init():
     #check if psu_driver driver is loaded properly
     if os.path.isfile("/sys/class/i2c-adapter/i2c-7/7-0059/in1_input") \
        and os.path.isfile("/sys/class/i2c-adapter/i2c-7/7-005a/in1_input"):
-        return
+        return 0
 
     try:
         cmd = "i2cset"
