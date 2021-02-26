@@ -67,9 +67,12 @@
 
 #define MAX_IPMI_MSG_SIZE 100
 
+//#define DEBUG
+
 // IPMI request Structure (IPMI/Section 9.2)
 typedef struct
 {
+  unsigned char payload_id;	
   unsigned char netfn_lun;
   unsigned char cmd;
   unsigned char data[];
@@ -1347,7 +1350,9 @@ ipmi_handle (unsigned char *request, unsigned char req_len,
   unsigned char netfn;
 
   netfn = req->netfn_lun >> 2;
-
+#ifdef DEBUG
+  syslog(LOG_WARNING, "ipmid: netfn: %x", netfn);
+#endif
   // Provide default values in the response message
   res->cmd = req->cmd;
   res->cc = 0xFF;		// Unspecified completion code
@@ -1393,15 +1398,28 @@ void
   unsigned char req_buf[MAX_IPMI_MSG_SIZE];
   unsigned char res_buf[MAX_IPMI_MSG_SIZE];
   unsigned char res_len = 0;
-
+#ifdef DEBUG
+  char cmd[200]={0};
+  int i;
+#endif
   n = recv (sock, req_buf, sizeof(req_buf), 0);
   if (n <= 0) {
       syslog(LOG_ALERT, "ipmid: recv() failed with %d\n", n);
       goto conn_cleanup;
   }
-
+#ifdef DEBUG 
+  memset(cmd, 0, 200); 
+  for(i=0; i < n; i++)
+  sprintf(cmd, "%s %02x", cmd, req_buf[i]);
+  syslog(LOG_WARNING, "ipmid: receive Req: %s", cmd);
+#endif
   ipmi_handle(req_buf, n, res_buf, &res_len);
-
+#ifdef DEBUG
+  memset(cmd, 0, 200); 
+  for(i=0; i < res_len; i++)
+  sprintf(cmd, "%s %02x", cmd, res_buf[i]);
+  syslog(LOG_WARNING, "ipmid: response Res: %s", cmd);
+#endif
   if (send (sock, res_buf, res_len, 0) < 0) {
     syslog(LOG_ALERT, "ipmid: send() failed\n");
   }

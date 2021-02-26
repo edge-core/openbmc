@@ -31,7 +31,7 @@ IMAGE_INSTALL += " \
   oob-nic \
   lldp-util \
   wedge-eeprom \
-  sms-kcsd \
+  kcsd \
   ipmid \
   po-eeprom \
   bitbang \

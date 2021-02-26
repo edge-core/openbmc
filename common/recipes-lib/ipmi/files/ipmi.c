@@ -31,7 +31,7 @@
 #include <sys/un.h>
 
 #define MAX_IPMI_RES_LEN 100
-
+//#define DEBUG
 /*
  * Function to handle IPMI messages
  */
@@ -42,7 +42,10 @@ lib_ipmi_handle(unsigned char *request, unsigned char req_len,
   int s, t, len;
   struct sockaddr_un remote;
   struct timeval tv;
-
+#ifdef DEBUG
+  char cmd[200]={0};
+  int i;
+#endif
   // TODO: Need to update to reuse the socket instead of creating new
   if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
 #ifdef DEBUG
@@ -67,7 +70,13 @@ lib_ipmi_handle(unsigned char *request, unsigned char req_len,
 #endif
     return;
   }
-
+#ifdef DEBUG
+   memset(cmd, 0, 200);
+   for(i=0; i < req_len; i++) {
+   sprintf(cmd, "%s %02x", cmd, request[i]);
+   }
+   syslog(LOG_WARNING, "lib_ipmi_handle Req: %s, len=%d", cmd, req_len);
+#endif
   if (send(s, request, req_len, 0) == -1) {
 #ifdef DEBUG
     syslog(LOG_WARNING, "lib_ipmi_handle: send() failed\n");
@@ -77,6 +86,13 @@ lib_ipmi_handle(unsigned char *request, unsigned char req_len,
 
   if ((t=recv(s, response, MAX_IPMI_RES_LEN, 0)) > 0) {
     *res_len = t;
+#ifdef DEBUG
+  memset(cmd, 0, 200);
+  for(i=0; i < t; i++) {
+  sprintf(cmd, "%s %02x", cmd, response[i]);
+  }
+  syslog(LOG_WARNING, "lib_ipmi_handle Res: %s, len=%d", cmd, t);
+#endif
   } else {
     if (t < 0) {
 #ifdef DEBUG
