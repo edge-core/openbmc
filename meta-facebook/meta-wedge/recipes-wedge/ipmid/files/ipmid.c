@@ -413,14 +413,25 @@ app_get_device_id (unsigned char *response, unsigned char *res_len)
 
   ipmi_res_t *res = (ipmi_res_t *) response;
   unsigned char *data = &res->data[0];
+  FILE *fp=NULL;
+  int fv_major = 0x0f, fv_minor = 0x00;
+  char buffer[32];
+
+  fp = fopen("/etc/issue","r");
+  if (fp != NULL)
+  {
+     if (fgets(buffer, sizeof(buffer), fp))
+	     sscanf(buffer, "%*[^.].%2x.%2x", &fv_major, &fv_minor);
+     fclose(fp);
+  }
 
   res->cc = CC_SUCCESS;
 
   //TODO: Following data needs to be updated based on platform
   *data++ = 0x20;		// Device ID
   *data++ = 0x81;		// Device Revision
-  *data++ = 0x00;		// Firmware Revision Major
-  *data++ = 0x09;		// Firmware Revision Minor
+  *data++ = fv_major & 0x7f;      // Firmware Revision Major
+  *data++ = fv_minor & 0x7f;      // Firmware Revision Minor
   *data++ = 0x02;		// IPMI Version
   *data++ = 0xBF;		// Additional Device Support
   *data++ = 0x15;		// Manufacturer ID1
