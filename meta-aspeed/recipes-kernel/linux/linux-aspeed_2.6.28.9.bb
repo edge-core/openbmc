@@ -40,7 +40,8 @@ LINUX_VERSION_EXTENSION ?= "-aspeed"
 
 PR = "r2"
 PV = "${LINUX_VERSION}"
-
+FLAGS_class-native += "-Wno-error -Wunused-but-set-variable"
+CFLAGS_class-nativesdk += "-Wno-error -Wunused-but-set-variable"
 # Install bounds.h for external module install
 # The default install script handles this. However, it looks for bounds.h from
 # 'include/generated', which doesnot match 2.6.28, where the file is in
