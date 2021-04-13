@@ -165,6 +165,8 @@ enum
 enum
 {
   CMD_CHASSIS_GET_STATUS = 0x01,
+  CMD_CHASSIS_POWER_CONTROL = 0x02,
+  CMD_CHASSIS_SET_BOOT_OPTIONS = 0x08,
   CMD_CHASSIS_GET_BOOT_OPTIONS = 0x09,
 };
 
@@ -277,6 +279,50 @@ enum
   SYS_INFO_PARAM_OS_HV_URL,
 };
 
+enum
+{
+  FORCE_BOOT_NO_OVERIDE=0x00,
+  FORCE_BOOT_IN_PXE,
+  FORCE_BOOT_IN_HDD,
+  FORCE_BOOT_IN_HDD_SAFE,
+  FORCE_BOOT_IN_DIAG,
+  FORCE_BOOT_IN_CDDVD,
+  FORCE_BOOT_IN_BIOS,
+  FORCE_BOOT_IN_REMOTE_FLOPPY,
+  FORCE_BOOT_IN_REMOTE_CDDVD,
+  FORCE_BOOT_IN_PRIMARY_REMOTE_MEDIA,
+  FORCE_BOOT_IN_REMOTE_HDD=0xB,
+  FORCE_BOOT_IN_FLOPPY=0xF,
+};
+
+enum
+{
+  SET_COMPLETE=0x0,
+  SET_IN_PROGRESS,
+  COMMIT_WRITE,
+  RESERVED
+};
+
+enum
+{
+  BIOS_POST_ACK = 1 << 0,
+  OS_LOADER_ACK = 1 << 1,
+  OS_SERVICE_PARTITION_ACK = 1 << 2,
+  SMS_ACK = 1 << 3,
+  OEM_ACK = 1 << 4,
+  RESERVED_ACK_MASK = 7 << 5
+};
+
+enum
+{
+  POWER_DOWN=0x0,
+  POWER_UP,
+  POWER_CYCLE,
+  POWER_RESET,
+  PULSE_DIAG,
+  SOFT_SHUTDOWN,
+  POWER_RESERVED
+};
 // TODO: Once data storage is finalized, the following structure needs
 // to be retrieved/updated from persistant backend storage
 static lan_config_t g_lan_config = { 0 };
@@ -286,6 +332,13 @@ static dimm_info_t g_dimm_info[MAX_NUM_DIMMS] = { 0 };
 // TODO: Need to store this info after identifying proper storage
 static sys_info_param_t g_sys_info_params;
 
+static unsigned char boot_flag=FORCE_BOOT_NO_OVERIDE;
+static unsigned char boot_set_in_prog=SET_COMPLETE;
+static unsigned char boot_valid=0x0;
+static unsigned char boot_ack=0x0;
+static unsigned char boot_flag_valid = 0x0;
+static unsigned char persist = 0x0;
+static unsigned char bios_type = 0x0;
 // TODO: Based on performance testing results, might need fine grained locks
 // Since the global data is specific to a NetFunction, adding locs at NetFn level
 static pthread_mutex_t m_chassis;
@@ -301,22 +354,165 @@ static pthread_mutex_t m_oem;
 static void
 chassis_get_status (unsigned char *response, unsigned char *res_len)
 {
+  FILE *fp;
+  char result[3] = {0};
   ipmi_res_t *res = (ipmi_res_t *) response;
   unsigned char *data = &res->data[0];
 
   res->cc = CC_SUCCESS;
-
+  fp = popen("/usr/local/bin/wedge_power.sh status | grep power | awk '{print $4}'", "r");
+  fgets(result, 3, fp);
+  pclose(fp);
+  syslog(LOG_WARNING, "ipmid:  chassis_get_statusresult: %s", result);
+  if (strcmp("on",result) == 0){
+#ifdef DEBUG
+    syslog(LOG_WARNING, "ipmid: chassis_get_status on ");
+#endif
+    *data++ = 0x01;// Current Power State
+  }
+  else if (strcmp("off",result) == 0){
+#ifdef DEBUG
+    syslog(LOG_WARNING, "ipmid:  chassis_get_statusoff ");
+#endif
+    *data++ = 0x00;// Current Power State
+  }
+  else{
+#ifdef DEBUG
+    syslog(LOG_WARNING, "ipmid:  chassis_get_statuserror ");
+#endif
+    res->cc = CC_UNSPECIFIED_ERROR;
+    return;
+  }
   // TODO: Need to obtain current power state and last power event
   // from platform and return
-  *data++ = 0x01;		// Current Power State
   *data++ = 0x00;		// Last Power Event
   *data++ = 0x40;		// Misc. Chassis Status
   *data++ = 0x00;		// Front Panel Button Disable
 
-  res_len = data - &res->data[0];
+  *res_len = data - &res->data[0];
 }
 
-// Get System Boot Options (IPMI/Section 28.12)
+// System power control (IPMI/Section 28.3)
+static void
+chassis_power_control (unsigned char *request, unsigned char *response,
+			  unsigned char *res_len)
+{
+  ipmi_req_t *req = (ipmi_req_t *) request;
+  ipmi_res_t *res= (ipmi_res_t *) response;
+  unsigned char *data = &res->data[0];
+  unsigned char param = req->data[0];
+
+  // Fill response with default values
+  res->cc = CC_SUCCESS;
+
+  switch (param)
+  {
+    case POWER_DOWN:
+      system("/usr/local/bin/wedge_power.sh off");
+      break;
+    case POWER_UP:
+      system("/usr/local/bin/wedge_power.sh on");
+      break;
+    case POWER_RESET:
+      system("/usr/local/bin/wedge_power.sh reset");
+      break;
+    case PULSE_DIAG:
+    case SOFT_SHUTDOWN:
+    case POWER_CYCLE:
+      res->cc = CC_INVALID_PARAM;
+      break;
+    deault:
+      res->cc = CC_PARAM_OUT_OF_RANGE;
+      break;
+  }
+
+  if (res->cc == CC_SUCCESS) {
+    *res_len = data - &res->data[0];
+  }
+}
+
+// Set System Boot Options (IPMI/Section 28.12)
+static void
+chassis_set_boot_options (unsigned char *request, unsigned char *response,
+			  unsigned char *res_len)
+{
+  ipmi_req_t *req = (ipmi_req_t *) request;
+  ipmi_res_t *res= (ipmi_res_t *) response;
+  unsigned char *data = &res->data[0];
+  unsigned char param = req->data[0];
+  int i;
+  char set_boot_flag = FORCE_BOOT_NO_OVERIDE;
+  // Fill response with default values
+  res->cc = CC_SUCCESS;
+
+  // TODO: Need to store user settings and return
+  switch (param)
+  {
+    case PARAM_SET_IN_PROG:
+	  boot_set_in_prog=(req->data[1] & 0x3);
+      break;
+    case PARAM_SVC_PART_SELECT:
+      break;
+    case PARAM_SVC_PART_SCAN:
+      break;
+    case PARAM_BOOT_FLAG_CLR:
+      boot_valid = req->data[1];
+      break;
+    case PARAM_BOOT_INFO_ACK:
+      for (i=0;i<5;i++)
+	  {
+        if(req->data[1] & (1<<i) == 1)
+        {
+		  if(req->data[2] & (1<<i) ==1)
+          {
+            boot_ack |= (1<<i);
+          }
+		  else
+          {
+            boot_ack &= ~(1<<i);
+          }
+        }
+      }
+      break;
+    case PARAM_BOOT_FLAGS:
+      boot_flag_valid = (req->data[1] & (1<<7));
+      persist = (req->data[1] & (1<<6));
+      bios_type = (req->data[1] & (1<<5));
+      set_boot_flag = (req->data[2]&0x3c)>>2;
+      switch (set_boot_flag)
+      {
+        case FORCE_BOOT_NO_OVERIDE:
+        case FORCE_BOOT_IN_PXE:
+        case FORCE_BOOT_IN_HDD:
+        case FORCE_BOOT_IN_HDD_SAFE:
+        case FORCE_BOOT_IN_DIAG:
+        case FORCE_BOOT_IN_CDDVD:
+        case FORCE_BOOT_IN_BIOS:
+        case FORCE_BOOT_IN_REMOTE_FLOPPY:
+        case FORCE_BOOT_IN_REMOTE_CDDVD:
+        case FORCE_BOOT_IN_PRIMARY_REMOTE_MEDIA:
+        case FORCE_BOOT_IN_REMOTE_HDD:
+        case FORCE_BOOT_IN_FLOPPY:          
+          boot_flag = set_boot_flag;
+          break;        
+        default:
+          res->cc = CC_INVALID_PARAM;
+          break;		  
+      }
+      break;
+    case PARAM_BOOT_INIT_INFO:
+      break;
+    deault:
+      res->cc = CC_PARAM_OUT_OF_RANGE;
+      break;
+  }
+
+  if (res->cc == CC_SUCCESS) {
+    *res_len = data - &res->data[0];
+  }
+}
+
+// Get System Boot Options (IPMI/Section 28.13)
 static void
 chassis_get_boot_options (unsigned char *request, unsigned char *response,
 			  unsigned char *res_len)
@@ -335,7 +531,7 @@ chassis_get_boot_options (unsigned char *request, unsigned char *response,
   switch (param)
   {
     case PARAM_SET_IN_PROG:
-      *data++ = 0x00;	// Set In Progress
+      *data++ = boot_set_in_prog;	// Set In Progress
       break;
     case PARAM_SVC_PART_SELECT:
       *data++ = 0x00;	// Service Partition Selector
@@ -344,15 +540,15 @@ chassis_get_boot_options (unsigned char *request, unsigned char *response,
       *data++ = 0x00;	// Service Partition Scan
       break;
     case PARAM_BOOT_FLAG_CLR:
-      *data++ = 0x00;	// BMC Boot Flag Valid Bit Clear
+      *data++ = boot_valid;	// BMC Boot Flag Valid Bit Clear
       break;
     case PARAM_BOOT_INFO_ACK:
       *data++ = 0x00;	// Write Mask
-      *data++ = 0x00;	// Boot Initiator Ack Data
+      *data++ = boot_ack;	// Boot Initiator Ack Data
       break;
     case PARAM_BOOT_FLAGS:
-      *data++ = 0x00;	// Boot Flags
-      *data++ = 0x00;	// Boot Device Selector
+      *data++ = boot_flag_valid | persist | bios_type;	// Boot Flags
+      *data++ = boot_flag << 2;	// Boot Device Selector
       *data++ = 0x00;	// Firmwaer Verbosity
       *data++ = 0x00;	// BIOS Override
       *data++ = 0x00;	// Device Instance Selector
@@ -391,10 +587,15 @@ ipmi_handle_chassis (unsigned char *request, unsigned char req_len,
   switch (cmd)
   {
     case CMD_CHASSIS_GET_STATUS:
-      chassis_get_status (response, res_len);
+      chassis_get_status(response, res_len);
       break;
+    case CMD_CHASSIS_POWER_CONTROL:
+      chassis_power_control(request, response, res_len);
     case CMD_CHASSIS_GET_BOOT_OPTIONS:
-      chassis_get_boot_options (request, response, res_len);
+      chassis_get_boot_options(request, response, res_len);
+      break;
+    case CMD_CHASSIS_SET_BOOT_OPTIONS:
+      chassis_set_boot_options(request, response, res_len);
       break;
     default:
       res->cc = CC_INVALID_CMD;
