@@ -33,13 +33,23 @@ board_subtype=$(wedge_board_subtype)
 echo "board type is $board_subtype"
 
 tofino_set_vdd_core() {
+  CODE="$(i2cget -f -y 12 0x31 0xb)"
+  CODE_M=$(($CODE & 0x7))
+  CODE_EN=$(($CODE & 0x8))
   if [ "$board_subtype" == "Newport" ] ; then
     local apn
     apn=$(wedge_board_sys_assembly_pn)
     case "$apn" in
       *015-000004-03)
-        btools.py --IR set_vdd_core 0.780
-        echo "setting Newport-P0B Tofino VDD_CORE to 0.780V..."
+        if [ $CODE_EN == 0 ]; then
+          btools.py --IR set_vdd_core 0.780
+          echo "setting Newport-P0B SVS-disabled Tofino VDD_CORE to 0.780V..."
+        else
+          tbl=(0.726 0.756 0.781 0.796 0.811 0.831 0.856 0.886)
+          btools.py --IR set_vdd_core ${tbl[$CODE_M]}
+          logger "VDD setting: ${tbl[$CODE_M]}"
+          echo "setting Newport-P0B SVS $CODE Tofino VDD_CORE to ${tbl[$CODE_M]}..."
+        fi
         ;;
       *)
         btools.py --IR set_vdd_core 0.825
@@ -49,8 +59,6 @@ tofino_set_vdd_core() {
     return 0
   fi
 # set the Tofino VDD voltage here before powering-ON COMe
-  CODE="$(i2cget -f -y 12 0x31 0xb)"
-  CODE_M=$(($CODE & 0x7))
   if [ $CODE_M != 0 ]; then
     tbl=(0 0.83 0.78 0.88 0.755 0.855 0.805 0.905)
     btools.py --IR set_vdd_core ${tbl[$CODE_M]}
