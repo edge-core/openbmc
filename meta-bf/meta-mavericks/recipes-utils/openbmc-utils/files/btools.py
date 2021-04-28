@@ -2236,15 +2236,16 @@ def tmp_lower(board):
             output = subprocess.check_output([cmd, "-f", "-y", "3", "0x4d",
                                              "0x00", "w"])
             output = int(output, 16)
-            t = output & 0xff
-            d = output & 0xfff00
+            t = (output & 0xff) << 8
+            d = (output & 0xff00) >> 8
+            swp_output = t+d
+            # TMP75's resolution is 12.
+            resolution = 12
+            t1 = ((swp_output >> (16-resolution)) * 1000) >> (resolution-8)
+            if (output & 0xff) > 127:
+                t1 = t1-256000
 
-            # if d is 0x80 means .0625 * 8(consider only fourth nibble 2 ^ 3)
-            if d == 0x8000:
-                t = float(t) + .500
-
-            print " TMP SENSOR %.2d                  %.3f C" % (5, t)
-
+            print " TMP SENSOR %.2d                  %.3f C" % (5, float(t1)/1000)
 
             output = subprocess.check_output([cmd, "-f", "-y", "3",
                                              "0x4c", "0x00"])
