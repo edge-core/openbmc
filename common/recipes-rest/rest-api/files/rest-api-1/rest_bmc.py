@@ -22,12 +22,15 @@
 from subprocess import *
 import re
 import btools
+import threading
 
 from cStringIO import StringIO
 import sys
 
 import subprocess
 import bmc_command
+
+lock = threading.Lock()
 
 class Capturing(list):
     def __enter__(self):
@@ -74,7 +77,7 @@ def get_bmc():
     version = ""
     (data, _) = Popen('cat /etc/issue', \
                         shell=True, stdout=PIPE).communicate()
-    ver = re.search(r'v([\w\d._-]*)\s', data)
+    ver = re.search(r'.* (\w+\.\w+\.\w+).*', data)
     if ver:
         version = ver.group(1)
 
@@ -96,21 +99,22 @@ def get_bmc():
 def find_err_status(data):
 
     err_status = "exit status"
-
-    for item in data.split('\n'):
+    err = 0
+    for item in data.split('\''):
         if err_status in item:
-          try:
-              err = int(item[-1:])
-              return err
-          except ValueError:
-            #default error if i2c failure 2
-            err = 2
-            return 2
+            try:
+                err = int(item.strip()[-3:-2])
+                return err
+            except Exception as e:
+                #default error if i2c failure 2
+                err = 2
+                return 2
 
     return err
 
 def get_bmc_tmp(param1):
 
+    lock.acquire()
     l = []
     output = []
     err = 0
@@ -123,34 +127,55 @@ def get_bmc_tmp(param1):
     print "Auto detection, ignore %s" % str(param1)
 
     with Capturing() as screen_op:
-         btools.main(arg)
+        btools.main(arg)
     data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-      err = find_err_status(data)
+        err = find_err_status(data)
 
     for t in data.split():
         try:
-             l.append(float(t))
+            l.append(float(t))
         except ValueError:
-             pass
+            pass
+        except Exception as e:
+            l.append(float(0))
+            pass
 
     output.append(err)
 
     if platform == "mavericks" or platform == "mavericks-p0c":
-      for i in range(0, 9):
-        output.append(int(l[2*i + 1] * 10))
-
-      #Max device temperature
-      output.append(int(l[19] * 10))
+        try:
+            for i in range(0, 9):
+                output.append(int(l[2*i + 1] * 10))
+            #Max device temperature
+            output.append(int(l[19] * 10))
+        except Exception as e:
+            #fill all 0 when error
+            output = []
+            if len(l) != 20:
+               err = 3
+            output.append(err)
+            for i in range(0, 10):
+                output.append(int(0))
+            pass
 
     if platform == "montara" or platform == "newport":
-      for i in range(0, 5):
-        output.append(int(l[2*i + 1] * 10))
-
-      #Max device temperature
-      output.append(int(l[11] * 10))
+        try:
+            for i in range(0, 5):
+                output.append(int(l[2*i + 1] * 10))
+            #Max device temperature
+            output.append(int(l[11] * 10))
+        except Exception as e:
+            #fill all 0 when error
+            output = []
+            if len(l) != 12:
+                err = 3
+            output.append(err)
+            for i in range(0, 6):
+                output.append(int(0))
+            pass
 
     result = {
                 "Information": {"Description": output},
@@ -158,10 +183,12 @@ def get_bmc_tmp(param1):
                 "Resources": [],
              }
 
+    lock.release()
     return result;
 
 def get_bmc_ucd():
 
+    lock.acquire()
     l = []
     output = []
     err = 0
@@ -172,32 +199,37 @@ def get_bmc_ucd():
     arg = ['btools.py', '--UCD', 'sh', 'v']
 
     if platform == "mavericks-p0c" or platform == "newport":
-         valid_range = 16
+        valid_range = 16
     if platform == "mavericks":
-         valid_range = 15
+        valid_range = 15
     if platform == "montara":
-         valid_range = 12
+        valid_range = 12
 
     with Capturing() as screen_op:
-         btools.main(arg)
-
+        btools.main(arg)
     data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-      err = find_err_status(data)
-
-    t = re.findall('\d+\.\d+', data)
-    for i in range (0, valid_range):
-        try:
-             l.append(float(t[i]))
-        except ValueError:
-             pass
-
+        err = find_err_status(data)
     output.append(err)
 
-    for i in range(0, valid_range):
-       output.append(int(l[i] * 1000))
+    try:
+        t = re.findall('\d+\.\d+', data)
+        for i in range (0, valid_range):
+            l.append(float(t[i]))
+        for i in range(0, valid_range):
+            output.append(int(l[i] * 1000))
+    except Exception as e:
+        #fill all 0 when error
+        output = []
+        if len(t) != valid_range:
+            #If the information is incomplete, err = 3
+            err = 3
+        output.append(err)
+        for i in range(0, valid_range):
+            output.append(int(0))
+        pass
 
     result = {
                 "Information": {"Description": output},
@@ -205,297 +237,274 @@ def get_bmc_ucd():
                 "Resources": [],
              }
 
+    lock.release()
     return result;
 
 def get_bmc_ps_feature(param1, param2):
 
-  output = []
-  if param2 == "presence":
-     r = btools.psu_check_pwr_presence(int(param1))
-     output.append(int(r))
+    lock.acquire()
+    output = []
+    if param2 == "presence":
+        try:
+            r = btools.psu_check_pwr_presence(int(param1))
+            output.append(int(r))
+        except Exception as e:
+            output.append("Check pwr presence error")
+            pass
 
-  result = {
+    result = {
                 "Information": {"Description": output},
                 "Actions": [],
                 "Resources": [],
              }
 
-  return result;
+    lock.release()
+    return result;
 
 
 def get_bmc_ps(param1):
 
+    lock.acquire()
     l = []
+    j = []
     output = []
     load_sharing = []
     err = [0] * 11
     err_status = "exit status"
     not_present = "not_present"
-
-    r = btools.psu_check_pwr_presence(int(param1))
-    if r != 0 :
-        # 0. error status
-        output.append(int(0))
-        output.append("absent")
+    try:
+        r = btools.psu_check_pwr_presence(int(param1))
+        if r != 0 :
+            # 0. error status
+            output.append("0")
+            output.append("absent")
+            result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+                 }
+            lock.release()
+            return result;
+    except Exception as e:
+        print("get presence error:")
+        print(e)
+        # 1. error status
+        output.append("1")
+        output.append("read present fail")
         result = {
                 "Information": {"Description": output},
                 "Actions": [],
                 "Resources": [],
              }
+        lock.release()
         return result;
 
-
-# input voltage data
+    # input voltage data
     arg = ['btools.py', '--PSU', '1', 'r', 'v']
     arg[2] = str(param1)
+
     with Capturing() as screen_op:
-         btools.main(arg)
+        btools.main(arg)
     data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-      err[0] = find_err_status(data)
-      l.append(float(0))
-    else:
-      t = re.findall('\d+\.\d+', data)
-      try:
-          l.append(float(t[0]))
-      except Exception as e:
-          l.append(float(0))
-          pass
+        err[0] = find_err_status(data)
 
+    try:
+        t = re.findall('\d+\.\d+', data)
+        l.append(float(t[0]))
+    except Exception as e:
+        l.append(float(0))
+        pass
 
-      #except IndexError:
-          #l.append(float(0))
-# output voltage
+    # output voltage
     arg[4] = 'vo'
     with Capturing() as screen_op:
-         btools.main(arg)
+        btools.main(arg)
     data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-      err[1] = find_err_status(data)
-      l.append(float(0))
-    else:
-      t = re.findall('\d+\.\d+', data)
-      try:
-          l.append(float(t[0]))
-      except Exception as e:
-          l.append(float(0))
-          pass
-      #except IndexError:
-          #l.append(float(0))
+        err[1] = find_err_status(data)
 
+    # ouput voltage data
+    try:
+        t = re.findall('\d+\.\d+', data)
+        l.append(float(t[0]))
+    except Exception as e:
+        l.append(float(0))
+        pass
 
-# input current
+    # input current
     arg[4] = 'i'
     with Capturing() as screen_op:
-         btools.main(arg)
+        btools.main(arg)
     data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-      err[2] = find_err_status(data)
-      l.append(float(0))
-    else:
-      t = re.findall('\d+\.\d+', data)
-      try:
-          l.append(float(t[0]))
-      except Exception as e:
-          l.append(float(0))
-          pass
+        err[2] = find_err_status(data)
 
-      #except IndexError:
-          #l.append(float(0))
+    try:
+        t = re.findall('\d+\.\d+', data)
+        l.append(float(t[0]))
+    except Exception as e:
+        l.append(float(0))
+        pass
 
-
-#  power supply
+    #  power supply
     arg[4] = 'p'
     with Capturing() as screen_op:
-         btools.main(arg)
+        btools.main(arg)
     data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-      err[3] = find_err_status(data)
-      l.append(float(0))
-    else:
-      t = re.findall('\d+\.\d+', data)
-      try:
-          l.append(float(t[0]))
-      except Exception as e:
-          l.append(float(0))
-          pass
+        err[3] = find_err_status(data)
 
-      #except IndexError:
-          #l.append(float(0))
+    try:
+        t = re.findall('\d+\.\d+', data)
+        l.append(float(t[0]))
+    except Exception as e:
+        l.append(float(0))
+        pass
 
-
-# fan speed
+    # fan speed
     arg[4] = 'fspeed'
     with Capturing() as screen_op:
-         btools.main(arg)
+        btools.main(arg)
     data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-      err[4] = find_err_status(data)
-      l.append(float(0))
-    else:
-      t = re.findall('\d+', data)
-      try:
-          l.append(float(t[0]))
-      except Exception as e:
-          l.append(float(0))
-          pass
+        err[4] = find_err_status(data)
 
-      #except IndexError:
-          #l.append(float(0))
+    try:
+        t = re.findall('\d+', data)
+        l.append(float(t[0]))
+    except Exception as e:
+        l.append(float(0))
+        pass
 
-
-# fan fault
+    # fan fault
     arg[4] = 'ffault'
     with Capturing() as screen_op:
-         btools.main(arg)
+        btools.main(arg)
     data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-      err[5] = find_err_status(data)
-      l.append(float(0))
-    else:
-      t = re.findall('\d+', data)
-      try:
-          l.append(float(t[0]))
-      except Exception as e:
-          l.append(float(0))
-          pass
+        err[5] = find_err_status(data)
 
-      #except IndexError:
-          #l.append(float(0))
+    try:
+        t = re.findall('\d+', data)
+        l.append(float(t[0]))
+    except Exception as e:
+        l.append(float(0))
+        pass
 
-
-# presence
+    # presence
     arg[4] = 'presence'
     with Capturing() as screen_op:
-         btools.main(arg)
+        btools.main(arg)
     data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-      err[6] = find_err_status(data)
-      l.append(float(0))
-    else:
-      if not_present in data:
-          l.append(float(0))
-      else :
-          l.append(float(1))
+        err[6] = find_err_status(data)
 
+    if not_present in data:
+        l.append(float(0))
+    else :
+        l.append(float(1))
 
-#  load sharing
+    #  load sharing
     arg[4] = 'ld'
     with Capturing() as screen_op:
-         btools.main(arg)
+        btools.main(arg)
     data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-      err[7] = find_err_status(data)
-      l.append(float(0))
-    else:
-      t = re.findall('\d+\.\d+', data)
+        err[7] = find_err_status(data)
 
-      # if current is shared between supplies then load sharing
-      # is true
-      try :
-          if float(t[0]) > 0.0 and float(t[1]) > 0.0 :
-              l.append(float(1))
-          else :
-              l.append(float(0))
-      except Exception :
-          l.append(float(0))
-          err[7] = 0
+    # if current is shared between supplies then load sharing
+    # is true
+    try :
+        t = re.findall('\d+\.\d+', data)
+        if float(t[0]) > 0.0 and float(t[1]) > 0.0 :
+            l.append(float(1))
+        else :
+            l.append(float(0))
+    except Exception as e:
+        l.append(float(0))
 
 
-#Append error status to output 1st value(0:Correct, 1:Wrong)
-    a = 0
-    for x in err:
-        if x != 0:
-            a = x
-            break
-    output.append(a)
-
-#Append the other data to output
-    for x in l:
-      output.append(int(x))
-
-
-# ps model
+    # ps model
     arg[4] = 'psmodel'
     with Capturing() as screen_op:
-         btools.main(arg)
+        btools.main(arg)
     data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-      err[8] = find_err_status(data)
-      output.append("None")
-    else:
-      t = re.findall('[\w\.-]+', data)
-      try:
-        output.append(t[0])
-      except Exception as e:
-          output.append("None")
-          pass
+        err[8] = find_err_status(data)
 
-      #except IndexError:
-          #output.append("None")
+    try:
+        t = re.findall('[\w\.-]+', data)
+        j.append(t[0])
+    except Exception as e:
+        j.append("Error")
+        pass
 
-
-# ps serial
+    # ps serial
     arg[4] = 'psserial'
     with Capturing() as screen_op:
-         btools.main(arg)
+        btools.main(arg)
     data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
-      err[9] = find_err_status(data)
-      output.append("None")
-    else:
-      t = re.findall('[\w\.-]+', data)
-      try:
-        output.append(t[0])
-      except Exception as e:
-          output.append("None")
-          pass
+        err[9] = find_err_status(data)
 
-      #except IndexError:
-          #output.append("None")
+    try:
+        t = re.findall('[\w\.-]+', data)
+        j.append(t[0])
+    except Exception as e:
+        j.append("Error")
+        pass
 
-
-# ps verion
+    # ps verion
     arg[4] = 'psrev'
     with Capturing() as screen_op:
-         btools.main(arg)
+        btools.main(arg)
     data = str(screen_op)
 
     # if error while data collection
     if err_status in data:
       err[10] = find_err_status(data)
-      output.append("None")
-    else:
-      t = re.findall('[\w\.-]+', data)
-      try:
-        output.append(t[0])
-      except Exception as e:
-          output.append("None")
-          pass
 
-      #except IndexError:
-          #output.append("None")
+    try:
+        t = re.findall('[\w\.-]+', data)
+        j.append(t[0])
+    except Exception as e:
+        j.append("Error")
+        pass
 
+    #if err is present append it to output
+    a = 0
+    for x in err:
+        if x != 0:
+            a = x
+            break
+
+    output.append(a)
+
+    for x in l:
+        output.append(int(x))
+    for x in j:
+        output.append(x)
 
     result = {
                 "Information": {"Description": output},
@@ -503,6 +512,7 @@ def get_bmc_ps(param1):
                 "Resources": [],
              }
 
+    lock.release()
     return result;
 
 def get_bmc_fan(param1):
@@ -618,5 +628,4 @@ def get_bmc_sensors(args):
              }
 
     return result;
-
 

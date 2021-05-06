@@ -10,6 +10,7 @@ import bmc_command
 import os.path
 from time import sleep
 import syslog
+import fcntl
 
 h_platforms = "montara/mavericks/newport"
 h_platforms_with_p0c = "montara/mavericks/mavericks-p0c/newport"
@@ -1640,7 +1641,7 @@ def ir_set_vdd_core_dynamic_range_montara(arg_ir):
 
 # Only available for Part SKEW Need by hardware
 def ir_set_vdd_core_dynamic_range_mavericks(arg_ir):
-      
+
     a = ir_open_i2c_switch()
 
     VDD_CORE_IR_I2C_BUS = "0x9"
@@ -1671,13 +1672,13 @@ def ir_set_vdd_core_dynamic_range_mavericks(arg_ir):
     if voltage == None:
         error_ir_usage()
         return
- 
+
     margin_cmd = IR_VOUT_CMD
     margin_apply = IR_MARGIN_OFF
     set_ir_voltage("VDD_CORE", VDD_CORE_IR_I2C_BUS, VDD_CORE_IR_PMBUS_ADDR, margin_cmd, margin_apply, voltage)
-  
+
     ir_restore_i2c_switch(a)
-    return 
+    return
 
 # Only available for Part SKEW Need by hardware
 def ir_set_vdd_core_dynamic_range_newport(arg_ir):
@@ -2470,7 +2471,7 @@ def error_usage():
 
 # Main function parses command line argument and call appropiate tool
 def main(argv):
-
+    os.system("touch /tmp/btools_lock")
     try:
         opts, args = getopt.getopt(argv[1:], "hP:U:I:T:", ["help", "PSU=", "UCD=", "IR=", "TMP="])
 
@@ -2483,6 +2484,10 @@ def main(argv):
     except getopt.GetoptError:
         error_usage()
         return
+
+    lock_file = "/tmp/btools_lock"
+    fd = open(lock_file,'r')
+    fcntl.flock(fd, fcntl.LOCK_EX)
 
     for opt, arg in opts:
         if opt in ("-h", "--help"):
@@ -2497,6 +2502,9 @@ def main(argv):
             tmp(argv)
         else:
             error_usage()
+
+    fcntl.flock(fd, fcntl.LOCK_UN)
+    fd.close()
 
     return
 
