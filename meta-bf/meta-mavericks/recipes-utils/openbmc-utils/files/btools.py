@@ -389,7 +389,8 @@ def error_ucd_usage():
     print "./btools.py --UCD sh v [%s]    => Show Voltage of all rails" % h_platforms_with_p0c
     print "                  fault    => Show Voltage fault/warnings of all rails"
     print "                  set_margin <rail number> <margin> [%s]" % h_platforms
-    print "                             <1 - 12>      l /h /n"
+    print "                             <1 - 15>      l /h /n for mavericks"
+    print "                             <1 - 12>      l /h /n for newport & montara"
     print "                                           l => low"
     print "                                           h => high"
     print "                                           n => none"
