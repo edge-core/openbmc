@@ -55,6 +55,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <unistd.h>
+#include <time.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
@@ -655,7 +657,9 @@ int write_device(const char *device, const char *value) {
                           || defined(CONFIG_MAVERICKS)
 int read_temp(const char *device, int *value) {
   char full_name[LARGEST_DEVICE_NAME + 1];
-
+  int rc = 1;
+  int retry = 0;
+  
   /* We set an impossible value to check for errors */
   *value = BAD_TEMP;
   if (((mav_board_type == BF_BOARD_MON)||(mav_board_type == BF_BOARD_MAV)) && (strstr(device, USERVER_TEMP_DEVICE))) {
@@ -667,12 +671,18 @@ int read_temp(const char *device, int *value) {
         full_name, LARGEST_DEVICE_NAME, "%s/temp1_input", device);
   }
 
-  int rc = read_device(full_name, value);
+  //int rc = read_device(full_name, value);
 #if defined(CONFIG_WEDGE100)
   if ((rc || *value > WEDGE100_COME_DIMM) && (strstr(device, COM_E_DIR))) {
     *value = BAD_TEMP;
   }
 #endif
+  while(rc && (retry++ <= 3)) {
+	rc = read_device(full_name, value);
+	//syslog(LOG_INFO, "full_name %s  retry is %d", full_name, retry);
+	usleep(10000);
+  }
+  
   return rc;
 }
 #endif
@@ -1467,6 +1477,10 @@ int main(int argc, char **argv) {
   int enable_high_temp_profile = 0;
   int base_temperature = 95;
   int tofino_jct_temp;
+  int hi_tofino_jct_temp=0;
+  #if defined(SERVER_TEST)
+  int test = 0;
+  #endif
   int prev_tofino_jct_temp = 0;
   int fan_speed_upper = MAV_FAN_HIGH;
   int bad_reads_tofino = 0;
@@ -1725,6 +1739,11 @@ int main(int argc, char **argv) {
     if ((intake_temp == BAD_TEMP || exhaust_temp == BAD_TEMP ||
          switch_temp == BAD_TEMP)) {
       bad_reads++;
+	  //syslog(LOG_WARNING, "bad_reads++ %d", bad_reads);
+    }
+	else if((intake_temp != BAD_TEMP && exhaust_temp != BAD_TEMP && switch_temp != BAD_TEMP)) {
+      bad_reads = 0;
+	  //syslog(LOG_WARNING, "bad_reads 0");
     }
 #else
 
@@ -1804,26 +1823,57 @@ int main(int argc, char **argv) {
       syslog(LOG_CRIT, "previous Temp intake %d", prev_intake_temp);
       server_shutdown("Intake temp limit reached");
     }
-
+  #if defined(SERVER_TEST)
+    if (intake_temp > INTERNAL_TEMPS(50)) {
+      syslog(LOG_WARNING, "previous Temp intake %d", intake_temp);
+    }
+  #endif
 #if defined(CONFIG_WEDGE) || defined(CONFIG_WEDGE100) \
                           || defined(CONFIG_MAVERICKS)
     if (switch_temp > SWITCH_LIMIT) {
       syslog(LOG_CRIT, "previous Temp switch %d", prev_switch_temp);
       server_shutdown("T2 temp limit reached");
     }
+  #if defined(SERVER_TEST)
+    if (switch_temp > INTERNAL_TEMPS(50)) {
+      syslog(LOG_WARNING, "previous Temp switch %d", switch_temp);
+    }
+  #endif
 #endif
 
 #if defined(CONFIG_MAVERICKS)
     if (tofino_jct_temp > TOFINO_LIMIT) {
-      syslog(LOG_CRIT, "previous Temp Tofino %d", prev_tofino_jct_temp);
-      server_shutdown("Tofino temp limit reached");
+	  hi_tofino_jct_temp ++;
+	  if (hi_tofino_jct_temp > BAD_READ_THRESHOLD) {
+        syslog(LOG_CRIT, "previous Temp Tofino %d", prev_tofino_jct_temp);
+        server_shutdown("Tofino temp limit reached");
+	  }
     }
+	else {
+      hi_tofino_jct_temp = 0;
+	}
+  #if defined(SERVER_TEST)	
+    if (tofino_jct_temp > 55) {
+		test++;
+		if (test > BAD_READ_THRESHOLD) {
+         syslog(LOG_WARNING, "previous Temp Tofino %d", tofino_jct_temp);
+    	}
+    }
+	else {
+      test = 0;
+	}
+  #endif
 #endif
 
     if ((ignore_userver_temp == 0)&&(userver_temp + USERVER_TEMP_FUDGE > USERVER_LIMIT)) {
       syslog(LOG_CRIT, "previous Temp userver %d", prev_userver_temp);
       server_shutdown("uServer temp limit reached");
     }
+#if defined(SERVER_TEST)
+    if ((ignore_userver_temp == 0)&&(userver_temp + USERVER_TEMP_FUDGE > INTERNAL_TEMPS(52))) {
+      syslog(LOG_WARNING, "previous Temp userver %d", userver_temp);
+    }
+#endif
 
     prev_intake_temp = intake_temp;
     prev_exhaust_temp = exhaust_temp;
