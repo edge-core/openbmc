@@ -358,11 +358,84 @@ static ssize_t psu_fan_show(struct device *dev,
   return scnprintf(buf, PAGE_SIZE, "%d\n", result);
 }
 
+static int psu_convert_byte(struct device *dev, struct device_attribute *attr)
+{
+  struct i2c_client *client = to_i2c_client(dev);
+  i2c_dev_data_st *data = i2c_get_clientdata(client);
+  i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
+  const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
+  int value = -1;
+  int count;
+  int ret = -1;
+  u8 length, model_chr;
+
+  mutex_lock(&data->idd_lock);
+
+  /*
+   * If read block length byte > 32, it will cause kernel panic.
+   * Using read word to replace read block to identifer PSU model.
+   */
+  count=10;
+  while((ret < 0 || length > 32) && count--) {
+    ret = i2c_smbus_read_word_data(client, PMBUS_MFR_MODEL);
+    length = ret & 0xff;
+  }
+  //PSU_DEBUG("1st char+length = %d + %d\n", ((ret >> 8) & 0xff), (ret & 0xff));
+  if (ret < 0 || length > 32) {
+    PSU_DEBUG("Failed to read Manufacturer Model\n");
+  } else {
+    count=10;
+    while((value < 0 || value == 0xff) && count--) {
+      value = i2c_smbus_read_byte_data(client, (dev_attr->ida_reg));
+    }
+  }
+
+  mutex_unlock(&data->idd_lock);
+
+  if (value < 0) {
+    /* error case */
+    PSU_DEBUG("I2C read error, value: %d\n", value);
+    return -1;
+  }
+
+  model_chr = (ret >> 8) & 0xff;
+  if (length == 11 && model_chr == 'E') {
+    /* PSU model name: ECD55020006 */
+    model = DELTA_1500;
+  } else if (length == 10 && model_chr == 'P') {
+    /* PSU model name: PS-2152-5L */
+    model = LITEON_1500;
+  } else if (length == 15 && model_chr == 'P') {
+    /* PSU model name: PFE600-12-054NA for wedge100bf-32x*/
+    model = BELPOWER_600_NA;
+  } else if (length == 16 && model_chr == 'P') {
+    /* PSU model name: PFE1100-12-054NA for wedge100bf-65x */
+    model = BELPOWER_1100_NA;
+  } else if ((length == 17 || length == 21) && model_chr == 'P') {
+    /* PSU model name: PFE1500-12-054NACS457 */
+    /* PSU model name: PFE1500-12-054NACS439 for newport*/
+    model = BELPOWER_1500_NAC;
+  } else if ((length == 22 || length == 25) && model_chr == 'D') {
+    /* PSU model name: D1U54P-W-1500-12-HC4TC-AF */
+    model = MURATA_1500;
+  } else {
+    model = UNKNOWN;
+  }
+
+  return value;
+}
+
 static ssize_t psu_fan_status_show(struct device *dev,
                                 struct device_attribute *attr,
                                 char *buf)
 {
-  uint8_t values;
+  int values = psu_convert_byte(dev, attr); 
+  if (values < 0) {
+     /* error case */
+     return -1;
+  }
+
+/*
   int result = -1;
   uint8_t retry = 3;
 
@@ -381,7 +454,7 @@ static ssize_t psu_fan_status_show(struct device *dev,
     default:
       break;
   }
-
+*/
   return scnprintf(buf, PAGE_SIZE, "%d\n", values);
 }
 
