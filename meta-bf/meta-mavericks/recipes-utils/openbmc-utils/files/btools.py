@@ -1028,7 +1028,7 @@ def open_upper_PCA9548_lock():
 
     while os.path.isfile(lock_file):
         timeout_counter = timeout_counter + 1
-        if timeout_counter >= 10:
+        if timeout_counter >= 20:
             # It's possible that the other process using the lock might have
             # malfunctioned. Hence explicitly delete the file and proceed
             print "Some process didn't clean up the lock file. Hence explicitly cleaning it up and proceeding"
@@ -1071,22 +1071,23 @@ def ir_open_i2c_switch():
         o = subprocess.check_output([set_cmd, "-f", "-y",
                                     IR_I2C_SW_BUS,
                                     IR_I2C_SW_ADDR, str(res)])
-        close_upper_PCA9548_lock()
+        #close_upper_PCA9548_lock()
 
     except subprocess.CalledProcessError as e:
         print e
         print "Error occured while processing opening i2c switch" \
               " on mavericks upper board"
-        close_upper_PCA9548_lock()
-
+        #close_upper_PCA9548_lock()
+        output = -1
+        
     return output
 
 #
 # Restoring the i2c switch state
 #
 def ir_restore_i2c_switch(res):
-
-    open_upper_PCA9548_lock()
+    output = 0
+    #open_upper_PCA9548_lock()
 
     IR_I2C_SW_BUS = "9"
     IR_I2C_SW_ADDR = "0x70"
@@ -1103,8 +1104,9 @@ def ir_restore_i2c_switch(res):
         print "Error occured while processing restoring i2c switch" \
               " on mavericks upper board"
         close_upper_PCA9548_lock()
+        output = -1
 
-    return
+    return output
 
 def ir_voltage_show_newport(arg_ir):
 
@@ -1230,7 +1232,7 @@ def ir_voltage_show_newport(arg_ir):
 
 def ir_voltage_show_mavericks(poc):
 
-    a = ir_open_i2c_switch()
+    #a = ir_open_i2c_switch()
 
     UPPER_IR_I2C_BUS = "0x9"
     UPPER_IR_PMBUS_ADDR = {1: "0x40", 2: "0x74", 3: "0x71"}
@@ -1240,7 +1242,11 @@ def ir_voltage_show_mavericks(poc):
     string = {1: "VDD_CORE", 2: "AVDD", 3: "QSFP_UPPER"}
 
     for i in range(1, 4):
-
+        a = ir_open_i2c_switch()
+        while (a < 0):
+          time.sleep(0.010) # 10ms
+          a = ir_open_i2c_switch()
+        
         try:
             # i2cget -f -y 1 0x70 0x20 w
             get_cmd = "i2cget"
@@ -1249,6 +1255,7 @@ def ir_voltage_show_mavericks(poc):
         except subprocess.CalledProcessError as e:
             print e
             print "Error occured while processing VOUT_MODE for UPPER IR "
+            ir_restore_i2c_switch(a)
             continue
 
         try:
@@ -1259,6 +1266,7 @@ def ir_voltage_show_mavericks(poc):
         except subprocess.CalledProcessError as e:
             print e
             print "Error occured while processing i2cget for UPPER IR "
+            ir_restore_i2c_switch(a)
             continue
 
         # 2 ^ exponent
@@ -1281,9 +1289,11 @@ def ir_voltage_show_mavericks(poc):
             get_cmd = "i2cget"
             mantissa = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
                                         UPPER_IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
+            ir_restore_i2c_switch(a) 
         except subprocess.CalledProcessError as e:
             print e
             print "Error occured while processing i2cget for IR "
+            ir_restore_i2c_switch(a) 
             continue
 
         m = int(mantissa, 16) & 0x07ff
@@ -1300,7 +1310,7 @@ def ir_voltage_show_mavericks(poc):
 
         print "IR %-*s       %.3f V    %.3f A      %.3f W" % (15, string.get(i), v, amp, (v * amp))
 
-    ir_restore_i2c_switch(a)
+    #ir_restore_i2c_switch(a)
 
     LOWER_IR_I2C_BUS = "0x1"
 #for Mavericks-P0C
@@ -1452,6 +1462,11 @@ def read_vout(rail, I2C_BUS, I2C_ADDR):
 def set_ir_voltage(mod, i2c_bus, i2c_addr, margin_cmd, margin_apply, voltage):
 
   IR_OPERATION = "0x1"
+  if i2c_bus == "0x9":
+    a = ir_open_i2c_switch()
+    while (a < 0):
+      time.sleep(0.010) # 10ms
+      a = ir_open_i2c_switch()
 
   try:
     # set voltage margin value in register
@@ -1471,6 +1486,9 @@ def set_ir_voltage(mod, i2c_bus, i2c_addr, margin_cmd, margin_apply, voltage):
     print "Error occured while setting %s voltage" % mod
 
   read_vout(mod, i2c_bus, i2c_addr)
+
+  if i2c_bus == "0x9":
+    a = ir_restore_i2c_switch()
 
   return
 
@@ -1643,7 +1661,7 @@ def ir_set_vdd_core_dynamic_range_montara(arg_ir):
 # Only available for Part SKEW Need by hardware
 def ir_set_vdd_core_dynamic_range_mavericks(arg_ir):
 
-    a = ir_open_i2c_switch()
+    #a = ir_open_i2c_switch()
 
     VDD_CORE_IR_I2C_BUS = "0x9"
     VDD_CORE_IR_PMBUS_ADDR = "0x40"
@@ -1678,7 +1696,7 @@ def ir_set_vdd_core_dynamic_range_mavericks(arg_ir):
     margin_apply = IR_MARGIN_OFF
     set_ir_voltage("VDD_CORE", VDD_CORE_IR_I2C_BUS, VDD_CORE_IR_PMBUS_ADDR, margin_cmd, margin_apply, voltage)
 
-    ir_restore_i2c_switch(a)
+    #ir_restore_i2c_switch(a)
     return
 
 # Only available for Part SKEW Need by hardware
@@ -1883,7 +1901,7 @@ def ir_voltage_set_newport(arg_ir):
 
 def ir_voltage_set_mavericks(arg_ir, p0c):
 
-    a = ir_open_i2c_switch()
+    #a = ir_open_i2c_switch()
 
     UPPER_IR_I2C_BUS = "0x9"
     UPPER_IR_PMBUS_ADDR = {1: "0x40", 2: "0x74", 3: "0x71"}
@@ -2086,7 +2104,7 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
     else:
         error_ir_usage()
 
-    ir_restore_i2c_switch(a)
+    #ir_restore_i2c_switch(a)
 
     return
 
@@ -2302,10 +2320,15 @@ def tmp_upper(p0c):
         try:
 
             get_cmd = "i2cget"
+            a = tmp_open_i2c_switch()
+            while (a < 0):
+               time.sleep(0.010) # 10ms
+               a = tmp_open_i2c_switch()
             output = subprocess.check_output([get_cmd, "-f", "-y",
                                              TMP75_I2C_BUS,
                                              TMP75_I2C_ADDR.get(i),
                                              TMP75_READ_OP, "w"])
+            tmp_restore_i2c_switch(a)
             output = int(output, 16)
 
             t = output & 0xff
@@ -2324,6 +2347,7 @@ def tmp_upper(p0c):
         except subprocess.CalledProcessError as e:
             print e
             print "Error occured while processing i2cget for Tmp75 %.2d " % (i)
+            tmp_restore_i2c_switch(a)
 
 
     TMP_MAX_I2C_BUS = "9"
@@ -2333,6 +2357,11 @@ def tmp_upper(p0c):
 
     try:
         get_cmd = "i2cget"
+        a = tmp_open_i2c_switch()
+        while (a < 0):
+          time.sleep(0.010) # 10ms
+          a = tmp_open_i2c_switch()
+
         output = subprocess.check_output([get_cmd, "-f", "-y",
                                           TMP_MAX_I2C_BUS,
                                           TMP_MAX_I2C_ADDR,
@@ -2345,7 +2374,7 @@ def tmp_upper(p0c):
                                           TMP_MAX_I2C_BUS,
                                           TMP_MAX_I2C_ADDR,
                                           TMP_MAX_READ_EXT_OP])
-
+        tmp_restore_i2c_switch(a)
         output = int(output, 16)
 
         print " TMP SENSOR UPPER MAX TOFINO    %.2d.000 C" % (output)
@@ -2353,6 +2382,7 @@ def tmp_upper(p0c):
     except subprocess.CalledProcessError as e:
         print e
         print "Error occured while processing i2cget for Tmp MAX sensor"
+        tmp_restore_i2c_switch(a)
 
     return
 
@@ -2380,13 +2410,14 @@ def tmp_open_i2c_switch():
         o = subprocess.check_output([set_cmd, "-f", "-y",
                                     TMP_I2C_SW_BUS,
                                     TMP_I2C_SW_ADDR, str(res)])
-        close_upper_PCA9548_lock()
+        #close_upper_PCA9548_lock()
 
     except subprocess.CalledProcessError as e:
         print e
         print "Error occured while processing opening i2c switch" \
               " on mavericks upper board"
-        close_upper_PCA9548_lock()
+        output = -1
+        #close_upper_PCA9548_lock()
 
     return output
 
@@ -2394,8 +2425,8 @@ def tmp_open_i2c_switch():
 # Restoring the i2c switch state
 #
 def tmp_restore_i2c_switch(res):
-
-    open_upper_PCA9548_lock()
+    output = 0
+    #open_upper_PCA9548_lock()
 
     TMP_I2C_SW_BUS = "9"
     TMP_I2C_SW_ADDR = "0x70"
@@ -2412,8 +2443,9 @@ def tmp_restore_i2c_switch(res):
         print "Error occured while processing restoring i2c switch" \
               " on mavericks upper board"
         close_upper_PCA9548_lock()
+        output = -1
 
-    return
+    return output
 
 #
 # Dispatching temperature sensor requests
@@ -2447,10 +2479,11 @@ def tmp(argv):
         elif platform == "newport":
             tmp_lower("Newport")
         elif platform == "mavericks":
-            a = tmp_open_i2c_switch()
+
             tmp_lower("Mavericks")
+            #a = tmp_open_i2c_switch()
             tmp_upper(0)
-            tmp_restore_i2c_switch(a)
+            #tmp_restore_i2c_switch(a)
         elif platform == "mavericks-p0c":
             a = tmp_open_i2c_switch()
             tmp_lower("Mavericks")
