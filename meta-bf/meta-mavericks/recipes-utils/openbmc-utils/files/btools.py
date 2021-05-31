@@ -316,10 +316,10 @@ def psu(argv):
         val = "curr2_input"
         s = "A"
     elif arg_psu[2] == "psmodel":
-        val = "mfr_model"
+        val = "mfr_model_label"
         s = "model"
     elif arg_psu[2] == "psserial":
-        val = "mfr_serial"
+        val = "mfr_serial_label"
         s = "serial"
     elif arg_psu[2] == "psrev":
         val = "mfr_revision"

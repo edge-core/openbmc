@@ -1,0 +1,20 @@
+diff --git a/drivers/hwmon/pmbus/pmbus_core.c b/drivers/hwmon/pmbus/pmbus_core.c
+old mode 100644
+new mode 100755
+index 5e38cff..8f013f0
+--- a/drivers/hwmon/pmbus/pmbus_core.c
++++ b/drivers/hwmon/pmbus/pmbus_core.c
+@@ -1682,11 +1682,11 @@ static const u32 pmbus_mfr_registers[] = {
+ 
+ static const char *pmbus_mfr_names[] = {
+ 	"mfr_id",
+-	"mfr_model",
++	"mfr_model_label",
+ 	"mfr_revision",
+ 	/* "mfr_location", as mentioned above, is not readable */
+ 	"mfr_date",
+-	"mfr_serial",
++	"mfr_serial_label",
+ };
+ 
+ /* MFR info */

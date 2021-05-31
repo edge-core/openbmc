@@ -31,6 +31,7 @@ SRC_URI = "git://github.com/theopolis/linux.git;branch=${SRCBRANCH};protocol=htt
            file://patch-2.6.28.9/0037-To-expand-shrink-data-partitions.patch \
            file://patch-2.6.28.9/0038-mtd-m25p80-add-support-for-Winbond-W25Q256.patch \
            file://patch-2.6.28.9/ipmi-kcs.patch \
+           file://patch-2.6.28.9/0039-modify-psureg-label.patch \
           "
 
 S = "${WORKDIR}/git"

@@ -768,7 +768,7 @@ static const i2c_dev_attr_st psu_attr_table[] = {
     0xd2, 0, 8,
   },
   {
-    "mfr_model",
+    "mfr_model_label",
     NULL,
     psu_model_show,
     NULL,
@@ -782,7 +782,7 @@ static const i2c_dev_attr_st psu_attr_table[] = {
     0x9b, 0, 24,
   },
   {
-    "mfr_serial",
+    "mfr_serial_label",
     NULL,
     psu_serial_show,
     NULL,
