@@ -1404,7 +1404,7 @@ def error_ir_usage():
     print "                                       RETIMER_VDD   (mav p0c only)"
     print "                                       RETIMER_VDDA  (mav p0c only)"
     print "                                       REPEATER      (mav only)"
-    print "                                       VDDA_1.5V     (new only)"
+    print "                     1.7V = 1.7V       VDDA_1.5V     (new only)"
     print "                                       VDDT_0.9V     (new only)"
     print "                                       VDDA_AGC_1.8V (new only)"
     print ""
@@ -1766,6 +1766,7 @@ def ir_voltage_set_newport(arg_ir):
       # set page register in IR
       set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(3), "0")
       # voltage +3% -3%  0x1b6=>438
+      VOLT_MARGIN_HIGH_17 = "0x1B5"
       VOLT_MARGIN_HIGH = "0x18C"
       VOLT_MARGIN_LOW = "0x174"
       VOLT_NORMAL = "0x180"
@@ -1780,6 +1781,11 @@ def ir_voltage_set_newport(arg_ir):
         margin_cmd = IR_VOUT_MARGIN_HIGH
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
+
+      elif arg_ir[1] == "1.7v":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH_17
 
       else:
         margin_cmd = IR_VOUT_CMD

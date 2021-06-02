@@ -63,15 +63,12 @@ wedge_board_type() {
         *Maverick*)
             echo 'MAVERICKS'
             ;;
-        *Mavericks*)
-            echo 'MAVERICKS'
-            ;;
         *Newport*)
             echo 'NEWPORT'
             ;;
-        *Newports*)
-            echo 'NEWPORT'
-            ;;
+        *Stinson*)
+        *Daven*)
+        *Pesca*)
         *)                  # Follow bf_board_type_get() of fand.cpp, defaulting to Montara
             echo 'MAVERICKS'
             ;;
@@ -93,15 +90,12 @@ wedge_board_subtype() {
         *Maverick*)
             echo 'Mavericks'
             ;;
-        *Mavericks*)
-            echo 'Mavericks'
-            ;;
         *Newport*)
             echo 'Newport'
             ;;
-        *Newports*)
-            echo 'Newport'
-            ;;
+        *Stinson*)
+        *Daven*)
+        *Pesca*)
         *)                  # Follow bf_board_type_get() of fand.cpp, defaulting to Montara
             echo 'Montara'
             ;;

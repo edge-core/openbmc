@@ -81,6 +81,10 @@ val=$(cat $PWR_MAIN_SYSFS 2> /dev/null | head -n 1)
 wedge_power_on_board
 
 if [ "$val" != "0x1" ]; then
+  if [ "$board_subtype" == "Newport" ] ; then
+    # credo slow parts need 1.7V instead of 1.5V
+    btools.py --IR set 1.7v VDDA_1.5V
+  fi
   tofino_set_vdd_core
   usleep 100000
   i2cset -f -y 12 0x31 0x32 0x9
