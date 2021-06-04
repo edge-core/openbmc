@@ -112,6 +112,11 @@ def get_project():
         print "Error: undefined board type [%s], defaulting to Montara" % board_type
         board_type = "montara"
 
+    if board_type == "mavericks":
+        sys_pn = get_sys_assembly_pn()
+        if sys_pn.find("015-000001-02") > 0:
+            board_type = "mavericks-p0c"
+
     return board_type
 
 #
@@ -390,6 +395,7 @@ def error_ucd_usage():
     print "                  fault    => Show Voltage fault/warnings of all rails"
     print "                  set_margin <rail number> <margin> [%s]" % h_platforms
     print "                             <1 - 15>      l /h /n for mavericks"
+    print "                             <1 - 16>      l /h /n for mavericks-p0c"
     print "                             <1 - 12>      l /h /n for newport & montara"
     print "                                           l => low"
     print "                                           h => high"
@@ -817,6 +823,10 @@ def ucd_voltage_margin(platform, arg):
 
     if platform == "mavericks":
         if not 1 <= int(arg[1]) <= 15:
+             error_ucd_usage()
+             return
+    elif platform == "mavericks-p0c":
+        if not 1 <= int(arg[1]) <= 16:
              error_ucd_usage()
              return
     elif platform == "montara" or platform == "newport":
@@ -1488,7 +1498,7 @@ def set_ir_voltage(mod, i2c_bus, i2c_addr, margin_cmd, margin_apply, voltage):
   read_vout(mod, i2c_bus, i2c_addr)
 
   if i2c_bus == "0x9":
-    a = ir_restore_i2c_switch()
+    a = ir_restore_i2c_switch(a)
 
   return
 
@@ -1556,10 +1566,14 @@ def ir_voltage_set_montara(arg_ir):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return
 
       set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
@@ -1584,10 +1598,14 @@ def ir_voltage_set_montara(arg_ir):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return
 
       set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
@@ -1608,11 +1626,15 @@ def ir_voltage_set_montara(arg_ir):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
 
+      else:
+        error_ir_usage()
+        return
+        
       set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     else:
@@ -1787,10 +1809,14 @@ def ir_voltage_set_newport(arg_ir):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH_17
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return
 
       set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
@@ -1814,10 +1840,14 @@ def ir_voltage_set_newport(arg_ir):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return
 
       set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
@@ -1840,10 +1870,14 @@ def ir_voltage_set_newport(arg_ir):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return
 
       set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
@@ -1866,10 +1900,14 @@ def ir_voltage_set_newport(arg_ir):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return
 
       set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
@@ -1893,10 +1931,14 @@ def ir_voltage_set_newport(arg_ir):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return
 
       set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
@@ -1948,11 +1990,15 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
-
+        
+      else:
+        error_ir_usage()
+        return
+        
       set_ir_voltage(arg_ir[2], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     elif arg_ir[2] == "VDD_CORE":
@@ -1973,11 +2019,15 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
 
+      else:
+        error_ir_usage()
+        return
+        
       set_ir_voltage(arg_ir[2], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     elif arg_ir[2] == "QSFP_UPPER":
@@ -1997,10 +2047,14 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return
 
       set_ir_voltage(arg_ir[2], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
@@ -2021,16 +2075,21 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
 
+      else:
+        error_ir_usage()
+        return
+        
       set_ir_voltage(arg_ir[2], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     elif arg_ir[2] == "RETIMER_VDD":
       if (p0c != 1):
          error_ir_usage()
+         return
       VOLT_MARGIN_HIGH = "0x20F"
       VOLT_MARGIN_LOW = "0x1F1"
       VOLT_NORMAL =  "0x200"
@@ -2048,10 +2107,14 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return   
 
       set_ir_voltage(arg_ir[2], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
@@ -2059,6 +2122,7 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
     elif arg_ir[2] == "RETIMER_VDDA":
       if (p0c != 1):
          error_ir_usage()
+         return
       i2c_addr = LOWER_IR_PMBUS_ADDR.get(2)
       VOLT_A_MARGIN_HIGH = "0x3B5"
       VOLT_A_MARGIN_LOW = "0x37E"
@@ -2074,16 +2138,21 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_A_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_A_NORMAL
 
+      else:
+        error_ir_usage()
+        return
+        
       set_ir_voltage(arg_ir[2], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     elif arg_ir[2] == "REPEATER":
       if (p0c != 0):
          error_ir_usage()
+         return
 
       VOLT_MARGIN_HIGH = "0x2A0"
       VOLT_MARGIN_LOW = "0x260"
@@ -2100,11 +2169,15 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
 
-      else:
+      elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
 
+      else:
+        error_ir_usage()
+        return
+        
       set_ir_voltage(arg_ir[2], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     else:
@@ -2177,7 +2250,7 @@ def ir(argv):
             error_ir_usage()
             return
     elif arg_ir[0] == "set_vdd_core":
-        if platform == "mavericks":
+        if platform == "mavericks" or platform == "mavericks-p0c":
             ir_set_vdd_core_dynamic_range_mavericks(arg_ir)
         elif platform == "montara":
             ir_set_vdd_core_dynamic_range_montara(arg_ir)
@@ -2315,7 +2388,8 @@ def tmp_upper(p0c):
 
     TMP75_I2C_BUS = "9"
     if (p0c == 1):
-      TMP75_I2C_ADDR = {1: "0x4d", 2: "0x4e", 3: "0x4a", 4: "0x4b"}
+      TMP75_I2C_ADDR = {1: "0x48", 2: "0x49", 3: "0x4a", 4: "0x4b"}
+      #TMP75_I2C_ADDR = {1: "0x4d", 2: "0x4e", 3: "0x4a", 4: "0x4b"}
     else:
       TMP75_I2C_ADDR = {1: "0x48", 2: "0x49", 3: "0x4a", 4: "0x4b"}
 
@@ -2491,10 +2565,10 @@ def tmp(argv):
             tmp_upper(0)
             #tmp_restore_i2c_switch(a)
         elif platform == "mavericks-p0c":
-            a = tmp_open_i2c_switch()
+            #a = tmp_open_i2c_switch()
             tmp_lower("Mavericks")
             tmp_upper(1)
-            tmp_restore_i2c_switch(a)
+            #tmp_restore_i2c_switch(a)
         else:
             error_tmp_usage()
             return
