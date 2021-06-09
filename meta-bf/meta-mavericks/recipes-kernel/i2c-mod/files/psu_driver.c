@@ -55,7 +55,7 @@ typedef enum {
   UNKNOWN
 } model_name;
 
-model_name model;
+model_name model = UNKNOWN;
 
 enum {
   LINEAR_11,
@@ -592,15 +592,26 @@ static ssize_t psu_model_show(struct device *dev,
   i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
   const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
   uint8_t block[I2C_SMBUS_BLOCK_MAX + 1]={0};
-  int result;
-  u8 length;
+  int result = -1;
+  u8 length = 33;
+  int count = 10;
+
+  if(UNKNOWN == model) {
+    result = psu_convert_byte(dev, attr);
+    if (result < 0) {
+       /* error case */
+       return -1;
+    }
+  }
 
     switch (model) {
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
-      result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
-      length = result & 0xff;
+      while((result < 0 || length > 32) && count--) {
+        result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
+        length = result & 0xff;
+      }
       if (result < 0 || length > 32) {
         return -1;
       }
@@ -620,15 +631,27 @@ static ssize_t psu_serial_show(struct device *dev,
   i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
   const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
   uint8_t block[I2C_SMBUS_BLOCK_MAX + 1]={0};
-  int result;
-  u8 length;
+  int result = -1;
+  u8 length = 33;
+  int count = 10;
+
+  if(UNKNOWN == model) {
+    result = psu_convert_byte(dev, attr);
+    if (result < 0) {
+       /* error case */
+       return -1;
+    }
+  }
 
   switch (model) {
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
-      result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
-      length = result & 0xff;
+      while((result < 0 || length > 32) && count--) {
+        result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
+        length = result & 0xff;
+      }
+
       if (result < 0 || length > 32) {
         return -1;
       }
@@ -648,15 +671,27 @@ static ssize_t psu_revision_show(struct device *dev,
   i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
   const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
   uint8_t block[I2C_SMBUS_BLOCK_MAX + 1]={0};
-  int result;
-  u8 length;
+  int result = -1;
+  u8 length = 33;
+  int count = 10;
+
+  if(UNKNOWN == model) {
+    result = psu_convert_byte(dev, attr);
+    if (result < 0) {
+       /* error case */
+       return -1;
+    }
+  }
 
   switch (model) {
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
-      result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
-      length = result & 0xff;
+      while((result < 0 || length > 32) && count--) {
+        result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
+        length = result & 0xff;
+      }
+
       if (result < 0 || length > 32) {
         return -1;
       }
