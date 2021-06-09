@@ -288,6 +288,7 @@ const char *fan_led_g[] = {FAN0_LED_G, FAN1_LED_G, FAN2_LED_G, FAN3_LED_G,
 #define TOFINO_HIGH   (80)
 #define TOFINO_MED    (70)
 #define TOFINO_LOW    (65)
+#define TOFINO_DIFF   (50)
 #endif
 
 #define TEMP_TOP INTERNAL_TEMPS(70)
@@ -1478,6 +1479,7 @@ int main(int argc, char **argv) {
   int base_temperature = 95;
   int tofino_jct_temp;
   int hi_tofino_jct_temp=0;
+  //#define SERVER_TEST 1
   #if defined(SERVER_TEST)
   int test = 0;
   #endif
@@ -1842,27 +1844,20 @@ int main(int argc, char **argv) {
 #endif
 
 #if defined(CONFIG_MAVERICKS)
-    if (tofino_jct_temp > TOFINO_LIMIT) {
-	  hi_tofino_jct_temp ++;
-	  if (hi_tofino_jct_temp > BAD_READ_THRESHOLD) {
-        syslog(LOG_CRIT, "previous Temp Tofino %d", prev_tofino_jct_temp);
-        server_shutdown("Tofino temp limit reached");
-	  }
+    if ((0xff != tofino_jct_temp) && (BAD_TEMP != tofino_jct_temp)) {
+        if(abs(tofino_jct_temp - prev_tofino_jct_temp) <= TOFINO_DIFF) {
+            if (tofino_jct_temp > TOFINO_LIMIT) {
+              syslog(LOG_CRIT, "previous Temp Tofino %d", prev_tofino_jct_temp);
+              server_shutdown("Tofino temp limit reached");
+            }
+            #if defined(SERVER_TEST)
+            if (tofino_jct_temp > 49) {
+              syslog(LOG_WARNING, "previous Temp Tofino %d", tofino_jct_temp);
+            }
+            #endif
+        }
+        prev_tofino_jct_temp = tofino_jct_temp;
     }
-	else {
-      hi_tofino_jct_temp = 0;
-	}
-  #if defined(SERVER_TEST)	
-    if (tofino_jct_temp > 55) {
-		test++;
-		if (test > BAD_READ_THRESHOLD) {
-         syslog(LOG_WARNING, "previous Temp Tofino %d", tofino_jct_temp);
-    	}
-    }
-	else {
-      test = 0;
-	}
-  #endif
 #endif
 
     if ((ignore_userver_temp == 0)&&(userver_temp + USERVER_TEMP_FUDGE > USERVER_LIMIT)) {
@@ -1879,7 +1874,6 @@ int main(int argc, char **argv) {
     prev_exhaust_temp = exhaust_temp;
     prev_switch_temp = switch_temp;
     prev_userver_temp = userver_temp;
-    prev_tofino_jct_temp = tofino_jct_temp;
 
     /*
      * Calculate change needed -- we should eventually
