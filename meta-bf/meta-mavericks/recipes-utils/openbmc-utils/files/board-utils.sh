@@ -66,9 +66,6 @@ wedge_board_type() {
         *Newport*)
             echo 'NEWPORT'
             ;;
-        *Stinson*)
-        *Daven*)
-        *Pesca*)
         *)                  # Follow bf_board_type_get() of fand.cpp, defaulting to Montara
             echo 'MAVERICKS'
             ;;
@@ -93,9 +90,6 @@ wedge_board_subtype() {
         *Newport*)
             echo 'Newport'
             ;;
-        *Stinson*)
-        *Daven*)
-        *Pesca*)
         *)                  # Follow bf_board_type_get() of fand.cpp, defaulting to Montara
             echo 'Montara'
             ;;
