@@ -358,44 +358,32 @@ static ssize_t psu_fan_show(struct device *dev,
   return scnprintf(buf, PAGE_SIZE, "%d\n", result);
 }
 
-static int psu_convert_byte(struct device *dev, struct device_attribute *attr)
+static int psu_convert_model(struct device *dev, struct device_attribute *attr)
 {
   struct i2c_client *client = to_i2c_client(dev);
   i2c_dev_data_st *data = i2c_get_clientdata(client);
   i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
   const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
-  int value = -1;
-  int count;
+  int count = 10;
   int ret = -1;
   u8 length, model_chr;
-
+  
   mutex_lock(&data->idd_lock);
-
   /*
    * If read block length byte > 32, it will cause kernel panic.
    * Using read word to replace read block to identifer PSU model.
    */
-  count=10;
+ 
   while((ret < 0 || length > 32) && count--) {
     ret = i2c_smbus_read_word_data(client, PMBUS_MFR_MODEL);
     length = ret & 0xff;
   }
   //PSU_DEBUG("1st char+length = %d + %d\n", ((ret >> 8) & 0xff), (ret & 0xff));
-  if (ret < 0 || length > 32) {
-    PSU_DEBUG("Failed to read Manufacturer Model\n");
-  } else {
-    count=10;
-    while((value < 0 || value == 0xff) && count--) {
-      value = i2c_smbus_read_byte_data(client, (dev_attr->ida_reg));
-    }
-  }
-
   mutex_unlock(&data->idd_lock);
 
-  if (value < 0) {
-    /* error case */
-    PSU_DEBUG("I2C read error, value: %d\n", value);
-    return -1;
+  if (ret < 0 || length > 32) {
+    PSU_DEBUG("Failed to read Manufacturer Model\n");
+	return -1;
   }
 
   model_chr = (ret >> 8) & 0xff;
@@ -422,39 +410,44 @@ static int psu_convert_byte(struct device *dev, struct device_attribute *attr)
     model = UNKNOWN;
   }
 
-  return value;
+  return 0;
 }
 
 static ssize_t psu_fan_status_show(struct device *dev,
                                 struct device_attribute *attr,
                                 char *buf)
 {
-  int values = psu_convert_byte(dev, attr); 
-  if (values < 0) {
-     /* error case */
-     return -1;
-  }
-
-/*
   int result = -1;
-  uint8_t retry = 3;
+  u8 length = 33;
+  int count = 4;
+  uint8_t values = 0xff;
+  
+  //if(UNKNOWN == model) {
+    result = psu_convert_model(dev, attr);
+    if (result < 0) {
+       /* error case */
+       return -1;
+    }
+  //}
 
   switch (model) {
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
-      while(((result < 0) || (values == 0xff)) && retry--)
+      while(((result < 0) || (values == 0xff)) && count--)
       {
           result = i2c_dev_read_nbytes(dev, attr, &values, 1);
           mdelay(10);
       }
       if ((result < 0) || (values == 0xff))
           return -1;
+
       break;
+
     default:
       break;
   }
-*/
+
   return scnprintf(buf, PAGE_SIZE, "%d\n", values);
 }
 
@@ -589,15 +582,16 @@ static ssize_t psu_model_show(struct device *dev,
                                   char *buf)
 {
   struct i2c_client *client = to_i2c_client(dev);
+  i2c_dev_data_st *data = i2c_get_clientdata(client);
   i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
   const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
   uint8_t block[I2C_SMBUS_BLOCK_MAX + 1]={0};
   int result = -1;
   u8 length = 33;
-  int count = 10;
+  int count = 4;
 
   if(UNKNOWN == model) {
-    result = psu_convert_byte(dev, attr);
+    result = psu_convert_model(dev, attr);
     if (result < 0) {
        /* error case */
        return -1;
@@ -608,10 +602,12 @@ static ssize_t psu_model_show(struct device *dev,
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
+      mutex_lock(&data->idd_lock);
       while((result < 0 || length > 32) && count--) {
         result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
         length = result & 0xff;
       }
+      mutex_unlock(&data->idd_lock);  
       if (result < 0 || length > 32) {
         return -1;
       }
@@ -628,15 +624,16 @@ static ssize_t psu_serial_show(struct device *dev,
                                   char *buf)
 {
   struct i2c_client *client = to_i2c_client(dev);
+  i2c_dev_data_st *data = i2c_get_clientdata(client);
   i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
   const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
   uint8_t block[I2C_SMBUS_BLOCK_MAX + 1]={0};
   int result = -1;
   u8 length = 33;
-  int count = 10;
+  int count = 4;
 
   if(UNKNOWN == model) {
-    result = psu_convert_byte(dev, attr);
+    result = psu_convert_model(dev, attr);
     if (result < 0) {
        /* error case */
        return -1;
@@ -647,11 +644,12 @@ static ssize_t psu_serial_show(struct device *dev,
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
+      mutex_lock(&data->idd_lock);
       while((result < 0 || length > 32) && count--) {
         result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
         length = result & 0xff;
       }
-
+      mutex_unlock(&data->idd_lock); 
       if (result < 0 || length > 32) {
         return -1;
       }
@@ -668,15 +666,16 @@ static ssize_t psu_revision_show(struct device *dev,
                                   char *buf)
 {
   struct i2c_client *client = to_i2c_client(dev);
+  i2c_dev_data_st *data = i2c_get_clientdata(client);
   i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
   const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
   uint8_t block[I2C_SMBUS_BLOCK_MAX + 1]={0};
   int result = -1;
   u8 length = 33;
-  int count = 10;
+  int count = 4;
 
   if(UNKNOWN == model) {
-    result = psu_convert_byte(dev, attr);
+    result = psu_convert_model(dev, attr);
     if (result < 0) {
        /* error case */
        return -1;
@@ -687,11 +686,12 @@ static ssize_t psu_revision_show(struct device *dev,
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
+      mutex_lock(&data->idd_lock);
       while((result < 0 || length > 32) && count--) {
         result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
         length = result & 0xff;
       }
-
+      mutex_unlock(&data->idd_lock); 
       if (result < 0 || length > 32) {
         return -1;
       }
