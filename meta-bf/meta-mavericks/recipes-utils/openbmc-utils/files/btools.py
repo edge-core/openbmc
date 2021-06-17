@@ -2316,7 +2316,7 @@ def tmp_lower(board):
             print e
             print "Error occured while reading Temperature sensor %d " % i
 
-    if board == "Montara" or board == "Newport":
+    if board == "Montara" or board == "Newport" or board == "Stinson":
 
         # Restore thermal sensor access from Newport R0B
         # System Assembly Part Number xxx-000004-02 is for R0A
@@ -2356,6 +2356,13 @@ def tmp_lower(board):
                                              "0x4c", "0x01"])
               output = int(output, 16)
               print " TMP SENSOR MAX Tofino          %.3f C" % (output)
+
+              if board == "Stinson":
+                # read the remote temperature2 channel
+                output = subprocess.check_output([cmd, "-f", "-y", "3",
+                                               "0x4c", "0x23"])
+                output = int(output, 16)
+                print " TMP SENSOR MAX Tofino-1        %.3f C" % (output)
             else:  # read PVT register thru BMC i2c instead
               cmd = "/usr/local/bin/i2c_set_get"
               open_upper_PCA9548_lock() # using the same lock mechanism though the name is not quite right

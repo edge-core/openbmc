@@ -33,16 +33,16 @@ elif [ "$board_subtype" == "Montara" ]; then
     maxnfans=5
     FANS="1 2 3 4 5"
     FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0033
-elif [ "$board_subtype" == "Newport" ]; then
-    maxnfans=6
-    FANS="1 2 3 4 5 6"
+elif [ "$board_subtype" == "Newport" ] || [ "$board_subtype" == "Stinson" ]; then
+#    maxnfans=6
+#    FANS="1 2 3 4 5 6"
     FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0066
 fi
 
 usage() {
     if [ "$board_type" == "MAVERICKS" ]; then
         echo "Usage: $0 <PERCENT (0..100)> [Fan Unit (1..5)(upper: 6..10)] [board type (Montara Mavericks)]" >&2
-    elif [ "$board_type" == "NEWPORT" ]; then
+    elif [ "$board_type" == "NEWPORT" ] || [ "$board_type" == "STINSON" ]; then
         echo "Usage: $0 <PERCENT (0..100)>" >&2
     fi
 }
@@ -128,7 +128,7 @@ if [ "$board_type" == "MAVERICKS" ]; then
         echo "$unit" > $pwm
         echo "Successfully set fan ${fan} speed to $1%"
     done
-elif [ "$board_type" == "NEWPORT" ]; then
+elif [ "$board_type" == "NEWPORT" ] || [ "$board_type" == "STINSON" ]; then
     if [ "$#" -gt 1 ] || [ "$#" -lt 1 ]; then
         usage
         exit 1

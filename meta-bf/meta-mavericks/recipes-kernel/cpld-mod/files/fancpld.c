@@ -417,6 +417,7 @@ static const i2c_dev_attr_st fancpld_attr_table[] = {
   },
 };
 
+/* table for both newport and stinson */
 static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
   {
     "board_rev",
@@ -517,6 +518,15 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     NULL,
     0x0f, 5, 1,
   },
+  /* fan7 is only stinson specific */
+  {
+    "fantray7_present",
+    "0: present\n"
+    "1: not present",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    NULL,
+    0x0f, 6, 1,
+  },
   {
     "fantray_pwm",
     FANTRAY_PWM_HELP_NEWPORT,
@@ -607,6 +617,21 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     fancpld_fan_rpm_show_newport,
     NULL,
     0x27, 0, 8,
+  },
+  /* fan13 fan14 _input is stinson specific only*/
+  {
+    "fan13_input",
+    NULL,
+    fancpld_fan_rpm_show_newport,
+    NULL,
+    0x18, 0, 8,
+  },
+  {
+    "fan14_input",
+    NULL,
+    fancpld_fan_rpm_show_newport,
+    NULL,
+    0x28, 0, 8,
   },
   {
     "fantray1_led_r",
@@ -704,6 +729,23 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     I2C_DEV_ATTR_STORE_DEFAULT,
     0x1D, 0, 1,
   },
+  /* fantray_7 is stinson specific only */
+  {
+    "fantray7_led_r",
+    "0: Red\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1D, 5, 1,
+  },
+  {
+    "fantray7_led_g",
+    "0: Green\n"
+    "1: off",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x1D, 4, 1,
+  },
   {
     "fan1_power",
     "1: Enable\n"
@@ -751,6 +793,15 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     I2C_DEV_ATTR_SHOW_DEFAULT,
     I2C_DEV_ATTR_STORE_DEFAULT,
     0x30, 5, 1,
+  },
+  /* fan7 is stinson specific only */
+  {
+    "fan7_power",
+    "1: Enable\n"
+    "0: Disable",
+    I2C_DEV_ATTR_SHOW_DEFAULT,
+    I2C_DEV_ATTR_STORE_DEFAULT,
+    0x30, 6, 1,
   },
   {
     "watchdog_timer",

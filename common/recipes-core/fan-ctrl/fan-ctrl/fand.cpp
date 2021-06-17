@@ -187,6 +187,9 @@
 #define FAN4_LED_G PWM_DIR_NEWPORT "fantray5_led_g"
 #define FAN5_LED_R PWM_DIR_NEWPORT "fantray6_led_r"
 #define FAN5_LED_G PWM_DIR_NEWPORT "fantray6_led_g"
+/* additional (only) Stinson specific */
+#define FAN6_LED_R PWM_DIR_NEWPORT "fantray7_led_r"
+#define FAN6_LED_G PWM_DIR_NEWPORT "fantray7_led_g"
 
 #define FAN_LED_BLUE "0x1"
 #define FAN_LED_RED "0x2"
@@ -261,12 +264,12 @@ const char *fan_led[] = {FAN0_LED, FAN1_LED, FAN2_LED, FAN3_LED,
                          FAN5_LED, FAN6_LED, FAN7_LED, FAN8_LED, FAN9_LED,
 #endif
 };
-/*For Newports*/
+/*For Newports 0-5. additional 6 is for Stinson */
 const char *fan_led_r[] = {FAN0_LED_R, FAN1_LED_R, FAN2_LED_R, FAN3_LED_R,
-                           FAN4_LED_R, FAN5_LED_R
+                           FAN4_LED_R, FAN5_LED_R, FAN6_LED_R
 };
 const char *fan_led_g[] = {FAN0_LED_G, FAN1_LED_G, FAN2_LED_G, FAN3_LED_G,
-                           FAN4_LED_G, FAN5_LED_G
+                           FAN4_LED_G, FAN5_LED_G, FAN6_LED_G
 };
 #endif
 
@@ -345,6 +348,9 @@ int fan_to_pwm_map[] = {1, 2, 3, 4, 5, 101, 102, 103, 104, 105};
 /*For Newport*/
 int fan_to_rpm_map_newport[] = {1, 3, 5, 7, 9, 11};
 int fan_to_pwm_map_newport[] = {1, 2, 3, 4, 5, 6};
+/*For Stinson */
+int fan_to_rpm_map_stinson[] = {1, 3, 5, 7, 9, 11, 13};
+int fan_to_pwm_map_stinson[] = {1, 2, 3, 4, 5, 6, 7};
 
 #define FANS 5
 // Tacho offset between front and rear fans:
@@ -457,6 +463,41 @@ struct rpm_to_pct_map rpm_rear_map_newport[] = {{6, 1800},
                                          {94, 16500},
                                          {100, 18000}};
 #define REAR_MAP_SIZE_NEWPORT (sizeof(rpm_rear_map_newport) / sizeof(struct rpm_to_pct_map))
+struct rpm_to_pct_map rpm_front_map_stinson[] = {{6, 2100},
+                                         {13, 3600},
+                                         {19, 5000},
+                                         {25, 6400},
+                                         {31, 7600},
+                                         {38, 8800},
+                                         {44, 10000},
+                                         {50, 11200},
+                                         {56, 12400},
+                                         {63, 13700},
+                                         {69, 14900},
+                                         {75, 16200},
+                                         {81, 17400},
+                                         {88, 18600},
+                                         {94, 20000},
+                                         {100, 21500}};
+#define FRONT_MAP_SIZE_STINSON (sizeof(rpm_front_map_stinson) / sizeof(struct rpm_to_pct_map))
+
+struct rpm_to_pct_map rpm_rear_map_stinson[] = {{6, 1800},
+                                         {13, 3200},
+                                         {19, 4300},
+                                         {25, 5300},
+                                         {31, 6500},
+                                         {38, 7500},
+                                         {44, 8600},
+                                         {50, 9500},
+                                         {56, 10500},
+                                         {63, 11600},
+                                         {69, 12500},
+                                         {75, 13600},
+                                         {81, 14500},
+                                         {88, 15600},
+                                         {94, 16500},
+                                         {100, 18000}};
+#define REAR_MAP_SIZE_STINSON (sizeof(rpm_rear_map_stinson) / sizeof(struct rpm_to_pct_map))
 #elif defined(CONFIG_WEDGE)
 struct rpm_to_pct_map rpm_front_map[] = {{30, 6150},
                                          {35, 7208},
@@ -578,6 +619,7 @@ bool verbose = false;
 #define BF_BOARD_MAV 1
 #define BF_BOARD_MON 2
 #define BF_BOARD_NEW 3
+#define BF_BOARD_STN 4
 static int total_fans_upper = 0;
 /*Follow bf_board_type_get(), defaulting to Montara*/
 static int mav_board_type = BF_BOARD_MON;
@@ -767,7 +809,7 @@ bool is_two_fan_board(bool verbose) {
 #endif
 
 #if defined(CONFIG_MAVERICKS)
-static int tofino_ext_pvt_en = 1;
+static int tofino_ext_pvt_en = 0;
 
 /* returns different BF board types */
 static int bf_board_type_get() {
@@ -802,6 +844,10 @@ static int bf_board_type_get() {
           tofino_ext_pvt_en=0;
       }
       return BF_BOARD_NEW;
+    } else if (!strncasecmp(eeprom.fbw_location, "Stinson", strlen("Stinson"))){
+      syslog(LOG_INFO, "BF board type is %s", eeprom.fbw_location);
+      tofino_ext_pvt_en=0;
+      return BF_BOARD_STN;
     } else {
       syslog(LOG_WARNING, "BF invalid board type. defaulting to Montara");
       return BF_BOARD_MON;
@@ -983,7 +1029,8 @@ static void np_read_tofino_temp_pvt(int *temp)
 }
 #endif
 
-static void mav_read_tofino_temp(int *temp) {
+/* temp1 and temp2 return thermal diade 1 and 2 respectively */
+static void mav_read_tofino_temp(int *temp1, int *temp2) {
   uint8_t val;
   char full_name[LARGEST_DEVICE_NAME];
   int fd = fd_tofino_ext_tmp;
@@ -992,7 +1039,11 @@ static void mav_read_tofino_temp(int *temp) {
   FILE *lock_file_fp;
   int timeout_counter = 0;
 
-  *temp = BAD_TEMP;
+  *temp1 = BAD_TEMP;
+  if (temp2) {
+    *temp2 = BAD_TEMP;
+  }
+
   if (fd == -1) {
     return;
   }
@@ -1046,13 +1097,21 @@ static void mav_read_tofino_temp(int *temp) {
   }
   res = i2c_smbus_read_byte_data(fd, 0x1);
   if (res < 0) {
-    syslog(LOG_CRIT, "Failed to read slave @ address 0x4c error %d", res);
+    syslog(LOG_CRIT, "Failed to read slave @ address 0x4c reg 0x01 error %d", res);
     if (mav_board_type == BF_BOARD_MAV) {
       close_and_remove_file(lock_file_fp, lock_file_name);
     }
     return;
   }
-  *temp = res;
+  *temp1 = res;
+  if (mav_board_type == BF_BOARD_STN && temp2) {
+    res = i2c_smbus_read_byte_data(fd, 0x23);
+    if (res < 0) {
+      syslog(LOG_CRIT, "Failed to read slave @ address 0x4c reg 0x23 error %d", res);
+      return;
+    }
+    *temp2 = res;
+  }
   if (mav_board_type == BF_BOARD_MAV) {
     /* close PCA9548 channel */
     res = ioctl(fd, I2C_SLAVE_FORCE, 0x70);
@@ -1220,6 +1279,16 @@ int fan_speed_okay(const int fan, const int speed, const int slop) {
     read_fan_value(real_fan + REAR_FAN_OFFSET, FAN_READ_RPM_FORMAT, &rear_fan);
     rear_pct = fan_rpm_to_pct(rpm_rear_map_newport, REAR_MAP_SIZE_NEWPORT, rear_fan);
 #endif
+  } else if (mav_board_type == BF_BOARD_STN) {
+    real_fan = fan_to_rpm_map_stinson[fan];
+    front_fan = 0;
+    read_fan_value(real_fan, FAN_READ_RPM_FORMAT, &front_fan);
+    front_pct = fan_rpm_to_pct(rpm_front_map_stinson, FRONT_MAP_SIZE_STINSON, front_fan);
+#ifdef BACK_TO_BACK_FANS
+    rear_fan = 0;
+    read_fan_value(real_fan + REAR_FAN_OFFSET, FAN_READ_RPM_FORMAT, &rear_fan);
+    rear_pct = fan_rpm_to_pct(rpm_rear_map_stinson, REAR_MAP_SIZE_STINSON, rear_fan);
+#endif
   } else
 #endif
   {
@@ -1282,10 +1351,17 @@ int write_fan_speed(const int fan, const int value) {
 
   int real_fan = fan_to_pwm_map[fan];
 
+#if defined(CONFIG_MAVERICKS)
+  if (mav_board_type == BF_BOARD_NEW) {
+    real_fan = fan_to_pwm_map_newport[fan];
+  } else if (mav_board_type == BF_BOARD_STN) {
+    real_fan = fan_to_pwm_map_stinson[fan];
+  }
+#endif
+
   if (value == 0) {
 #if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
-    if (mav_board_type == BF_BOARD_NEW) {
-        real_fan = fan_to_pwm_map_newport[fan];
+    if (mav_board_type == BF_BOARD_NEW || mav_board_type == BF_BOARD_STN) {
         return write_fan_value(real_fan, "fantray_pwm", 0);
     } else {
         return write_fan_value(real_fan, "fantray%d_pwm", 0);
@@ -1298,7 +1374,7 @@ int write_fan_speed(const int fan, const int value) {
     int status;
 
 #if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
-    if (mav_board_type == BF_BOARD_NEW) {
+    if (mav_board_type == BF_BOARD_NEW || mav_board_type == BF_BOARD_STN) {
         // According to Fan_board_CPLD_Specification
         unit = value * PWM_UNIT_MAX_NEWPORT / 100;
         if ((value==25) || (value==50) || (value==75) || (value==100)) {
@@ -1339,7 +1415,7 @@ int temp_to_fan_speed(int temp, struct temp_to_pct_map *map, int map_size) {
 int write_fan_led(const int fan, const char *color) {
 #if defined(CONFIG_WEDGE100) || defined(CONFIG_WEDGE) \
     || defined(CONFIG_MAVERICKS)
-    if (mav_board_type == BF_BOARD_NEW) {
+    if (mav_board_type == BF_BOARD_NEW || mav_board_type == BF_BOARD_STN) {
         if (strstr(color, FAN_LED_BLUE))
         {
             write_device(fan_led_g[fan], FAN_LED_ON);
@@ -1477,13 +1553,12 @@ int main(int argc, char **argv) {
   int ignore_upper_fan_tray = 0;
   int enable_high_temp_profile = 0;
   int base_temperature = 95;
-  int tofino_jct_temp;
-  int hi_tofino_jct_temp=0;
+  int tofino_jct_temp, tofino_jct_temp2 = 0;
   //#define SERVER_TEST 1
   #if defined(SERVER_TEST)
   int test = 0;
   #endif
-  int prev_tofino_jct_temp = 0;
+  int prev_tofino_jct_temp = 0, prev_tofino_jct_temp2=0;
   int fan_speed_upper = MAV_FAN_HIGH;
   int bad_reads_tofino = 0;
   int fan_failure_upper = 0;
@@ -1550,6 +1625,9 @@ int main(int argc, char **argv) {
       }
       np_write_tofino_pvt_ctrl();
     }
+  } else if (mav_board_type == BF_BOARD_STN) {
+    total_fans = 7; /* 7 fans on fan board*/
+    fd_tofino_ext_tmp = mav_open_i2c_dev(3);
   } else {
     fd_tofino_ext_tmp = mav_open_i2c_dev(3);
   }
@@ -1722,10 +1800,14 @@ int main(int argc, char **argv) {
         np_write_tofino_pvt_ctrl();
       }
     } else {
-      mav_read_tofino_temp(&tofino_jct_temp);
+      int *temp2 = NULL;
+      if (mav_board_type == BF_BOARD_STN) {
+        temp2 = &tofino_jct_temp2;
+      }
+      mav_read_tofino_temp(&tofino_jct_temp,temp2);
     }
 
-    if (tofino_jct_temp == BAD_TEMP) {
+    if (tofino_jct_temp == BAD_TEMP || tofino_jct_temp2 == BAD_TEMP) {
       bad_reads_tofino++;
     }
     else {
@@ -1791,7 +1873,7 @@ int main(int argc, char **argv) {
         (switch_temp > SWITCH_LIMIT) ||
 #endif
 #if defined(CONFIG_MAVERICKS)
-        (tofino_jct_temp > TOFINO_LIMIT) ||
+        (tofino_jct_temp > TOFINO_LIMIT) || (tofino_jct_temp2 > TOFINO_LIMIT) ||
 #endif
         ((ignore_userver_temp == 0)&&(userver_temp + USERVER_TEMP_FUDGE > USERVER_LIMIT))){
       syslog(LOG_DEBUG,
@@ -1815,7 +1897,7 @@ int main(int argc, char **argv) {
              fan_speed_changes);
  
 #if defined(CONFIG_MAVERICKS)
-      syslog(LOG_DEBUG, "Temp Tofino %d ", tofino_jct_temp);
+      syslog(LOG_DEBUG, "Temp Tofino %d  Tofino2 %d", tofino_jct_temp, tofino_jct_temp2);
 #endif
     }
 
@@ -1847,16 +1929,32 @@ int main(int argc, char **argv) {
     if ((0xff != tofino_jct_temp) && (BAD_TEMP != tofino_jct_temp)) {
         if(abs(tofino_jct_temp - prev_tofino_jct_temp) <= TOFINO_DIFF) {
             if (tofino_jct_temp > TOFINO_LIMIT) {
-              syslog(LOG_CRIT, "previous Temp Tofino %d", prev_tofino_jct_temp);
+              syslog(LOG_CRIT, "previous Tofino temp %d", prev_tofino_jct_temp);
               server_shutdown("Tofino temp limit reached");
             }
+
             #if defined(SERVER_TEST)
             if (tofino_jct_temp > 49) {
-              syslog(LOG_WARNING, "previous Temp Tofino %d", tofino_jct_temp);
+              syslog(LOG_WARNING, "previous Tofino temp %d", tofino_jct_temp);
             }
             #endif
         }
         prev_tofino_jct_temp = tofino_jct_temp;
+    }
+    if ((mav_board_type == BF_BOARD_STN) && (0xff != tofino_jct_temp2) && (BAD_TEMP != tofino_jct_temp2)) {
+        if(abs(tofino_jct_temp2 - prev_tofino_jct_temp2) <= TOFINO_DIFF) {
+            if (tofino_jct_temp2 > TOFINO_LIMIT) {
+              syslog(LOG_CRIT, "previous Tofino temp2 %d", prev_tofino_jct_temp2);
+              server_shutdown("Tofino temp2 limit reached");
+            }
+
+            #if defined(SERVER_TEST)
+            if (tofino_jct_temp2 > 49) {
+              syslog(LOG_WARNING, "previous Tofino temp2 %d", tofino_jct_temp2);
+            }
+            #endif
+        }
+        prev_tofino_jct_temp2 = tofino_jct_temp2;
     }
 #endif
 
@@ -1943,6 +2041,20 @@ int main(int argc, char **argv) {
           fan_speed = fan_high;
         }
       } else if (tofino_jct_temp > TOFINO_LOW) {
+        if (fan_speed < fan_medium) {
+          fan_speed = fan_medium;
+        }
+      }
+    } else if (mav_board_type == BF_BOARD_STN) {
+      /* bump up the fan speed if Tofino temp mandates */
+      if (tofino_jct_temp > TOFINO_THRESH || tofino_jct_temp2 > TOFINO_THRESH) {
+        /* change the lower fan tray speed if Tofino temp is high */
+        fan_speed = fan_max;
+      } else if (tofino_jct_temp > TOFINO_MED || tofino_jct_temp2 > TOFINO_MED) {
+        if (fan_speed < fan_high) {
+          fan_speed = fan_high;
+        }
+      } else if (tofino_jct_temp > TOFINO_LOW || tofino_jct_temp2 > TOFINO_LOW) {
         if (fan_speed < fan_medium) {
           fan_speed = fan_medium;
         }
@@ -2043,7 +2155,7 @@ int main(int argc, char **argv) {
       if (fan_bad[fan] > FAN_FAILURE_THRESHOLD) {
         fan_failure++;
 #if defined(CONFIG_MAVERICKS)
-        if (mav_board_type == BF_BOARD_NEW) {
+        if (mav_board_type == BF_BOARD_NEW || mav_board_type == BF_BOARD_STN) {
             write_device(FAN_LED_DEBUG_MODE, "1"); /*LED debug mode on because fan LED change requires */
         }
 #endif
@@ -2101,7 +2213,7 @@ int main(int argc, char **argv) {
     }
 #if defined(CONFIG_MAVERICKS)
     else {
-        if (mav_board_type == BF_BOARD_NEW) {
+        if (mav_board_type == BF_BOARD_NEW || mav_board_type == BF_BOARD_STN) {
             write_device(FAN_LED_DEBUG_MODE, "0"); /*LED debug mode off*/
         }
     }

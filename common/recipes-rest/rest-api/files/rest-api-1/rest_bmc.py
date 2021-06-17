@@ -161,7 +161,7 @@ def get_bmc_tmp(param1):
                 output.append(int(0))
             pass
 
-    if platform == "montara" or platform == "newport":
+    if platform == "montara" or platform == "newport" or platform == "stinson":
         try:
             for i in range(0, 5):
                 output.append(int(l[2*i + 1] * 10))
@@ -198,7 +198,7 @@ def get_bmc_ucd():
 
     arg = ['btools.py', '--UCD', 'sh', 'v']
 
-    if platform == "mavericks-p0c" or platform == "newport":
+    if platform == "mavericks-p0c" or platform == "newport" or platform == "stinson":
         valid_range = 16
     if platform == "mavericks":
         valid_range = 15
@@ -559,7 +559,7 @@ def set_bmc_fan(param1, param2, param3):
     err = 0
 
     platform = btools.get_project()
-    if platform == "newport":
+    if platform == "newport" or platform == "stinson":
         cmd = "/usr/local/bin/set_fan_speed.sh %s" % (param3)
     else:
         cmd = "/usr/local/bin/set_fan_speed.sh %s %s %s" % (param3, param2, param1)
