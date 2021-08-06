@@ -67,7 +67,7 @@
 
 #define MAX_IPMI_MSG_SIZE 100
 
-//#define DEBUG
+#define DEBUG
 
 // IPMI request Structure (IPMI/Section 9.2)
 typedef struct
@@ -615,7 +615,7 @@ app_get_device_id (unsigned char *response, unsigned char *res_len)
   ipmi_res_t *res = (ipmi_res_t *) response;
   unsigned char *data = &res->data[0];
   FILE *fp=NULL;
-  int fv_major = 0x0f, fv_minor = 0x02;
+  int fv_major = 0x0f, fv_minor = 0x03;
   char buffer[32];
 
   fp = fopen("/etc/issue","r");
@@ -724,9 +724,9 @@ app_set_sys_info_params (unsigned char *request, unsigned char *response,
 
   switch (param)
   {
-    case SYS_INFO_PARAM_SET_IN_PROG:
-      g_sys_info_params.set_in_prog = req->data[1];
-      break;
+    //case SYS_INFO_PARAM_SET_IN_PROG:
+      //g_sys_info_params.set_in_prog = req->data[1];
+      //break;
     case SYS_INFO_PARAM_SYSFW_VER:
       memcpy(g_sys_info_params.sysfw_ver, &req->data[1], SIZE_SYSFW_VER);
       break;
@@ -739,15 +739,15 @@ app_set_sys_info_params (unsigned char *request, unsigned char *response,
     case SYS_INFO_PARAM_PRESENT_OS_NAME:
       memcpy(g_sys_info_params.present_os_name, &req->data[1], SIZE_OS_NAME);
       break;
-    case SYS_INFO_PARAM_PRESENT_OS_VER:
-      memcpy(g_sys_info_params.present_os_ver, &req->data[1], SIZE_OS_VER);
-      break;
-    case SYS_INFO_PARAM_BMC_URL:
-      memcpy(g_sys_info_params.bmc_url, &req->data[1], SIZE_BMC_URL);
-      break;
-    case SYS_INFO_PARAM_OS_HV_URL:
-      memcpy(g_sys_info_params.os_hv_url, &req->data[1], SIZE_OS_HV_URL);
-      break;
+    //case SYS_INFO_PARAM_PRESENT_OS_VER:
+      //memcpy(g_sys_info_params.present_os_ver, &req->data[1], SIZE_OS_VER);
+      //break;
+    //case SYS_INFO_PARAM_BMC_URL:
+      //memcpy(g_sys_info_params.bmc_url, &req->data[1], SIZE_BMC_URL);
+      //break;
+    //case SYS_INFO_PARAM_OS_HV_URL:
+      //memcpy(g_sys_info_params.os_hv_url, &req->data[1], SIZE_OS_HV_URL);
+      //break;
     default:
       res->cc = CC_INVALID_PARAM;
       break;
@@ -773,9 +773,9 @@ app_get_sys_info_params (unsigned char *request, unsigned char *response,
 
   switch (param)
   {
-    case SYS_INFO_PARAM_SET_IN_PROG:
-      *data++ = g_sys_info_params.set_in_prog;
-      break;
+    //case SYS_INFO_PARAM_SET_IN_PROG:
+      //*data++ = g_sys_info_params.set_in_prog;
+      //break;
     case SYS_INFO_PARAM_SYSFW_VER:
       memcpy(data, g_sys_info_params.sysfw_ver, SIZE_SYSFW_VER);
       data += SIZE_SYSFW_VER;
@@ -792,18 +792,18 @@ app_get_sys_info_params (unsigned char *request, unsigned char *response,
       memcpy(data, g_sys_info_params.present_os_name, SIZE_OS_NAME);
       data += SIZE_OS_NAME;
       break;
-    case SYS_INFO_PARAM_PRESENT_OS_VER:
-      memcpy(data, g_sys_info_params.present_os_ver, SIZE_OS_VER);
-      data += SIZE_OS_VER;
-      break;
-    case SYS_INFO_PARAM_BMC_URL:
-      memcpy(data, g_sys_info_params.bmc_url, SIZE_BMC_URL);
-      data += SIZE_BMC_URL;
-      break;
-    case SYS_INFO_PARAM_OS_HV_URL:
-      memcpy(data, g_sys_info_params.os_hv_url, SIZE_OS_HV_URL);
-      data += SIZE_OS_HV_URL;
-      break;
+    //case SYS_INFO_PARAM_PRESENT_OS_VER:
+      //memcpy(data, g_sys_info_params.present_os_ver, SIZE_OS_VER);
+      //data += SIZE_OS_VER;
+      //break;
+    //case SYS_INFO_PARAM_BMC_URL:
+      //memcpy(data, g_sys_info_params.bmc_url, SIZE_BMC_URL);
+      //data += SIZE_BMC_URL;
+      //break;
+    //case SYS_INFO_PARAM_OS_HV_URL:
+      //memcpy(data, g_sys_info_params.os_hv_url, SIZE_OS_HV_URL);
+      //data += SIZE_OS_HV_URL;
+      //break;
     default:
       res->cc = CC_INVALID_PARAM;
       break;
@@ -1211,18 +1211,18 @@ ipmi_handle_storage (unsigned char *request, unsigned char req_len,
     case CMD_STORAGE_GET_SEL_INFO:
       storage_get_sel_info (response, res_len);
       break;
-    case CMD_STORAGE_RSV_SEL:
-      storage_rsv_sel (response, res_len);
-      break;
-    case CMD_STORAGE_ADD_SEL:
-      storage_add_sel (request, response, res_len);
-      break;
-    case CMD_STORAGE_GET_SEL:
-      storage_get_sel (request, response, res_len);
-      break;
-    case CMD_STORAGE_CLR_SEL:
-      storage_clr_sel (request, response, res_len);
-      break;
+    //case CMD_STORAGE_RSV_SEL:
+      //storage_rsv_sel (response, res_len);
+      //break;
+    //case CMD_STORAGE_ADD_SEL:
+      //storage_add_sel (request, response, res_len);
+      //break;
+    //case CMD_STORAGE_GET_SEL:
+      //storage_get_sel (request, response, res_len);
+      //break;
+   // case CMD_STORAGE_CLR_SEL:
+      //storage_clr_sel (request, response, res_len);
+      //break;
     case CMD_STORAGE_GET_SDR_INFO:
       storage_get_sdr_info (response, res_len);
       break;
@@ -1440,12 +1440,12 @@ ipmi_handle_transport (unsigned char *request, unsigned char req_len,
   pthread_mutex_lock(&m_transport);
   switch (cmd)
   {
-    case CMD_TRANSPORT_SET_LAN_CONFIG:
-      transport_set_lan_config (request, response, res_len);
-      break;
-    case CMD_TRANSPORT_GET_LAN_CONFIG:
-      transport_get_lan_config (request, response, res_len);
-      break;
+    //case CMD_TRANSPORT_SET_LAN_CONFIG:
+      //transport_set_lan_config (request, response, res_len);
+      //break;
+    //case CMD_TRANSPORT_GET_LAN_CONFIG:
+      //transport_get_lan_config (request, response, res_len);
+      //break;
     default:
       res->cc = CC_INVALID_CMD;
       break;
@@ -1530,18 +1530,18 @@ ipmi_handle_oem (unsigned char *request, unsigned char req_len,
   pthread_mutex_lock(&m_oem);
   switch (cmd)
   {
-    case CMD_OEM_SET_PROC_INFO:
-      oem_set_proc_info (request, response, res_len);
-      break;
-    case CMD_OEM_SET_DIMM_INFO:
-      oem_set_dimm_info (request, response, res_len);
-      break;
-    case CMD_OEM_SET_POST_START:
-      oem_set_post_start (response, res_len);
-      break;
-    case CMD_OEM_SET_POST_END:
-      oem_set_post_end (response, res_len);
-      break;
+    //case CMD_OEM_SET_PROC_INFO:
+      //oem_set_proc_info (request, response, res_len);
+      //break;
+    //case CMD_OEM_SET_DIMM_INFO:
+      //oem_set_dimm_info (request, response, res_len);
+      //break;
+    //case CMD_OEM_SET_POST_START:
+      //oem_set_post_start (response, res_len);
+      //break;
+    //case CMD_OEM_SET_POST_END:
+      //oem_set_post_end (response, res_len);
+      //break;
     default:
       res->cc = CC_INVALID_CMD;
       break;
@@ -1569,7 +1569,7 @@ ipmi_handle (unsigned char *request, unsigned char req_len,
   res->cmd = req->cmd;
   res->cc = 0xFF;		// Unspecified completion code
   *res_len = 0;
-
+  
   switch (netfn)
   {
     case NETFN_CHASSIS_REQ:

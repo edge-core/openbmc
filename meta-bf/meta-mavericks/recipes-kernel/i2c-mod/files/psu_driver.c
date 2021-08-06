@@ -302,6 +302,9 @@ static ssize_t psu_temp_show(struct device *dev,
                                  struct device_attribute *attr,
                                  char *buf)
 {
+  i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
+  const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
+  
   int result = psu_convert(dev, attr);
 
   if (result < 0) {
@@ -325,8 +328,12 @@ static ssize_t psu_temp_show(struct device *dev,
     default:
       break;
   }
-
-  return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  
+  if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA || model == BELPOWER_1100_NA)){
+      return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+  }else{
+      return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  }
 }
 
 static ssize_t psu_fan_show(struct device *dev,
@@ -543,7 +550,11 @@ static ssize_t psu_istby_show(struct device *dev,
       break;
   }
 
-  return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA){
+    return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+  }else{
+    return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  }
 }
 
 static ssize_t psu_pstby_show(struct device *dev,
@@ -573,8 +584,12 @@ static ssize_t psu_pstby_show(struct device *dev,
     default:
       break;
   }
-
-  return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  
+  if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA){
+    return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+  }else{
+    return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  }
 }
 
 static ssize_t psu_model_show(struct device *dev,
