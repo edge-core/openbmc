@@ -67,8 +67,6 @@
 
 #define MAX_IPMI_MSG_SIZE 100
 
-#define DEBUG
-
 // IPMI request Structure (IPMI/Section 9.2)
 typedef struct
 {
