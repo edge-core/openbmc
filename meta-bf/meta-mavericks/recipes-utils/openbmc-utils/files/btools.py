@@ -14,6 +14,9 @@ import fcntl
 
 h_platforms = "montara/mavericks/newport"
 h_platforms_with_p0c = "montara/mavericks/mavericks-p0c/newport"
+
+nolimit_ir_vdd_core = 0
+
 #
 # btool usage for modules. Individual module usage is printed separately
 #
@@ -401,7 +404,7 @@ def error_ucd_usage():
     print "                                           h => high"
     print "                                           n => none"
     print " "
-    print "                  set_gpio <gpio_number> <l or h> [%s]" % h_platforms
+    print "                  set_gpio <gpio_number> <l or h> for Newport"
     print "Eg."
     print "btools.py --UCD sh v"
     print "btools.py --UCD set_margin 5 l"
@@ -1723,6 +1726,7 @@ def ir_set_vdd_core_dynamic_range_mavericks(arg_ir):
 
 # Only available for Part SKEW Need by hardware
 def ir_set_vdd_core_dynamic_range_newport(arg_ir):
+    global nolimit_ir_vdd_core
 
     VDD_CORE_IR_I2C_BUS = "0x1"
     VDD_CORE_IR_PMBUS_ADDR = "0x40"
@@ -1735,9 +1739,10 @@ def ir_set_vdd_core_dynamic_range_newport(arg_ir):
         error_ir_usage()
         return
 
-    if v < 0.65 or v > 0.925:
-        print "Voltage value not in range .65 - .925"
-        return
+    if nolimit_ir_vdd_core == 0:
+        if v < 0.65 or v > 0.925:
+            print "Voltage value not in range .65 - .925"
+            return
 #    voltage_scale = {0: "0xA66", 10: "0xA8F", 20: "0xAB8", 30: "0xAE1", 40: "0xB0A", 50: "0xB33", 60: "0xB5C", 70: "0xB85",
 #               80: "0xBAE", 90: "0xBD7", 100: "0xC00", 110: "0xC29", 120: "0xC52",
 #              130: "0xC7B", 140: "0xCA4", 150: "0xCCD", 160: "0xCF6", 170: "0xD1F", 180: "0xD48", 190: "0xD71", 200: "0xD9A"}
@@ -2188,6 +2193,7 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
     return
 
 def ir(argv):
+    global nolimit_ir_vdd_core
 
     arg_ir = argv[2:]
 
@@ -2224,6 +2230,16 @@ def ir(argv):
         else:
             error_ir_usage()
             return
+    # ./btools.py --IR set_any_vdd_core [%s] <voltage>
+    elif arg_ir[0] == "set_any_vdd_core":
+        if len(arg_ir) == 3:
+            platform = arg_ir[1]
+            arg_ir = arg_ir[0:1]+arg_ir[2:]
+        elif len(arg_ir) == 2:
+            platform = get_project()
+        else:
+            error_ir_usage()
+            return
 
     if arg_ir[0] == "sh":
         if platform == "mavericks":
@@ -2250,11 +2266,20 @@ def ir(argv):
             error_ir_usage()
             return
     elif arg_ir[0] == "set_vdd_core":
+        nolimit_ir_vdd_core = 0
         if platform == "mavericks" or platform == "mavericks-p0c":
             ir_set_vdd_core_dynamic_range_mavericks(arg_ir)
         elif platform == "montara":
             ir_set_vdd_core_dynamic_range_montara(arg_ir)
         elif platform == "newport":
+            ir_set_vdd_core_dynamic_range_newport(arg_ir)
+        else :
+            error_ir_usage()
+            return
+    elif arg_ir[0] == "set_any_vdd_core":
+        nolimit_ir_vdd_core = 1
+        if platform == "newport":
+            syslog.syslog(syslog.LOG_WARNING, "btools.py IR: Set VDD_CORE without limitation")
             ir_set_vdd_core_dynamic_range_newport(arg_ir)
         else :
             error_ir_usage()

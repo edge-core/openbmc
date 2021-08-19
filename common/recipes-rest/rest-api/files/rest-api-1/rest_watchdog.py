@@ -112,7 +112,7 @@ def main():
                     syslog.syslog(syslog.LOG_INFO, 'Successful!')
                     output_okmsg_in_retry_or_rcv = 0
             except Exception as e:
-                syslog.syslog(syslog.LOG_WARNING, "REST API not responding due to {}".format(str(e)))
+                syslog.syslog(syslog.LOG_WARNING, "REST API not responding due to {} {}".format(e.reason, checkurl))
                 if graceleft <= 0:
                     syslog.syslog(syslog.LOG_ERR,
                                   "Killing unresponsive REST service")

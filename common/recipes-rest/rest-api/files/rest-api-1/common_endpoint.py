@@ -104,6 +104,51 @@ def rest_bmc_ps_feature_hdl(param1, param2):
 def rest_bmc_ucd_hdl():
     return rest_bmc.get_bmc_ucd()
 
+#
+# Handler for btools.py below resource endpoint
+#-------------------------------------------------------------------
+# sys/btools/param1   /param2              /param3         /param4
+#-------------------------------------------------------------------
+# sys/btools/psu      /<ps#>               /r              /v
+# sys/btools/psu      /<ps#>               /r              /i
+# sys/btools/psu      /<ps#>               /r              /p
+# sys/btools/psu      /<ps#>               /r              /fspeed
+# sys/btools/psu      /<ps#>               /r              /ffault
+# sys/btools/psu      /<ps#>               /r              /presence
+# sys/btools/psu      /<ps#>               /r              /sts_in_power
+# sys/btools/psu      /<ps#>               /r              /sts_op_power
+# sys/btools/psu      /<ps#>               /r              /vo
+# sys/btools/psu      /<ps#>               /r              /ld
+# sys/btools/psu      /<ps#>               /r              /psmodel
+# sys/btools/psu      /<ps#>               /r              /psserial
+# sys/btools/psu      /<ps#>               /r              /psrev
+# sys/btools/ucd      /sh                  /v
+# sys/btools/ucd      /set_margin          /<rail#>        /<l|h|n>
+# sys/btools/ucd      /set_gpio            /<gpio#>        /<l|h>
+# sys/btools/ucd      /fault
+# sys/btools/ir       /sh                  /v
+# sys/btools/ir       /sh                  /pout
+# sys/btools/ir       /sh                  /temp1
+# sys/btools/ir       /set_vdd_core        /<650-925>
+# sys/btools/ir       /set_any_vdd_core    /<value>
+# sys/btools/ir       /set                 /<l|h|1.7v|n>   /<items>
+# sys/btools/tmp      /sh
+@bottle.route('/api/sys/btools/<param1>')
+def rest_bmc_btools_p0_hdl(param1):
+    return rest_bmc.run_btools(0, param1, "", "", "")
+
+@bottle.route('/api/sys/btools/<param1>/<param2>')
+def rest_bmc_btools_p1_hdl(param1, param2):
+    return rest_bmc.run_btools(1, param1, param2, "", "")
+
+@bottle.route('/api/sys/btools/<param1>/<param2>/<param3>')
+def rest_bmc_btools_p2_hdl(param1, param2, param3):
+    return rest_bmc.run_btools(2, param1, param2, param3, "")
+
+@bottle.route('/api/sys/btools/<param1>/<param2>/<param3>/<param4>')
+def rest_bmc_btools_p3_hdl(param1, param2, param3, param4):
+    return rest_bmc.run_btools(3, param1, param2, param3, param4)
+
 # Handler for sys/bmc/fan/set resource endpoint
 @bottle.route('/api/sys/bmc/fan/set/<param1>/<param2>/<param3>')
 def rest_bmc_fan_set_hdl(param1, param2, param3):

@@ -240,6 +240,46 @@ def get_bmc_ucd():
     lock.release()
     return result;
 
+def run_btools(p_len, param1, param2, param3, param4):
+
+    lock.acquire()
+    output = []
+
+    #Parsing input parameters
+    target="--%s" % (str(param1).upper())
+    arg1=str(param2)
+    arg2=str(param3)
+    arg3=str(param4)
+
+    if p_len == 0:
+        arg = ['btools.py', target]
+        btools_cmd="btools.py %s help" % (target)
+    elif p_len == 1:
+        arg = ['btools.py', target, arg1]
+        btools_cmd="btools.py %s %s" % (target, arg1)
+    elif p_len == 2:
+        arg = ['btools.py', target, arg1, arg2]
+        btools_cmd="btools.py %s %s %s" % (target, arg1, arg2)
+    elif p_len == 3:
+        arg = ['btools.py', target, arg1, arg2, arg3]
+        btools_cmd="btools.py %s %s %s %s" % (target, arg1, arg2, arg3)
+
+    #Main
+    with Capturing() as screen_op:
+        btools.main(arg)
+    data = str(screen_op)
+
+    #Output
+    output.append(data)
+    result = {
+                "Information": {"Command": btools_cmd, "Result": output},
+                "Actions": [],
+                "Resources": [],
+             }
+
+    lock.release()
+    return result;
+
 def get_bmc_ps_feature(param1, param2):
 
     lock.acquire()
