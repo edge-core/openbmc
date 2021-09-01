@@ -37,21 +37,16 @@ echo "board type is $board_subtype"
 tofino_set_vdd_core() {
   CODE="$(i2cget -f -y 12 0x31 0xb)"
   CODE_M=$(($CODE & 0x7))
-  CODE_EN=$(($CODE & 0x8))
   if [ "$board_subtype" == "Newport" ] ; then
     local apn
     apn=$(wedge_board_sys_assembly_pn)
     case "$apn" in
       *015-000004-03)
-          if [ $CODE_EN == 0 ]; then
-            btools.py --IR set_vdd_core 0.780
-            echo "setting Newport-P0B SVS-disabled Tofino VDD_CORE to 0.780V..."
-          else
-            tbl=(0.726 0.756 0.781 0.796 0.811 0.831 0.856 0.886)
-            btools.py --IR set_vdd_core ${tbl[$CODE_M]}
-            logger "VDD setting: ${tbl[$CODE_M]}"
-            echo "setting Newport-P0B SVS $CODE Tofino VDD_CORE to ${tbl[$CODE_M]}..."
-          fi
+          # Offset 0x0B, bit[3] CODE_EN not used. CPLD does not have the necessary information.
+          tbl=(0.737 0.768 0.793 0.808 0.823 0.843 0.869 0.899)
+          btools.py --IR set_vdd_core ${tbl[$CODE_M]}
+          logger "VDD setting: ${tbl[$CODE_M]}"
+          echo "setting Newport-P0B SVS $CODE Tofino VDD_CORE to ${tbl[$CODE_M]}..."
           ;;
       *)
           btools.py --IR set_vdd_core 0.825
