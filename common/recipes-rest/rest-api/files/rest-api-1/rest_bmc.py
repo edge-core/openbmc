@@ -561,6 +561,7 @@ def get_bmc_fan(param1):
     err = 0
     error = ["error", "Error", "ERROR"]
 
+    platform = btools.get_project()
     cmd = "/usr/local/bin/get_fan_speed.sh %s" % param1
     data = Popen(cmd, \
                        shell=True, stdout=PIPE).stdout.read()
@@ -582,7 +583,16 @@ def get_bmc_fan(param1):
 
 
     t = re.findall('\d+', data)
-    output.append(int(t[0]))
+    fantray_present=1
+    length=len(t)
+    if platform == "newport" or platform == "stinson":
+        i=1
+        while i < length:
+            fantray_present= fantray_present & int(t[i])
+            i += 2
+    else:
+        fantray_present=int(t[0])
+    output.append(fantray_present)
 
     result = {
                 "Information": {"Description": output},
