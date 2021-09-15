@@ -630,6 +630,64 @@ def set_bmc_fan(param1, param2, param3):
 
     return result;
 
+
+def get_bmc_fan_led(param1):
+    output = []
+    err = 0
+    error = ["error", "Error", "ERROR"]
+
+    platform = btools.get_project()
+    if platform == "mavericks-p0c" or platform == "mavericks":
+        platform = "Mavericks"
+    try:
+      cmd = "/usr/local/bin/get_fan_led.sh %s %s" % (param1, platform.capitalize())
+      data = Popen(cmd, shell=True, stdout=PIPE).stdout.read()
+      t = re.findall('0x\d+', data)
+      if len(t) == 2:
+        output.append(err)
+        for x in t:
+          output.append(x)
+      else:
+        err = 1
+        output.append(err)
+    except Exception as e:
+        err = 1
+        output.append(err)
+
+    result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+
+    return result;
+
+def set_bmc_fan_led(param1, param2, param3):
+
+    output = []
+    error = ["error", "Error", "ERROR"]
+    err = 0
+
+    platform = btools.get_project()
+    if platform == "mavericks-p0c" or platform == "mavericks":
+        platform = "Mavericks"
+    try:
+      cmd = "/usr/local/bin/set_fan_led.sh %s %s %s %s" % (param1, param2, param3, platform.capitalize())
+      data = Popen(cmd, shell=True, stdout=PIPE).stdout.read()
+      t = re.findall('0x0', data)
+      if len(t) == 0:
+        err = 1
+    except Exception as e:
+        err = 1
+    output.append(err)
+    result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+
+    return result;
+
 def set_bmc_all_fan(param1):
 
     output = []

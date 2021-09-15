@@ -22,6 +22,8 @@ SRC_URI += "file://get_fan_speed.sh \
             file://set_fan_speed.sh \
             file://setup-fan.sh \
             file://get_fantray_present.sh \
+            file://get_fan_led.sh \
+            file://set_fan_led.sh \
            "
 
 S = "${WORKDIR}"
@@ -32,6 +34,8 @@ binfiles = "                                    \
     fand                                        \
     get_fantray_present.sh                      \
     i2c_set_get                                 \
+    get_fan_led.sh                            \
+    set_fan_led.sh                            \
     "
 
 CXXFLAGS_prepend = "-DCONFIG_MAVERICKS "

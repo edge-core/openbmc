@@ -151,6 +151,16 @@ def rest_bmc_fan_set_hdl(param1, param2, param3):
 def rest_bmc_fan_get_hdl(param1):
     return rest_bmc.get_bmc_fan(param1)
 
+# Handler for sys/bmc/fanled/set resource endpoint
+@bottle.route('/api/sys/bmc/fanled/set/<param1>/<param2>/<param3>')
+def rest_bmc_all_fan_led_set_hdl(param1, param2, param3):
+    return rest_bmc.set_bmc_fan_led(param1, param2, param3)
+
+# Handler for sys/bmc/fanled/get resource endpoint
+@bottle.route('/api/sys/bmc/fanled/get/<param1>')
+def rest_bmc_fan_led_get_hdl(param1):
+    return rest_bmc.get_bmc_fan_led(param1)
+
 # Handler for sys/server resource endpoint
 @bottle.route('/api/sys/server')
 def rest_server_hdl():
