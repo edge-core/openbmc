@@ -336,6 +336,7 @@ def psu(argv):
         error_psu_usage()
         return
 
+    platform = get_project()
     path = i2c_dev + ps + val
 
     try:
@@ -350,14 +351,29 @@ def psu(argv):
 
         # load sharing checking
         if val == "curr2_input":
-            ps = "5a/"
-            path = i2c_dev + ps + val
-            output = subprocess.check_output([cmd, path])
-            print "Power Supply 1 output current  %.3f amp" % (float(output)/1000) # unit: A
-            ps = "59/"
-            path = i2c_dev + ps + val
-            output = subprocess.check_output([cmd, path])
-            print "Power Supply 2 output current  %.3f amp" % (float(output)/1000) # unit: A
+            if platform == "newport":
+                output = subprocess.check_output(["i2cget", "-f", "-y", "12", "0x31", "0x10"])
+                psu_sts = int(output, 16)
+                ps1_sts=((psu_sts>>4)&0x7)
+                ps2_sts=(psu_sts&0x7)
+            else: #SYSCPLD Offset 0x10 definition for PSU1 and PSU2 on other projects is contrary, so temporarily skip to comply with the origin.
+                ps1_sts=0x06
+                ps2_sts=0x06
+
+            if ps1_sts == 0x6:
+                ps = "5a/"
+                path = i2c_dev + ps + val
+                output = subprocess.check_output([cmd, path])
+                print "Power Supply 1 output current  %.3f amp" % (float(output)/1000) # unit: A
+            else:
+                print "Power Supply 1 output current  0.000 amp"
+            if ps2_sts == 0x6:
+                ps = "59/"
+                path = i2c_dev + ps + val
+                output = subprocess.check_output([cmd, path])
+                print "Power Supply 2 output current  %.3f amp" % (float(output)/1000) # unit: A
+            else:
+                print "Power Supply 2 output current  0.000 amp"
         else:
             output = subprocess.check_output([cmd, path])
 
