@@ -1147,7 +1147,7 @@ def ir_voltage_show_newport(arg_ir):
     IR_READ_POUT_OP = "0x96"
     IR_READ_TEMP1_OP = "0x8d"
     PAGE_ADDR = "0"
-    string = {1: "VDD_CORE_0.75V", 2: "VDDT_0.9V", 3: "VDDA_1.5V", 4:"VDDA_AGC_1.8V", 5:"VDD_QSFP_3.3V"}
+    string = {1: "VDD_CORE_0.75V", 2: "VDDT_0.9V", 3: "VDDA_1.7V", 4:"VDDA_AGC_1.8V", 5:"VDD_QSFP_3.3V"}
     for i in range(1, 6):
         try:
             get_cmd = "i2cget"
@@ -1433,7 +1433,7 @@ def error_ir_usage():
     print "                                       RETIMER_VDD   (mav p0c only)"
     print "                                       RETIMER_VDDA  (mav p0c only)"
     print "                                       REPEATER      (mav only)"
-    print "                     1.7V = 1.7V       VDDA_1.5V     (new only)"
+    print "                                       VDDA_1.7V     (new only)"
     print "                                       VDDT_0.9V     (new only)"
     print "                                       VDDA_AGC_1.8V (new only)"
     print ""
@@ -1793,7 +1793,7 @@ def ir_voltage_set_newport(arg_ir):
     IR_I2C_BUS = "0x1"
     IR_PMBUS_ADDR = {1: "0x40", 2: "0x42", 3: "0x44", 4:"0x44", 5:"0x46"}
     PAGE_ADDR = "0"
-    string = {1: "VDD_CORE", 2: "VDDT_0.9V", 3: "VDDA_1.5V", 4:"VDDA_AGC_1.8V", 5:"QSFP"}
+    string = {1: "VDD_CORE", 2: "VDDT_0.9V", 3: "VDDA_1.7V", 4:"VDDA_AGC_1.8V", 5:"QSFP"}
 
     IR_MARGIN_LOW_AOF_OP = "0x98"
     IR_MARGIN_HIGH_AOF_OP = "0xA8"
@@ -1804,15 +1804,17 @@ def ir_voltage_set_newport(arg_ir):
     IR_VOUT_MARGIN_LOW = "0x26"
     IR_VOUT_CMD = "0x21"
 
-    if arg_ir[2] == "VDDA_1.5V":
+    if arg_ir[2] == "VDDA_1.7V":
 
       # set page register in IR
       set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(3), "0")
-      # voltage +3% -3%  0x1b6=>438
-      VOLT_MARGIN_HIGH_17 = "0x1B5"
-      VOLT_MARGIN_HIGH = "0x18C"
-      VOLT_MARGIN_LOW = "0x174"
-      VOLT_NORMAL = "0x180"
+      # margin voltage +3% -3%  0x1b6=>438
+      # VOLT_NORMAL = "0x180" for 1.5V
+      # VOLT_MARGIN_HIGH = "0x18C" for 15V
+      # VOLT_MARGIN_LOW = "0x174" for 1.5V
+      VOLT_MARGIN_HIGH = "0x1C0"
+      VOLT_MARGIN_LOW = "0x1A8"
+      VOLT_NORMAL = "0x1B4"
       i2c_addr = IR_PMBUS_ADDR.get(3)
 
       if arg_ir[1] == "l":
@@ -1824,11 +1826,6 @@ def ir_voltage_set_newport(arg_ir):
         margin_cmd = IR_VOUT_MARGIN_HIGH
         margin_apply = IR_MARGIN_HIGH_AOF_OP
         voltage = VOLT_MARGIN_HIGH
-
-      elif arg_ir[1] == "1.7v":
-        margin_cmd = IR_VOUT_MARGIN_HIGH
-        margin_apply = IR_MARGIN_HIGH_AOF_OP
-        voltage = VOLT_MARGIN_HIGH_17
 
       elif arg_ir[1] == "n":
         margin_cmd = IR_VOUT_CMD

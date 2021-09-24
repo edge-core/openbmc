@@ -102,7 +102,7 @@ do_on_com_e() {
         # turn ON the power rails that might have been forced down
         do_on_ucd_gpio_en
         # credo slow parts need 1.7V instead of 1.5V
-        btools.py --IR set 1.7v VDDA_1.5V
+        btools.py --IR set n VDDA_1.7V
         tofino_set_vdd_core
         usleep 100000
         # issue reset to Tofino-2

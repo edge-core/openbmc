@@ -78,7 +78,7 @@ wedge_power_on_board
 if [ "$val" != "0x1" ]; then
   if [ "$board_subtype" == "Newport" ] ; then
     # credo slow parts need 1.7V instead of 1.5V
-    btools.py --IR set 1.7v VDDA_1.5V
+    btools.py --IR set n VDDA_1.7V
   fi
   tofino_set_vdd_core
   usleep 100000

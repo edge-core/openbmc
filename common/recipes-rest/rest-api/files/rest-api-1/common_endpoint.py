@@ -131,7 +131,7 @@ def rest_bmc_ucd_hdl():
 # sys/btools/ir       /sh                  /temp1
 # sys/btools/ir       /set_vdd_core        /<650-925>
 # sys/btools/ir       /set_any_vdd_core    /<value>
-# sys/btools/ir       /set                 /<l|h|1.7v|n>   /<items>
+# sys/btools/ir       /set                 /<l|h|n>   /<items>
 # sys/btools/tmp      /sh
 @bottle.route('/api/sys/btools/<param1>')
 def rest_bmc_btools_p0_hdl(param1):
