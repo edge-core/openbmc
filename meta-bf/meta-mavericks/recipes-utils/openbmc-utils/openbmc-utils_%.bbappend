@@ -31,6 +31,7 @@ SRC_URI += "file://disable_watchdog.sh \
             file://reset_tofino.sh \
             file://stress_i2c_rw.sh \
             file://fru_eeprom.py \
+            file://bmc_info.sh \
            "
 
 OPENBMC_UTILS_FILES += " \
@@ -44,6 +45,7 @@ OPENBMC_UTILS_FILES += " \
     reset_tofino.sh \
     stress_i2c_rw.sh \
     fru_eeprom.py \
+    bmc_info.sh \
     "
 
 DEPENDS_append = " update-rc.d-native"
