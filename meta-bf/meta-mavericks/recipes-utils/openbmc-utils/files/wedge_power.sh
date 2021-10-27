@@ -100,9 +100,17 @@ do_on_com_e() {
 
     if [ "$board_subtype" == "Newport" ] ; then
         # turn ON the power rails that might have been forced down
+
+        echo 1 > $PWR_USRV_EN_SYSFS
+        echo "wedge_power setting pwr_usrv_en also for $board_subtype"
+
+        echo 1 > $PWR_USRV_SYSFS
+        sleep 2        do_on_ucd_gpio_en
+
         do_on_ucd_gpio_en
         # credo slow parts need 1.7V instead of 1.5V
         btools.py --IR set n VDDA_1.7V
+		
         tofino_set_vdd_core
         usleep 100000
         # issue reset to Tofino-2
@@ -110,8 +118,7 @@ do_on_com_e() {
         usleep 50000
         i2cset -f -y 12 0x31 0x32 0xf
 
-        echo 1 > $PWR_USRV_EN_SYSFS
-        echo "wedge_power setting pwr_usrv_en also for $board_subtype"
+        return 0
     fi
     echo 1 > $PWR_USRV_SYSFS
     return $?
