@@ -44,7 +44,7 @@
 
 #define PSU_DELAY 15
 #define PMBUS_MFR_MODEL  0x9a
-
+#define PMBUS_POWER 0x96
 typedef enum {
   DELTA_1500 = 0,
   BELPOWER_600_NA,
@@ -109,6 +109,35 @@ static int linear_convert(int type, int value, int n)
   return value_x;
 }
 
+#ifdef DEBUG_TIME
+static inline void print_time(char *s)
+{
+	struct timeval tv;
+	do_gettimeofday(&tv);
+	printk("%s: %d.%d\n", s,(int)tv.tv_sec, (int)tv.tv_usec);
+}
+#endif
+
+static int result_linear_convert(int value)
+{
+  int result = value;
+  switch (model) {
+    case DELTA_1500:
+    case LITEON_1500:
+      result = linear_convert(LINEAR_11, result, 0);
+      break;
+    case BELPOWER_600_NA:
+    case BELPOWER_1100_NA:
+    case BELPOWER_1500_NAC:
+    case MURATA_1500:
+      result = linear_convert(LINEAR_11, result, -1);
+      break;
+    default:
+      break;
+  }
+  return result;
+}
+
 static int psu_convert(struct device *dev, struct device_attribute *attr)
 {
   struct i2c_client *client = to_i2c_client(dev);
@@ -130,6 +159,7 @@ static int psu_convert(struct device *dev, struct device_attribute *attr)
   while((ret < 0 || length > 32) && count--) {
     ret = i2c_smbus_read_word_data(client, PMBUS_MFR_MODEL);
     length = ret & 0xff;
+    mdelay(10);
   }
   //PSU_DEBUG("1st char+length = %d + %d\n", ((ret >> 8) & 0xff), (ret & 0xff));
   if (ret < 0 || length > 32) {
@@ -137,13 +167,13 @@ static int psu_convert(struct device *dev, struct device_attribute *attr)
   } else {
     count=10;
     while((value < 0 || value == 0xffff) && count--) {
-      value = i2c_smbus_read_word_data(client, (dev_attr->ida_reg));
+      value = i2c_smbus_read_word_data(client, PMBUS_POWER);
     }
   }
 
   mutex_unlock(&data->idd_lock);
-
-  if (value < 0) {
+  //printk("%d\n", value);
+  if (value < 0 || value == 0xffff) {
     /* error case */
     PSU_DEBUG("I2C read error, value: %d\n", value);
     return -1;
@@ -173,7 +203,79 @@ static int psu_convert(struct device *dev, struct device_attribute *attr)
     model = UNKNOWN;
   }
 
+  if(result_linear_convert(value) > 0) {
+	  value = -1;
+	  count=10;
+	  mutex_lock(&data->idd_lock);
+	  while((value < 0 || value == 0xffff) && count--) {
+		value = i2c_smbus_read_word_data(client, (dev_attr->ida_reg));
+		mdelay(10);
+	  }
+	  mutex_unlock(&data->idd_lock);
+	  if (value < 0 || value == 0xffff) {
+		/* error case */
+		PSU_DEBUG("I2C read error, value: %d\n", value);
+		return -1;
+	  }
+
+  }
+
   return value;
+}
+
+static int psu_convert_model(struct device *dev, struct device_attribute *attr)
+{
+  struct i2c_client *client = to_i2c_client(dev);
+  i2c_dev_data_st *data = i2c_get_clientdata(client);
+  i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
+  const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
+  int count = 10;
+  int ret = -1;
+  u8 length, model_chr;
+
+  mutex_lock(&data->idd_lock);
+  /*
+   * If read block length byte > 32, it will cause kernel panic.
+   * Using read word to replace read block to identifer PSU model.
+   */
+
+  while((ret < 0 || length > 32) && count--) {
+    ret = i2c_smbus_read_word_data(client, PMBUS_MFR_MODEL);
+    length = ret & 0xff;
+    mdelay(10);
+  }
+  //PSU_DEBUG("1st char+length = %d + %d\n", ((ret >> 8) & 0xff), (ret & 0xff));
+  mutex_unlock(&data->idd_lock);
+  if (ret < 0 || length > 32) {
+    PSU_DEBUG("Failed to read Manufacturer Model\n");
+	return -1;
+  }
+
+  model_chr = (ret >> 8) & 0xff;
+  if (length == 11 && model_chr == 'E') {
+    /* PSU model name: ECD55020006 */
+    model = DELTA_1500;
+  } else if (length == 10 && model_chr == 'P') {
+    /* PSU model name: PS-2152-5L */
+    model = LITEON_1500;
+  } else if (length == 15 && model_chr == 'P') {
+    /* PSU model name: PFE600-12-054NA for wedge100bf-32x*/
+    model = BELPOWER_600_NA;
+  } else if (length == 16 && model_chr == 'P') {
+    /* PSU model name: PFE1100-12-054NA for wedge100bf-65x */
+    model = BELPOWER_1100_NA;
+  } else if ((length == 17 || length == 21) && model_chr == 'P') {
+    /* PSU model name: PFE1500-12-054NACS457 */
+    /* PSU model name: PFE1500-12-054NACS439 for newport*/
+    model = BELPOWER_1500_NAC;
+  } else if ((length == 22 || length == 25) && model_chr == 'D') {
+    /* PSU model name: D1U54P-W-1500-12-HC4TC-AF */
+    model = MURATA_1500;
+  } else {
+    model = UNKNOWN;
+  }
+
+  return 0;
 }
 
 static ssize_t psu_vin_show(struct device *dev,
@@ -184,7 +286,7 @@ static ssize_t psu_vin_show(struct device *dev,
 
   if (result < 0) {
     /* error case */
-    return -1;
+    return -EINVAL;
   }
 
   switch (model) {
@@ -213,7 +315,7 @@ static ssize_t psu_iin_show(struct device *dev,
 
   if (result < 0) {
     /* error case */
-    return -1;
+    return -EINVAL;
   }
 
   switch (model) {
@@ -244,7 +346,7 @@ static ssize_t psu_vout_show(struct device *dev,
 
   if (result < 0) {
     /* error case */
-    return -1;
+    return -EINVAL;
   }
 
   switch (model) {
@@ -275,7 +377,7 @@ static ssize_t psu_iout_show(struct device *dev,
 
   if (result < 0) {
     /* error case */
-    return -1;
+    return -EINVAL;
   }
 
   switch (model) {
@@ -309,7 +411,7 @@ static ssize_t psu_temp_show(struct device *dev,
 
   if (result < 0) {
     /* error case */
-    return -1;
+    return -EINVAL;
   }
 
   switch (model) {
@@ -344,7 +446,7 @@ static ssize_t psu_fan_show(struct device *dev,
 
   if (result < 0) {
     /* error case */
-    return -1;
+    return -EINVAL;
   }
 
   switch (model) {
@@ -365,60 +467,6 @@ static ssize_t psu_fan_show(struct device *dev,
   return scnprintf(buf, PAGE_SIZE, "%d\n", result);
 }
 
-static int psu_convert_model(struct device *dev, struct device_attribute *attr)
-{
-  struct i2c_client *client = to_i2c_client(dev);
-  i2c_dev_data_st *data = i2c_get_clientdata(client);
-  i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
-  const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
-  int count = 10;
-  int ret = -1;
-  u8 length, model_chr;
-  
-  mutex_lock(&data->idd_lock);
-  /*
-   * If read block length byte > 32, it will cause kernel panic.
-   * Using read word to replace read block to identifer PSU model.
-   */
- 
-  while((ret < 0 || length > 32) && count--) {
-    ret = i2c_smbus_read_word_data(client, PMBUS_MFR_MODEL);
-    length = ret & 0xff;
-  }
-  //PSU_DEBUG("1st char+length = %d + %d\n", ((ret >> 8) & 0xff), (ret & 0xff));
-  mutex_unlock(&data->idd_lock);
-
-  if (ret < 0 || length > 32) {
-    PSU_DEBUG("Failed to read Manufacturer Model\n");
-	return -1;
-  }
-
-  model_chr = (ret >> 8) & 0xff;
-  if (length == 11 && model_chr == 'E') {
-    /* PSU model name: ECD55020006 */
-    model = DELTA_1500;
-  } else if (length == 10 && model_chr == 'P') {
-    /* PSU model name: PS-2152-5L */
-    model = LITEON_1500;
-  } else if (length == 15 && model_chr == 'P') {
-    /* PSU model name: PFE600-12-054NA for wedge100bf-32x*/
-    model = BELPOWER_600_NA;
-  } else if (length == 16 && model_chr == 'P') {
-    /* PSU model name: PFE1100-12-054NA for wedge100bf-65x */
-    model = BELPOWER_1100_NA;
-  } else if ((length == 17 || length == 21) && model_chr == 'P') {
-    /* PSU model name: PFE1500-12-054NACS457 */
-    /* PSU model name: PFE1500-12-054NACS439 for newport*/
-    model = BELPOWER_1500_NAC;
-  } else if ((length == 22 || length == 25) && model_chr == 'D') {
-    /* PSU model name: D1U54P-W-1500-12-HC4TC-AF */
-    model = MURATA_1500;
-  } else {
-    model = UNKNOWN;
-  }
-
-  return 0;
-}
 
 static ssize_t psu_fan_status_show(struct device *dev,
                                 struct device_attribute *attr,
@@ -426,14 +474,14 @@ static ssize_t psu_fan_status_show(struct device *dev,
 {
   int result = -1;
   u8 length = 33;
-  int count = 4;
+  int count = 10;
   uint8_t values = 0xff;
   
   //if(UNKNOWN == model) {
     result = psu_convert_model(dev, attr);
     if (result < 0) {
        /* error case */
-       return -1;
+       return -EINVAL;
     }
   //}
 
@@ -447,14 +495,13 @@ static ssize_t psu_fan_status_show(struct device *dev,
           mdelay(10);
       }
       if ((result < 0) || (values == 0xff))
-          return -1;
+          return -EINVAL;
 
       break;
 
     default:
       break;
   }
-
   return scnprintf(buf, PAGE_SIZE, "%d\n", values);
 }
 
@@ -466,7 +513,7 @@ static ssize_t psu_power_show(struct device *dev,
 
   if (result < 0) {
     /* error case */
-    return -1;
+    return -EINVAL;
   }
 
   switch (model) {
@@ -495,7 +542,7 @@ static ssize_t psu_vstby_show(struct device *dev,
 
   if (result < 0) {
     /* error case */
-    return -1;
+    return -EINVAL;
   }
 
   switch (model) {
@@ -528,7 +575,7 @@ static ssize_t psu_istby_show(struct device *dev,
 
   if (result < 0) {
     /* error case */
-    return -1;
+    return -EINVAL;
   }
 
   switch (model) {
@@ -565,7 +612,7 @@ static ssize_t psu_pstby_show(struct device *dev,
 
   if (result < 0) {
     /* error case */
-    return -1;
+    return -EINVAL;
   }
 
   switch (model) {
@@ -603,13 +650,13 @@ static ssize_t psu_model_show(struct device *dev,
   uint8_t block[I2C_SMBUS_BLOCK_MAX + 1]={0};
   int result = -1;
   u8 length = 33;
-  int count = 4;
+  int count = 10;
 
   if(UNKNOWN == model) {
     result = psu_convert_model(dev, attr);
     if (result < 0) {
        /* error case */
-       return -1;
+       return -EINVAL;
     }
   }
 
@@ -621,10 +668,11 @@ static ssize_t psu_model_show(struct device *dev,
       while((result < 0 || length > 32) && count--) {
         result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
         length = result & 0xff;
+        mdelay(10);
       }
       mutex_unlock(&data->idd_lock);  
       if (result < 0 || length > 32) {
-        return -1;
+        return -EINVAL;
       }
       break;
     default:
@@ -645,13 +693,13 @@ static ssize_t psu_serial_show(struct device *dev,
   uint8_t block[I2C_SMBUS_BLOCK_MAX + 1]={0};
   int result = -1;
   u8 length = 33;
-  int count = 4;
+  int count = 10;
 
   if(UNKNOWN == model) {
     result = psu_convert_model(dev, attr);
     if (result < 0) {
        /* error case */
-       return -1;
+       return -EINVAL;
     }
   }
 
@@ -663,10 +711,11 @@ static ssize_t psu_serial_show(struct device *dev,
       while((result < 0 || length > 32) && count--) {
         result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
         length = result & 0xff;
+        mdelay(10);
       }
       mutex_unlock(&data->idd_lock); 
       if (result < 0 || length > 32) {
-        return -1;
+        return -EINVAL;
       }
       break;
     default:
@@ -687,13 +736,13 @@ static ssize_t psu_revision_show(struct device *dev,
   uint8_t block[I2C_SMBUS_BLOCK_MAX + 1]={0};
   int result = -1;
   u8 length = 33;
-  int count = 4;
+  int count = 10;
 
   if(UNKNOWN == model) {
     result = psu_convert_model(dev, attr);
     if (result < 0) {
        /* error case */
-       return -1;
+       return -EINVAL;
     }
   }
 
@@ -705,10 +754,11 @@ static ssize_t psu_revision_show(struct device *dev,
       while((result < 0 || length > 32) && count--) {
         result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
         length = result & 0xff;
+        mdelay(10);
       }
       mutex_unlock(&data->idd_lock); 
       if (result < 0 || length > 32) {
-        return -1;
+        return -EINVAL;
       }
       break;
     default:
