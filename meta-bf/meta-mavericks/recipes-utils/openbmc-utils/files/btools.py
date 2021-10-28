@@ -363,15 +363,21 @@ def psu(argv):
             if ps1_sts == 0x6:
                 ps = "5a/"
                 path = i2c_dev + ps + val
-                output = subprocess.check_output([cmd, path])
-                print "Power Supply 1 output current  %.3f amp" % (float(output)/1000) # unit: A
+                try:
+                  output = subprocess.check_output([cmd, path])
+                  print "Power Supply 1 output current  %.3f amp" % (float(output)/1000) # unit: A
+                except subprocess.CalledProcessError as e:
+                  print e
             else:
                 print "Power Supply 1 output current  0.000 amp"
             if ps2_sts == 0x6:
                 ps = "59/"
                 path = i2c_dev + ps + val
-                output = subprocess.check_output([cmd, path])
-                print "Power Supply 2 output current  %.3f amp" % (float(output)/1000) # unit: A
+                try:
+                  output = subprocess.check_output([cmd, path])
+                  print "Power Supply 2 output current  %.3f amp" % (float(output)/1000) # unit: A
+                except subprocess.CalledProcessError as e:
+                  print e
             else:
                 print "Power Supply 2 output current  0.000 amp"
         else:
