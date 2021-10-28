@@ -28,7 +28,7 @@ interval = 5
 timeout = 5
 service = "restapi"
 # intervals before forced kill
-grace = 3
+grace = 10
 graceleft = grace
 
 output_okmsg_in_retry_or_rcv = 0
