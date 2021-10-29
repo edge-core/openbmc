@@ -592,7 +592,7 @@ def get_bmc_fan(param1):
             i += 2
     else:
         fantray_present=int(t[0])
-    output.append(fantray_present)
+    output.append(hex(fantray_present))
 
     result = {
                 "Information": {"Description": output},
