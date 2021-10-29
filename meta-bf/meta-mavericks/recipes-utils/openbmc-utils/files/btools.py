@@ -153,7 +153,7 @@ def psu_cpld_features(power_supply, feature):
     cpld_dev = "/sys/class/i2c-adapter/i2c-12/12-0031/"
     cmd = "cat"
 
-    if feature == "presence":
+    if feature == "presence" or feature == "presence_2":
         if power_supply == 1:
             path = cpld_dev + "psu1_present"
         elif power_supply == 2:
@@ -206,6 +206,12 @@ def psu_cpld_features(power_supply, feature):
         else:
             print "Error while reading power supply status"
         return 0
+    elif feature == "presence_2":
+        res = int(output, 16)
+        if res == 0:
+            return 0
+        else:
+            return 1
     return -1
 
 #
@@ -363,21 +369,30 @@ def psu(argv):
             if ps1_sts == 0x6:
                 ps = "5a/"
                 path = i2c_dev + ps + val
-                try:
-                  output = subprocess.check_output([cmd, path])
-                  print "Power Supply 1 output current  %.3f amp" % (float(output)/1000) # unit: A
-                except subprocess.CalledProcessError as e:
-                  print e
+                r = psu_cpld_features(1, "presence_2")
+                if int(r) == 0:
+                  try:
+                    output = subprocess.check_output([cmd, path])
+                    print "Power Supply 1 output current  %.3f amp" % (float(output)/1000) # unit: A
+                  except subprocess.CalledProcessError as e:
+                    print e
+                else:
+                  print "Power Supply 1 output current  %.3f amp" % (float(0)/1000) # unit: A
+
             else:
                 print "Power Supply 1 output current  0.000 amp"
             if ps2_sts == 0x6:
                 ps = "59/"
                 path = i2c_dev + ps + val
-                try:
-                  output = subprocess.check_output([cmd, path])
-                  print "Power Supply 2 output current  %.3f amp" % (float(output)/1000) # unit: A
-                except subprocess.CalledProcessError as e:
-                  print e
+                r = psu_cpld_features(2, "presence_2")
+                if int(r) == 0:
+                  try:
+                    output = subprocess.check_output([cmd, path])
+                    print "Power Supply 2 output current  %.3f amp" % (float(output)/1000) # unit: A
+                  except subprocess.CalledProcessError as e:
+                    print e
+                else:
+                  print "Power Supply 2 output current  %.3f amp" % (float(0)/1000) # unit: A
             else:
                 print "Power Supply 2 output current  0.000 amp"
         else:
