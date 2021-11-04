@@ -555,11 +555,26 @@ def get_bmc_ps(param1):
     lock.release()
     return result;
 
+def get_fan_present(param1):
+    p1=-1
+    cmd = "/usr/local/bin/get_fantray_present.sh"
+    data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+    try:
+      t = re.findall(str(param1)+' present: 0x\d', data)
+      v = re.findall('0x\d', t[0])
+      p1=int(v[0],base=16)
+    except Exception as e:
+      return -1
+
+    return p1
+
 def get_bmc_fan(param1):
 
     output = []
     err = 0
     error = ["error", "Error", "ERROR"]
+    fantray_present=1
 
     platform = btools.get_project()
     cmd = "/usr/local/bin/get_fan_speed.sh %s" % param1
@@ -570,28 +585,51 @@ def get_bmc_fan(param1):
     if any(x in data for x in error):
         err = 1
 
-    output.append(err)
-
-    t = re.findall('\d+', data)
-
-    for x in t:
-      output.append(int(x))
-
-    cmd = "/usr/local/bin/get_fantray_present.sh"
-    data = Popen(cmd, \
-                       shell=True, stdout=PIPE).stdout.read()
-
-
-    t = re.findall('\d+', data)
-    fantray_present=1
-    length=len(t)
+    num = int(param1)
     if platform == "newport" or platform == "stinson":
+        data1 = data
+        cmd = "/usr/local/bin/get_fantray_present.sh"
+        data = Popen(cmd, \
+                       shell=True, stdout=PIPE).stdout.read()
+        t = re.findall('\d+', data)
+        length=len(t)
         i=1
         while i < length:
             fantray_present= fantray_present & int(t[i])
             i += 2
+        data = data1
+    elif platform == "mavericks" or platform == "mavericks-p0c":
+        value1 = get_fan_present("Fantray")
+        value2 = get_fan_present("Fantray_upper")
+        if (num > 10) or (num <= 0):
+          err = 1
+        elif (num > 5):
+          if (value2 & (1 << (num - 6))) == 0:
+            fantray_present=0
+        else:
+          if (value1 & (1 << (num - 1))) == 0:
+            fantray_present=0
+    elif platform == "montara":
+        value = get_fan_present("Fantray")
+        if (num > 5) or (num <= 0):
+          err = 1
+        else:
+          if (value1 & (1 << (num -1))) == 0:
+            fantray_present=0
     else:
-        fantray_present=int(t[0])
+        err = 1
+
+    output.append(err)
+
+    if fantray_present == 0:
+      t = re.findall('\d+', data)
+      for x in t:
+        output.append(int(x))
+    else:
+      output.append(int(num))
+      for i in range(3):
+        output.append(int(0))
+
     output.append(hex(fantray_present))
 
     result = {

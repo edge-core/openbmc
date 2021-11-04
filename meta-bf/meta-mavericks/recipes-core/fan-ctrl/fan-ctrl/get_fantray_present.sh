@@ -23,8 +23,12 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 
 board_type=$(wedge_board_type)
+board_subtype=$(wedge_board_subtype)
 
-if [ "$board_type" == "MAVERICKS" ]; then
+if [ "$board_subtype" == "Mavericks" ]; then
+    FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0033
+    FAN_DIR_UPPER=/sys/class/i2c-adapter/i2c-9/9-0033
+elif [ "$board_subtype" == "Montara" ]; then
     FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0033
 elif [ "$board_type" == "NEWPORT" ]; then
     FANS="1 2 3 4 5 6"
@@ -36,7 +40,9 @@ fi
 
 show_present()
 {
-    if [ "$board_type" == "MAVERICKS" ]; then
+    if [ "$board_subtype" == "Mavericks" ]; then
+        fantray_pres="${1}/fantray_present"
+    elif [ "$board_subtype" == "Montara" ]; then
         fantray_pres="${FAN_DIR}/fantray_present"
     elif [ "$board_type" == "NEWPORT" ] || [ "$board_type" == "STINSON" ]; then
         fantray_pres="${FAN_DIR}/fantray${1}_present"
@@ -46,8 +52,11 @@ show_present()
 
 set -e
 
-if [ "$board_type" == "MAVERICKS" ]; then
+if [ "$board_subtype" == "Mavericks" ]; then
     # refer to the comments in init_pwn.sh regarding
+    echo "Fantray present: $(show_present ${FAN_DIR})"
+    echo "Fantray_upper present: $(show_present ${FAN_DIR_UPPER})"
+elif [ "$board_subtype" == "Montara" ]; then
     echo "Fantray present: $(show_present)"
 elif [ "$board_type" == "NEWPORT" ] || [ "$board_type" == "STINSON" ]; then
     for fan in $FANS; do

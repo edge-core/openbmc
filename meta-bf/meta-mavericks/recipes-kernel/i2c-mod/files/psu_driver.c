@@ -49,6 +49,8 @@ typedef enum {
   DELTA_1500 = 0,
   BELPOWER_600_NA,
   BELPOWER_1100_NA,
+  BELPOWER_1100_ND,
+  BELPOWER_1100_NAS,
   BELPOWER_1500_NAC,
   MURATA_1500,
   LITEON_1500,
@@ -129,8 +131,10 @@ static int result_linear_convert(int value)
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case MURATA_1500:
-      result = linear_convert(LINEAR_11, result, -1);
+      result = linear_convert(LINEAR_11, result, 1);
       break;
     default:
       break;
@@ -148,6 +152,7 @@ static int psu_convert(struct device *dev, struct device_attribute *attr)
   int count;
   int ret = -1;
   u8 length, model_chr;
+  uint8_t block_buffer[I2C_SMBUS_BLOCK_MAX + 1] = {0};
 
   mutex_lock(&data->idd_lock);
 
@@ -157,7 +162,7 @@ static int psu_convert(struct device *dev, struct device_attribute *attr)
    */
   count=10;
   while((ret < 0 || length > 32) && count--) {
-    ret = i2c_smbus_read_word_data(client, PMBUS_MFR_MODEL);
+    ret = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL, block_buffer);
     length = ret & 0xff;
     mdelay(10);
   }
@@ -179,28 +184,51 @@ static int psu_convert(struct device *dev, struct device_attribute *attr)
     return -1;
   }
 
-  model_chr = (ret >> 8) & 0xff;
-  if (length == 11 && model_chr == 'E') {
-    /* PSU model name: ECD55020006 */
-    model = DELTA_1500;
-  } else if (length == 10 && model_chr == 'P') {
-    /* PSU model name: PS-2152-5L */
-    model = LITEON_1500;
-  } else if (length == 15 && model_chr == 'P') {
-    /* PSU model name: PFE600-12-054NA for wedge100bf-32x*/
-    model = BELPOWER_600_NA;
-  } else if (length == 16 && model_chr == 'P') {
-    /* PSU model name: PFE1100-12-054NA for wedge100bf-65x */
-    model = BELPOWER_1100_NA;
-  } else if ((length == 17 || length == 21) && model_chr == 'P') {
-    /* PSU model name: PFE1500-12-054NACS457 */
-    /* PSU model name: PFE1500-12-054NACS439 for newport*/
-    model = BELPOWER_1500_NAC;
-  } else if ((length == 22 || length == 25) && model_chr == 'D') {
-    /* PSU model name: D1U54P-W-1500-12-HC4TC-AF */
-    model = MURATA_1500;
-  } else {
-    model = UNKNOWN;
+  if (strncmp(block_buffer, "PFE600-12-054NA", 15)== 0)
+  {
+      /* PSU model name: PFE600-12-054NA */
+      model = BELPOWER_600_NA;
+  }
+  else if (strncmp(block_buffer, "PFE1100-12-054NA", 16)== 0)
+  {
+      /* PSU model name: PFE1100-12-054NA */
+      model = BELPOWER_1100_NA;
+  }
+  else if (strncmp(block_buffer, "PFE1100-12-054ND", 16)== 0)
+  {
+      /* PSU model name: PFE1100-12-054NA */
+      model = BELPOWER_1100_ND;
+  }
+  else if (strncmp(block_buffer, "PFE1100-12-NAS435", 17)== 0)
+  {
+      /* PSU model name: PFE1100-12-NAS435 */
+      model = BELPOWER_1100_NAS;
+  }
+  else if (strncmp(block_buffer, "ECD55020006", 11)== 0)
+  {
+      /* PSU model name: ECD55020006 */
+      model = DELTA_1500;
+  }
+  else if (strncmp(block_buffer, "PS-2152-5L", 10)== 0)
+  {
+      /* PSU model name: PS-2152-5L */
+      model = LITEON_1500;
+  }
+  else if (strncmp(block_buffer, "PFE1500-12-054NACS457", 21)== 0 ||
+           strncmp(block_buffer, "PFE1500-12-054NACS439", 21)== 0)
+  {
+      /* PSU model name: PFE1500-12-054NACS457 */
+      /* PSU model name: PFE1500-12-054NACS439 for newport*/
+      model = BELPOWER_1500_NAC;
+  }
+  else if (strncmp(block_buffer, "D1U54P-W-1500-12-HC4TC-AF", 25)== 0)
+  {
+      /* PSU model name: D1U54P-W-1500-12-HC4TC-AF */
+      model = MURATA_1500;
+  }
+  else
+  {
+      model = UNKNOWN;
   }
 
   if(result_linear_convert(value) > 0) {
@@ -232,6 +260,7 @@ static int psu_convert_model(struct device *dev, struct device_attribute *attr)
   int count = 10;
   int ret = -1;
   u8 length, model_chr;
+  uint8_t block_buffer[I2C_SMBUS_BLOCK_MAX + 1] = {0};
 
   mutex_lock(&data->idd_lock);
   /*
@@ -240,7 +269,7 @@ static int psu_convert_model(struct device *dev, struct device_attribute *attr)
    */
 
   while((ret < 0 || length > 32) && count--) {
-    ret = i2c_smbus_read_word_data(client, PMBUS_MFR_MODEL);
+    ret = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL, block_buffer);
     length = ret & 0xff;
     mdelay(10);
   }
@@ -251,28 +280,51 @@ static int psu_convert_model(struct device *dev, struct device_attribute *attr)
 	return -1;
   }
 
-  model_chr = (ret >> 8) & 0xff;
-  if (length == 11 && model_chr == 'E') {
-    /* PSU model name: ECD55020006 */
-    model = DELTA_1500;
-  } else if (length == 10 && model_chr == 'P') {
-    /* PSU model name: PS-2152-5L */
-    model = LITEON_1500;
-  } else if (length == 15 && model_chr == 'P') {
-    /* PSU model name: PFE600-12-054NA for wedge100bf-32x*/
-    model = BELPOWER_600_NA;
-  } else if (length == 16 && model_chr == 'P') {
-    /* PSU model name: PFE1100-12-054NA for wedge100bf-65x */
-    model = BELPOWER_1100_NA;
-  } else if ((length == 17 || length == 21) && model_chr == 'P') {
-    /* PSU model name: PFE1500-12-054NACS457 */
-    /* PSU model name: PFE1500-12-054NACS439 for newport*/
-    model = BELPOWER_1500_NAC;
-  } else if ((length == 22 || length == 25) && model_chr == 'D') {
-    /* PSU model name: D1U54P-W-1500-12-HC4TC-AF */
-    model = MURATA_1500;
-  } else {
-    model = UNKNOWN;
+  if (strncmp(block_buffer, "PFE600-12-054NA", 15)== 0)
+  {
+      /* PSU model name: PFE600-12-054NA */
+      model = BELPOWER_600_NA;
+  }
+  else if (strncmp(block_buffer, "PFE1100-12-054NA", 16)== 0)
+  {
+      /* PSU model name: PFE1100-12-054NA */
+      model = BELPOWER_1100_NA;
+  }
+  else if (strncmp(block_buffer, "PFE1100-12-054ND", 16)== 0)
+  {
+      /* PSU model name: PFE1100-12-054NA */
+      model = BELPOWER_1100_ND;
+  }
+  else if (strncmp(block_buffer, "PFE1100-12-NAS435", 17)== 0)
+  {
+      /* PSU model name: PFE1100-12-NAS435 */
+      model = BELPOWER_1100_NAS;
+  }
+  else if (strncmp(block_buffer, "ECD55020006", 11)== 0)
+  {
+      /* PSU model name: ECD55020006 */
+      model = DELTA_1500;
+  }
+  else if (strncmp(block_buffer, "PS-2152-5L", 10)== 0)
+  {
+      /* PSU model name: PS-2152-5L */
+      model = LITEON_1500;
+  }
+  else if (strncmp(block_buffer, "PFE1500-12-054NACS457", 21)== 0 ||
+           strncmp(block_buffer, "PFE1500-12-054NACS439", 21)== 0)
+  {
+      /* PSU model name: PFE1500-12-054NACS457 */
+      /* PSU model name: PFE1500-12-054NACS439 for newport*/
+      model = BELPOWER_1500_NAC;
+  }
+  else if (strncmp(block_buffer, "D1U54P-W-1500-12-HC4TC-AF", 25)== 0)
+  {
+      /* PSU model name: D1U54P-W-1500-12-HC4TC-AF */
+      model = MURATA_1500;
+  }
+  else
+  {
+      model = UNKNOWN;
   }
 
   return 0;
@@ -296,6 +348,8 @@ static ssize_t psu_vin_show(struct device *dev,
       break;
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case BELPOWER_1500_NAC:
     case MURATA_1500:
       result = linear_convert(LINEAR_11, result, -1);
@@ -328,6 +382,12 @@ static ssize_t psu_iin_show(struct device *dev,
     case BELPOWER_1500_NAC:
       result = linear_convert(LINEAR_11, result, -6);
       break;
+    case BELPOWER_1100_NAS:
+      result = linear_convert(LINEAR_11, result, -6);
+      break;
+    case BELPOWER_1100_ND:
+      result = linear_convert(LINEAR_11, result, -5);
+      break;
     case MURATA_1500:
       result = linear_convert(LINEAR_11, result, -5);
       break;
@@ -358,6 +418,8 @@ static ssize_t psu_vout_show(struct device *dev,
       break;
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case BELPOWER_1500_NAC:
     case MURATA_1500:
       result = linear_convert(LINEAR_11, result, -6);
@@ -386,6 +448,8 @@ static ssize_t psu_iout_show(struct device *dev,
       result = linear_convert(LINEAR_11, result, 0);
       break;
     case BELPOWER_600_NA:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case BELPOWER_1100_NA:
       result = linear_convert(LINEAR_11, result, -3);
       break;
@@ -421,6 +485,8 @@ static ssize_t psu_temp_show(struct device *dev,
       break;
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case BELPOWER_1500_NAC:
       result = linear_convert(LINEAR_11, result, -3);
       break;
@@ -431,7 +497,8 @@ static ssize_t psu_temp_show(struct device *dev,
       break;
   }
   
-  if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA || model == BELPOWER_1100_NA)){
+  if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA 
+  || model == BELPOWER_1100_NA || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND)){
       return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
   }else{
       return scnprintf(buf, PAGE_SIZE, "%d\n", result);
@@ -456,6 +523,8 @@ static ssize_t psu_fan_show(struct device *dev,
       break;
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case BELPOWER_1500_NAC:
     case MURATA_1500:
       result = linear_convert(LINEAR_11, result, 5) / 1000;
@@ -488,6 +557,8 @@ static ssize_t psu_fan_status_show(struct device *dev,
   switch (model) {
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case BELPOWER_1500_NAC:
       while(((result < 0) || (values == 0xff)) && count--)
       {
@@ -524,6 +595,8 @@ static ssize_t psu_power_show(struct device *dev,
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case MURATA_1500:
       result = linear_convert(LINEAR_11, result, 1);
       break;
@@ -554,6 +627,8 @@ static ssize_t psu_vstby_show(struct device *dev,
       break;
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case BELPOWER_1500_NAC:
       result = linear_convert(LINEAR_11, result, -6);
       break;
@@ -584,6 +659,8 @@ static ssize_t psu_istby_show(struct device *dev,
       result = linear_convert(LINEAR_11, result, 0);
       break;
     case BELPOWER_600_NA:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case BELPOWER_1100_NA:
       result = linear_convert(LINEAR_11, result, -3);
       break;
@@ -597,7 +674,8 @@ static ssize_t psu_istby_show(struct device *dev,
       break;
   }
 
-  if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA){
+  if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA 
+    || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
     return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
   }else{
     return scnprintf(buf, PAGE_SIZE, "%d\n", result);
@@ -622,6 +700,8 @@ static ssize_t psu_pstby_show(struct device *dev,
       break;
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case BELPOWER_1500_NAC:
       result = linear_convert(LINEAR_11, result, 1);
       break;
@@ -632,7 +712,8 @@ static ssize_t psu_pstby_show(struct device *dev,
       break;
   }
   
-  if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA){
+  if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA
+    || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
     return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
   }else{
     return scnprintf(buf, PAGE_SIZE, "%d\n", result);
@@ -663,6 +744,8 @@ static ssize_t psu_model_show(struct device *dev,
     switch (model) {
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case BELPOWER_1500_NAC:
       mutex_lock(&data->idd_lock);
       while((result < 0 || length > 32) && count--) {
@@ -706,6 +789,8 @@ static ssize_t psu_serial_show(struct device *dev,
   switch (model) {
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case BELPOWER_1500_NAC:
       mutex_lock(&data->idd_lock);
       while((result < 0 || length > 32) && count--) {
@@ -749,6 +834,8 @@ static ssize_t psu_revision_show(struct device *dev,
   switch (model) {
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
+    case BELPOWER_1100_NAS:
+    case BELPOWER_1100_ND:
     case BELPOWER_1500_NAC:
       mutex_lock(&data->idd_lock);
       while((result < 0 || length > 32) && count--) {
