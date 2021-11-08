@@ -1176,7 +1176,7 @@ int read_fan_value(const int fan, const char *device, int *value) {
   char output_value[LARGEST_DEVICE_NAME];
   char full_name[LARGEST_DEVICE_NAME];
 #if defined(CONFIG_MAVERICKS)
-  if (mav_board_type == BF_BOARD_NEW) {
+  if (mav_board_type == BF_BOARD_NEW || mav_board_type == BF_BOARD_STN) { 
       snprintf(device_name, LARGEST_DEVICE_NAME, device, fan);
       snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s", PWM_DIR_NEWPORT, device_name);
   } else {
@@ -1201,7 +1201,7 @@ int write_fan_value(const int fan, const char *device, const int value) {
   char output_value[LARGEST_DEVICE_NAME];
 
 #if defined(CONFIG_MAVERICKS)
-  if (mav_board_type == BF_BOARD_NEW) {
+  if (mav_board_type == BF_BOARD_NEW || mav_board_type == BF_BOARD_STN) {
     /*fantray_pwm*/
     snprintf(full_name, LARGEST_DEVICE_NAME, "%s%s", PWM_DIR_NEWPORT, device);
   } else {
