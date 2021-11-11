@@ -262,6 +262,139 @@ def psu_check_pwr_presence(power_supply):
 
   return r
 
+def psu_cpld_present(power_supply):
+    cpld_dev = "/sys/class/i2c-adapter/i2c-12/12-0031/"
+    cmd = "cat"
+    if power_supply == 1:
+        path = cpld_dev + "psu1_present"
+    elif power_supply == 2:
+        path = cpld_dev + "psu2_present"
+    else:
+        return -1
+
+    try:
+        output = subprocess.check_output([cmd, path])
+        res = int(output, 16)
+        if res == 0:
+            return 0
+        else:
+            return 1
+    except subprocess.CalledProcessError as e:
+        return -1
+
+def psu_get_ld(param):
+    i2c_dev = "/sys/class/i2c-adapter/i2c-7/7-00"
+    platform = get_project()
+    val = param
+    try:
+        # load sharing checking
+        if val == "curr2_input":
+            if platform == "newport":
+                output = subprocess.check_output(["i2cget", "-f", "-y", "12", "0x31", "0x10"])
+                psu_sts = int(output, 16)
+                ps1_sts=((psu_sts>>4)&0x7)
+                ps2_sts=(psu_sts&0x7)
+            else: #SYSCPLD Offset 0x10 definition for PSU1 and PSU2 on other projects is contrary, so temporarily skip to comply with the origin.
+                ps1_sts=0x06
+                ps2_sts=0x06
+
+            if ps1_sts == 0x6:
+                ps = "5a/"
+                path = i2c_dev + ps + val
+                r = psu_cpld_present(1)
+                if int(r) == 0:
+                  try:
+                    output = subprocess.check_output(["cat", path])
+                    a=int(output)
+                  except subprocess.CalledProcessError as e:
+                    return -1
+                else:
+                   a=0
+            else:
+                a=0
+            if ps2_sts == 0x6:
+                ps = "59/"
+                path = i2c_dev + ps + val
+                r = psu_cpld_present(2)
+                if int(r) == 0:
+                  try:
+                    output = subprocess.check_output(["cat", path])
+                    b=int(output)
+                  except subprocess.CalledProcessError as e:
+                    return -1
+                else:
+                  b=0
+            else:
+                 b=0
+    except subprocess.CalledProcessError as e:
+        return -1
+
+    if a > 0 and b > 0 :
+        return 1
+    else :
+        return 0
+
+
+def psu_all(argv):
+    arg_psu = argv[2:]
+    i2c_dev = "/sys/class/i2c-adapter/i2c-7/7-00"
+    list = ['in0_input', 'in1_input', 'curr1_input', 'power1_input', 'fan1_input', 'fan1_fault', 'presence', 'curr2_input',  'mfr_model_label', 'mfr_serial_label', 'mfr_revision']
+    unit = ['V', 'V', 'mA', 'mW', 'rpm', 'ffault', 'presence', 'A', 'model', 'serial', 'rev']
+    # Mapping i2c bus address according to power supply number
+    # 2018.09.10 Swap PSUs mapping because of reverse.
+    if arg_psu[0] == "1":
+        power_supply = 1
+        ps = "5a/"
+    elif arg_psu[0] == "2":
+        power_supply = 2
+        ps = "59/"
+
+    try:
+        I2C_ADDR = "0x70"
+        I2C_BUS = "7"
+        OPCODE_ON = "0x3"
+        OPCODE_OFF = "0x0"
+        # Force Open I2C swtich for PFE devices. Facebook psu mon messes up i2c mux
+        subprocess.check_output(["i2cset", "-f", "-y", I2C_BUS, I2C_ADDR, OPCODE_OFF])
+        subprocess.check_output(["i2cset", "-f", "-y", I2C_BUS, I2C_ADDR, OPCODE_ON])
+    except subprocess.CalledProcessError as e:
+        print "Error while executing psu i2c command "
+        return -1
+
+    for i in range(11):
+        if list[i] == 'curr2_input':
+            ld = psu_get_ld("curr2_input")
+            if ld >= 0:
+              print "{} : {} {}".format(list[i], int(ld), unit[i])
+            else:
+              print "{} : {}".format(list[i], "error")
+        elif list[i] == 'presence':
+            r = psu_cpld_features(power_supply, "presence")
+            if r == -1:
+              print "{} : {}".format("present", "error")
+        else:
+            path = i2c_dev + ps + list[i]
+            try:
+              output = subprocess.check_output(["cat", path])
+              if unit[i] == "V":
+                print "{} : {} {}".format(list[i], float(output) / 1000, unit[i])             # convert milli volts to volts
+              elif unit[i] == "mA":
+                print "{} : {} {}".format(list[i], float(output), unit[i])                   # current is in milli Amperes
+              elif unit[i] == "mW":
+                print "{} : {} {}".format(list[i], float(output), unit[i])                   # Power in milli watts
+              elif unit[i] == "rpm":
+                print "{} : {} {}".format(list[i], int(output), unit[i])                    # Speed of FAN
+              elif unit[i] == "ffault":
+                print "{} : {}".format(list[i], int(output))
+              elif unit[i] == "model":
+                print "{} : {}".format(list[i], output)
+              elif unit[i] == "serial":
+                print "{} : {}".format(list[i], output)
+              elif unit[i] == "rev":
+                print "{} : {}".format(list[i], output)
+            except subprocess.CalledProcessError as e:
+              print "{} : {}".format(list[i], "error")
+
 #
 # Function to handle PSU related requests
 #
@@ -283,6 +416,9 @@ def psu(argv):
     if s == -1:
         error_psu_usage()
         return
+    if arg_psu[1] == "a":
+       psu_all(argv)
+       return
 
     # Mapping i2c bus address according to power supply number
     # 2018.09.10 Swap PSUs mapping because of reverse.

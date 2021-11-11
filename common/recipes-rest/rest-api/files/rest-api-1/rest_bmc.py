@@ -302,7 +302,7 @@ def get_bmc_ps_feature(param1, param2):
     return result;
 
 
-def get_bmc_ps(param1):
+def get_bmc_ps_old(param1):
 
     lock.acquire()
     l = []
@@ -555,14 +555,166 @@ def get_bmc_ps(param1):
     lock.release()
     return result;
 
+def get_bmc_ps(param1):
+    vlist = [0, 0, 0, 0, 0, 0, 0, 0,  'Error', 'Error', 'Error']
+    lock.acquire()
+    output = []
+    err = [1] * 11
+    try:
+        r = btools.psu_check_pwr_presence(int(param1))
+        if r != 0 :
+            # 0. error status
+            output.append("0")
+            output.append("absent")
+            result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+                 }
+            lock.release()
+            return result;
+    except Exception as e:
+        print("get presence error:")
+        print(e)
+        # 1. error status
+        output.append("1")
+        output.append("read present fail")
+        result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+        lock.release()
+        return result;
+
+    # input voltage data
+    arg = ['btools.py', '--PSU', '1', 'a', 'v']
+    arg[2] = str(param1)
+
+    with Capturing() as screen_op:
+        btools.main(arg)
+    data = str(screen_op)
+
+    for line in data.split(','):
+        if line.find('in0_input') != -1:
+          try:
+            t = re.findall('\d+\.\d+', line[len('in0_input'):])
+            vlist[0] = float(t[0])
+            err[0] = 0
+          except Exception as e:
+            pass
+        elif line.find('in1_input') != -1:
+          try:
+            t = re.findall('\d+\.\d+', line[len('in1_input'):])
+            vlist[1] = float(t[0])
+            err[1] = 0
+          except Exception as e:
+            pass
+        elif line.find('curr1_input') != -1:
+          try:
+            t = re.findall('\d+\.\d+', line[len('curr1_input'):])
+            vlist[2] = float(t[0])
+            err[2] = 0
+          except Exception as e:
+            pass
+        elif line.find('power1_input') != -1:
+          try:
+            t = re.findall('\d+\.\d+', line[len('power1_input'):])
+            vlist[3] = float(t[0])
+            err[3] = 0
+          except Exception as e:
+            pass
+        elif line.find('fan1_input') != -1:
+          try:
+            t = re.findall('\d+', line[len('fan1_input'):])
+            vlist[4] = int(t[0])
+            err[4] = 0
+          except Exception as e:
+            pass
+        elif line.find('fan1_fault') != -1:
+          try:
+            t = re.findall('\d+', line[len('fan1_fault'):])
+            vlist[5] = int(t[0])
+            err[5] = 0
+          except Exception as e:
+            pass
+        elif line.find('present') != -1:
+          try:
+            if line.find('error') != -1:
+              vlist[6] = 0
+            elif line.find('not') != -1:
+              err[6] = 0
+            else:
+              vlist[6] = 1
+              err[6] = 0
+          except Exception as e:
+            pass
+        elif line.find('curr2_input') != -1:
+          try:
+            if line.find('error') != -1:
+              vlist[7] = 0
+            else:
+              t = re.findall('\d+', line[len('curr2_input'):])
+              vlist[7] = int(t[0])
+              err[7] = 0
+          except Exception as e:
+            pass
+        elif line.find('mfr_model_label') != -1:
+          try:
+            aline = line.split(': ', 1)
+            t = re.findall('[\w\.-]+', aline[1])
+            vlist[8] = str(t[0])
+            err[8] = 0
+          except Exception as e:
+            pass
+        elif line.find('mfr_serial_label') != -1:
+          try:
+            aline = line.split(': ', 1)
+            t = re.findall('[\w\.-]+', aline[1])
+            vlist[9] = str(t[0])
+            err[9] = 0
+          except Exception as e:
+            pass
+        elif line.find('mfr_revision') != -1:
+          try:
+            aline = line.split(': ', 1)
+            t = re.findall('[\w\.-]+', aline[1])
+            vlist[10] = str(t[0])
+            err[10] = 0
+          except Exception as e:
+            pass
+
+    #if err is present append it to output
+    a = 0
+    for x in err:
+        if x != 0:
+            a = x
+            break
+
+    output.append(a)
+
+    for i in range(8):
+        output.append(int(vlist[i]))
+    for j in range(8, 11):
+        output.append(vlist[j])
+
+    result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+
+    lock.release()
+    return result;
+
 def get_fan_present(param1):
     p1=-1
     cmd = "/usr/local/bin/get_fantray_present.sh"
     data = Popen(cmd, \
                        shell=True, stdout=PIPE).stdout.read()
     try:
-      t = re.findall(str(param1)+' present: 0x\d', data)
-      v = re.findall('0x\d', t[0])
+      t = re.findall(str(param1)+' present: 0x[0-9A-F]+', data, re.I)
+      v = re.findall(r'0x[0-9A-F]+', t[0], re.I)
       p1=int(v[0],base=16)
     except Exception as e:
       return -1
@@ -604,17 +756,23 @@ def get_bmc_fan(param1):
         if (num > 10) or (num <= 0):
           err = 1
         elif (num > 5):
-          if (value2 & (1 << (num - 6))) == 0:
+          if value2 == -1:
+            err = 1
+          elif (value2 & (1 << (num - 6))) == 0:
             fantray_present=0
         else:
-          if (value1 & (1 << (num - 1))) == 0:
+          if value1 == -1:
+            err = 1
+          elif (value1 & (1 << (num - 1))) == 0:
             fantray_present=0
     elif platform == "montara":
         value = get_fan_present("Fantray")
         if (num > 5) or (num <= 0):
           err = 1
         else:
-          if (value1 & (1 << (num -1))) == 0:
+          if value1 == -1:
+            err = 1
+          elif (value1 & (1 << (num -1))) == 0:
             fantray_present=0
     else:
         err = 1
@@ -630,7 +788,7 @@ def get_bmc_fan(param1):
       for i in range(3):
         output.append(int(0))
 
-    output.append(hex(fantray_present))
+    output.append(int(fantray_present))
 
     result = {
                 "Information": {"Description": output},
