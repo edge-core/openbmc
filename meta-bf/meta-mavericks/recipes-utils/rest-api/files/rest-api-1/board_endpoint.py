@@ -42,3 +42,10 @@ def rest_cpld_get(param1, param2):
 def rest_cpld_set(param1, param2, param3):
     return rest_cpld.set_reg(param1, param2, param3)
 
+@boardApp.route('/api/sys/fancpldget/<param1>/<param2>/<param3>')
+def rest_cpld_get(param1, param2, param3):
+    return rest_cpld.get_fan_reg(param1, param2, param3)
+
+@boardApp.route('/api/sys/fancpldset/<param1>/<param2>/<param3>/<param4>')
+def rest_cpld_set(param1, param2, param3, param4):
+    return rest_cpld.set_fan_reg(param1, param2, param3, param4)

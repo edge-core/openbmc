@@ -64,3 +64,45 @@ def set_reg(param1, param2, param3):
                 "Resources": [],
              }
     return result
+
+def get_fan_reg(param1, param2, param3):
+    cmd = "/usr/sbin/i2cget -y -f %s %s %s" % (param1, param2, param3)
+    register = ''
+    p = subprocess.Popen(cmd,
+                         shell=True,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
+    out, err = p.communicate()
+    rc = p.returncode
+
+    if rc < 0:
+        status = 'failed with returncode = ' + str(rc) + ' and error ' + err
+    else:
+        status = 'done'
+        register = out.split()[0]
+    result = {
+                "Information": {"status" : status, "register" : register},
+                "Actions": [],
+                "Resources": [],
+             }
+    return result
+
+def set_fan_reg(param1, param2, param3, param4):
+    cmd = "/usr/sbin/i2cset -y -f %s %s %s %s" % (param1, param2, param3, param4)
+    p = subprocess.Popen(cmd,
+                         shell=True,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
+    out, err = p.communicate()
+    rc = p.returncode
+
+    if rc < 0:
+        status = 'failed with returncode = ' + str(rc) + ' and error ' + err
+    else:
+        status = 'done'
+    result = {
+                "Information": {"status" : status},
+                "Actions": [],
+                "Resources": [],
+             }
+    return result
