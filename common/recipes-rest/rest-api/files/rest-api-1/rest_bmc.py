@@ -725,6 +725,7 @@ def get_bmc_fan(param1):
 
     output = []
     err = 0
+    errnum = 0
     error = ["error", "Error", "ERROR"]
     fantray_present=1
 
@@ -737,7 +738,26 @@ def get_bmc_fan(param1):
     if any(x in data for x in error):
         err = 1
 
-    num = int(param1)
+    if param1 == "Mavericks" or param1 == "Montara" or param1 == "Newport" or param1 == "Stinson":
+      num = 0
+    else:
+      try:
+        num = int(param1)
+      except Exception as e:
+        print(e)
+        # 1. error status
+        output.append(1)
+        output.append(param1)
+        for i in range(3):
+          output.append(int(0))
+        result = {
+                "Information": {"Description": output},
+                "Actions": [],
+                "Resources": [],
+             }
+        output.append(int(fantray_present))
+        return result;
+
     if platform == "newport" or platform == "stinson":
         data1 = data
         cmd = "/usr/local/bin/get_fantray_present.sh"
@@ -751,42 +771,61 @@ def get_bmc_fan(param1):
             i += 2
         data = data1
     elif platform == "mavericks" or platform == "mavericks-p0c":
-        value1 = get_fan_present("Fantray")
-        value2 = get_fan_present("Fantray_upper")
-        if (num > 10) or (num <= 0):
-          err = 1
-        elif (num > 5):
-          if value2 == -1:
+        if param1 == "Mavericks":
+          value2 = get_fan_present("Fantray_upper")
+          value1 = get_fan_present("Fantray")
+          if value1 == -1 or value2 == -1:
             err = 1
-          elif (value2 & (1 << (num - 6))) == 0:
+            errnum = 11
+          elif value1 == 0 and value2 == 0:
+            fantray_present=0
+        elif (num <= 10) and (num > 5):
+          value = get_fan_present("Fantray_upper")
+          if value == -1:
+            err = 1
+          elif (value & (1 << (num - 6))) == 0:
+            fantray_present=0
+        elif (num <= 5) and (num > 0):
+          value = get_fan_present("Fantray")
+          if value == -1:
+            err = 1
+          elif (value & (1 << (num - 1))) == 0:
             fantray_present=0
         else:
-          if value1 == -1:
-            err = 1
-          elif (value1 & (1 << (num - 1))) == 0:
-            fantray_present=0
+          err = 1
     elif platform == "montara":
         value = get_fan_present("Fantray")
-        if (num > 5) or (num <= 0):
-          err = 1
-        else:
-          if value1 == -1:
+        if param1 == "Montara":
+          if value == -1:
             err = 1
-          elif (value1 & (1 << (num -1))) == 0:
+            errnum = 6
+          elif value == 0:
             fantray_present=0
+        elif (num > 0) and (num <= 5):
+          if value == -1:
+            err = 1
+          elif (value & (1 << (num -1))) == 0:
+            fantray_present=0
+        else:
+          err = 1
     else:
         err = 1
 
     output.append(err)
 
-    if fantray_present == 0:
+    if errnum > 0:
+      for num in range(1, errnum):
+        output.append(num)
+        for i in range(3):
+          output.append(int(0))
+    elif err == 1:
+      output.append(param1)
+      for i in range(3):
+        output.append(int(0))
+    else:
       t = re.findall('\d+', data)
       for x in t:
         output.append(int(x))
-    else:
-      output.append(int(num))
-      for i in range(3):
-        output.append(int(0))
 
     output.append(int(fantray_present))
 
