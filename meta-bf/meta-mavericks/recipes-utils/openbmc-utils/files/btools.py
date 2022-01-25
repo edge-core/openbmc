@@ -1810,7 +1810,7 @@ def ir_voltage_set_montara(arg_ir):
       else:
         error_ir_usage()
         return
-        
+
       set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     else:
@@ -2169,11 +2169,11 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
         margin_cmd = IR_VOUT_CMD
         margin_apply = IR_MARGIN_OFF
         voltage = VOLT_NORMAL
-        
+
       else:
         error_ir_usage()
         return
-        
+
       set_ir_voltage(arg_ir[2], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     elif arg_ir[2] == "VDD_CORE":
@@ -2202,7 +2202,7 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
       else:
         error_ir_usage()
         return
-        
+
       set_ir_voltage(arg_ir[2], UPPER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     elif arg_ir[2] == "QSFP_UPPER":
@@ -2258,7 +2258,7 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
       else:
         error_ir_usage()
         return
-        
+
       set_ir_voltage(arg_ir[2], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     elif arg_ir[2] == "RETIMER_VDD":
@@ -2289,7 +2289,7 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
 
       else:
         error_ir_usage()
-        return   
+        return
 
       set_ir_voltage(arg_ir[2], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
@@ -2321,7 +2321,7 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
       else:
         error_ir_usage()
         return
-        
+
       set_ir_voltage(arg_ir[2], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     elif arg_ir[2] == "REPEATER":
@@ -2352,7 +2352,7 @@ def ir_voltage_set_mavericks(arg_ir, p0c):
       else:
         error_ir_usage()
         return
-        
+
       set_ir_voltage(arg_ir[2], LOWER_IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
 
     else:
@@ -2479,6 +2479,29 @@ def error_tmp_usage():
     return
 
 #
+# Temperature Convert Formula
+#
+TMP_MAC_MANU_ID_MAX6658=0x4D
+TMP_MAC_MANU_ID_TMP43x=0x55
+def convert_tmp(manu_id,tmp_o):
+    manu_id=int(manu_id, 16)
+    if manu_id == TMP_MAC_MANU_ID_MAX6658:
+        if tmp_o&0x80 > 0:
+            tmp = tmp_o-256
+        else:
+            tmp = tmp_o
+    elif manu_id == TMP_MAC_MANU_ID_TMP43x:
+        if tmp_o&0x80 > 0:
+            tmp = tmp_o-64
+        else:
+            tmp = tmp_o
+    else:
+        syslog.syslog(syslog.LOG_INFO, "btools.py Warning: MANU_ID %02X is not in the supported list" % (manu_id))
+        tmp = tmp_o
+
+    return tmp
+
+#
 # Lower board temperature sensors. Board exists on Montara, Mavericks and Newport
 #
 def tmp_lower(board):
@@ -2491,8 +2514,6 @@ def tmp_lower(board):
                   4: "4b/temp1_input",
                   5: "4c/temp1_input"}
 
-    cmd = "cat"
-
     if board == "Mavericks":
         x = 6
     else:
@@ -2502,14 +2523,14 @@ def tmp_lower(board):
 
         path = i2c_dev + tmp_sensor.get(i)
         try:
-
+            cmd = "cat"
             output = subprocess.check_output([cmd, path])
             print " TMP SENSOR %.2d                  %.3f C" % (i,
                                                           float(output) / 1000)
 
         except subprocess.CalledProcessError as e:
             print e
-            print "Error occured while reading Temperature sensor %d " % i
+            print "Error occured while processing TMP SENSOR %d" % i
 
     if board == "Montara" or board == "Newport" or board == "Stinson" or board == "Davenport":
 
@@ -2518,46 +2539,55 @@ def tmp_lower(board):
         # System Assembly Part Number xxx-000004-03 is for R0B. - Aug. 14, 2020
         sys_pn = get_sys_assembly_pn()
         if board == "Newport" and sys_pn.find("000004-02") > 0:
-            syslog.syslog(syslog.LOG_INFO, "Turn On for PVT reading (%s)" % (sys_pn.rstrip()))
+            syslog.syslog(syslog.LOG_INFO, "btools.py TMP: Turn On for PVT reading (%s)" % (sys_pn.rstrip()))
             np_tvp_workaround = 1
         else:
-            syslog.syslog(syslog.LOG_INFO, "Turn Off for PVT reading (%s)" % (sys_pn.rstrip()))
+            syslog.syslog(syslog.LOG_INFO, "btools.py TMP: Turn Off for PVT reading (%s)" % (sys_pn.rstrip()))
             np_tvp_workaround = 0
 
-        cmd = "i2cget"
-
         try:
+            cmd = "i2cget"
+            #TMP SENSORS 05:
             output = subprocess.check_output([cmd, "-f", "-y", "3", "0x4d",
                                              "0x00", "w"])
             output = int(output, 16)
             t = (output & 0xff) << 8
             d = (output & 0xff00) >> 8
             swp_output = t+d
-            # TMP75's resolution is 12.
             resolution = 12
             t1 = ((swp_output >> (16-resolution)) * 1000) >> (resolution-8)
             if (output & 0xff) > 127:
                 t1 = t1-256000
-
             print " TMP SENSOR %.2d                  %.3f C" % (5, float(t1)/1000)
 
+            # Destinguish the 0x4C, MAX6658/TMP431/TMP432
+            manu_id = subprocess.check_output([cmd, "-f", "-y", "3",
+                                               "0x4c", "0xFE"])
+            TMP_MAC_MANU_ID = hex(int(manu_id, 16))
+
+            #TMP SENSORS LOCAL:
             output = subprocess.check_output([cmd, "-f", "-y", "3",
                                              "0x4c", "0x00"])
             output = int(output, 16)
-            print " TMP SENSOR MAX LOCAL           %.3f C" % output
+            output=convert_tmp(TMP_MAC_MANU_ID, output)
+            print " TMP SENSOR LOCAL               %.3f C" % output
 
-            if np_tvp_workaround == 0: # read regular thermistor thru BMC i2c instead
+            if np_tvp_workaround == 0:
+              #TMP SENSORS REMOTE1:
               output = subprocess.check_output([cmd, "-f", "-y", "3",
                                              "0x4c", "0x01"])
               output = int(output, 16)
-              print " TMP SENSOR MAX Tofino          %.3f C" % (output)
+              output=convert_tmp(TMP_MAC_MANU_ID, output)
+              print " TMP SENSOR REMOTE Tofino       %.3f C" % (output)
 
               if board == "Stinson" or board == "Davenport":
-                # read the remote temperature2 channel
+                #TMP SENSORS REMOTE2:
                 output = subprocess.check_output([cmd, "-f", "-y", "3",
                                                "0x4c", "0x23"])
                 output = int(output, 16)
-                print " TMP SENSOR MAX Tofino-1        %.3f C" % (output)
+                output=convert_tmp(TMP_MAC_MANU_ID, output)
+                print " TMP SENSOR REMOTE Tofino-1       %.3f C" % (output)
+
             else:  # read PVT register thru BMC i2c instead
               cmd = "/usr/local/bin/i2c_set_get"
               open_upper_PCA9548_lock() # using the same lock mechanism though the name is not quite right
@@ -2569,17 +2599,17 @@ def tmp_lower(board):
               upper = int(oplist[1], 0) & 0x3
               valid = int(oplist[1], 0) & 0x10
               if valid == 0: # reading is not valid
-                print " TMP SENSOR MAX Tofino 0.0 C"
+                print " TMP SENSOR Tofino 0.0 C"
                 return
               upper = (upper << 8) | lower
               x = float(upper)
               x2 = x * x
               temperature = (x2 * (-0.000011677)) + (x * 0.28031) - 66.599
-              print " TMP SENSOR MAX Tofino          %.3f C" % (temperature)
+              print " TMP SENSOR Tofino          %.3f C" % (temperature)
 
         except subprocess.CalledProcessError as e:
             print e
-            print "Error occured while reading Temperature sensor %d " % i
+            print "Error occured while processing i2cget for TMP SENSOR 05/LOCAL/REMOTE"
 
     return
 
@@ -2588,28 +2618,23 @@ def tmp_lower(board):
 #
 def tmp_upper(p0c):
 
-    TMP75_I2C_BUS = "9"
     if (p0c == 1):
       TMP75_I2C_ADDR = {1: "0x48", 2: "0x49", 3: "0x4a", 4: "0x4b"}
       #TMP75_I2C_ADDR = {1: "0x4d", 2: "0x4e", 3: "0x4a", 4: "0x4b"}
     else:
       TMP75_I2C_ADDR = {1: "0x48", 2: "0x49", 3: "0x4a", 4: "0x4b"}
 
-    TMP75_READ_OP = "0x00"
-
     for i in range(1, 5):
 
         try:
-
-            get_cmd = "i2cget"
+            cmd = "i2cget"
             a = tmp_open_i2c_switch()
             while (a < 0):
                time.sleep(0.010) # 10ms
                a = tmp_open_i2c_switch()
-            output = subprocess.check_output([get_cmd, "-f", "-y",
-                                             TMP75_I2C_BUS,
+            output = subprocess.check_output([cmd, "-f", "-y", "9",
                                              TMP75_I2C_ADDR.get(i),
-                                             TMP75_READ_OP, "w"])
+                                             "0x00", "w"])
             tmp_restore_i2c_switch(a)
             output = int(output, 16)
 
@@ -2631,39 +2656,36 @@ def tmp_upper(p0c):
             print "Error occured while processing i2cget for Tmp75 %.2d " % (i)
             tmp_restore_i2c_switch(a)
 
-
-    TMP_MAX_I2C_BUS = "9"
-    TMP_MAX_I2C_ADDR = "0x4c"
-    TMP_MAX_READ_OP = "0x00"
-    TMP_MAX_READ_EXT_OP = "0x01"
-
     try:
-        get_cmd = "i2cget"
+        cmd = "i2cget"
         a = tmp_open_i2c_switch()
         while (a < 0):
           time.sleep(0.010) # 10ms
           a = tmp_open_i2c_switch()
 
-        output = subprocess.check_output([get_cmd, "-f", "-y",
-                                          TMP_MAX_I2C_BUS,
-                                          TMP_MAX_I2C_ADDR,
-                                          TMP_MAX_READ_OP])
+        # Destinguish the 0x4C, MAX6658/TMP431/TMP432
+        manu_id = subprocess.check_output([cmd, "-f", "-y", "9",
+                                           "0x4c", "0xFE"])
+        TMP_MAC_MANU_ID = hex(int(manu_id, 16))
+
+        # TMP UPPER SENSORS LOCAL:
+        output = subprocess.check_output([cmd, "-f", "-y", "9",
+                                          "0x4c", "0x00"])
         output = int(output, 16)
+        output=convert_tmp(TMP_MAC_MANU_ID, output)
+        print " TMP SENSOR UPPER LOCAL     %.2d.000 C" % (output)
 
-        print " TMP SENSOR UPPER MAX LOCAL     %.2d.000 C" % (output)
-
-        output = subprocess.check_output([get_cmd, "-f", "-y",
-                                          TMP_MAX_I2C_BUS,
-                                          TMP_MAX_I2C_ADDR,
-                                          TMP_MAX_READ_EXT_OP])
+        # TMP UPPER SENSORS REMOTE:
+        output = subprocess.check_output([cmd, "-f", "-y", "9",
+                                          "0x4c", "0x01"])
         tmp_restore_i2c_switch(a)
         output = int(output, 16)
-
-        print " TMP SENSOR UPPER MAX TOFINO    %.2d.000 C" % (output)
+        output=convert_tmp(TMP_MAC_MANU_ID, output)
+        print " TMP SENSOR UPPER REMOTE Tofino    %.2d.000 C" % (output)
 
     except subprocess.CalledProcessError as e:
         print e
-        print "Error occured while processing i2cget for Tmp MAX sensor"
+        print "Error occured while processing i2cget for TMP SENSOR UPPER LOCAL/REMOTE"
         tmp_restore_i2c_switch(a)
 
     return
