@@ -161,7 +161,7 @@ def get_bmc_tmp(param1):
                 output.append(int(0))
             pass
 
-    if platform == "montara" or platform == "newport" or platform == "stinson":
+    if platform == "montara" or platform == "newport" or platform == "stinson" or platform == "davenport":
         try:
             for i in range(0, 5):
                 output.append(int(l[2*i + 1] * 10))
@@ -198,7 +198,7 @@ def get_bmc_ucd():
 
     arg = ['btools.py', '--UCD', 'sh', 'v']
 
-    if platform == "mavericks-p0c" or platform == "newport" or platform == "stinson":
+    if platform == "mavericks-p0c" or platform == "newport" or platform == "stinson" or platform == "davenport":
         valid_range = 16
     if platform == "mavericks":
         valid_range = 15
@@ -738,7 +738,7 @@ def get_bmc_fan(param1):
     if any(x in data for x in error):
         err = 1
 
-    if param1 == "Mavericks" or param1 == "Montara" or param1 == "Newport" or param1 == "Stinson":
+    if param1 == "Mavericks" or param1 == "Montara" or param1 == "Newport" or param1 == "Stinson" or param1 == "Davenport":
       num = 0
     else:
       try:
@@ -758,7 +758,7 @@ def get_bmc_fan(param1):
         output.append(int(fantray_present))
         return result;
 
-    if platform == "newport" or platform == "stinson":
+    if platform == "newport" or platform == "stinson" or platform == "davenport":
         data1 = data
         cmd = "/usr/local/bin/get_fantray_present.sh"
         data = Popen(cmd, \
@@ -844,7 +844,7 @@ def set_bmc_fan(param1, param2, param3):
     err = 0
 
     platform = btools.get_project()
-    if platform == "newport" or platform == "stinson":
+    if platform == "newport" or platform == "stinson" or platform == "davenport":
         cmd = "/usr/local/bin/set_fan_speed.sh %s" % (param3)
     else:
         cmd = "/usr/local/bin/set_fan_speed.sh %s %s %s" % (param3, param2, param1)

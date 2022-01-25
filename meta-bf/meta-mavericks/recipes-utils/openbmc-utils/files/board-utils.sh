@@ -198,7 +198,7 @@ wedge_power_on_board() {
     # power on main power, uServer power, and enable power button
     val=$(cat $PWR_MAIN_SYSFS | head -n 1)
     if [ "$val" != "0x1" ]; then
-        if [ "$board_subtype" == "Newport" ] ; then
+        if [ "$board_subtype" == "Newport" -o "$board_subtype" == "Stinson" -o "$board_subtype" == "Davenport" -o "$board_subtype" == "Pescadero" ] ; then
             echo 1 > $PWR_USRV_SYSFS
             echo "setting pwr_usrv_en also for $board_subtype"
         fi

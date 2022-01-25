@@ -417,7 +417,7 @@ static const i2c_dev_attr_st fancpld_attr_table[] = {
   },
 };
 
-/* table for both newport and stinson */
+/* table for both newport, stinson and davenport */
 static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
   {
     "board_rev",
@@ -618,7 +618,7 @@ static const i2c_dev_attr_st fancpld_attr_table_newport[] = {
     NULL,
     0x27, 0, 8,
   },
-  /* fan13 fan14 _input is stinson specific only*/
+  /* fan13 fan14 _input is stinson specific only */
   {
     "fan13_input",
     NULL,

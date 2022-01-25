@@ -120,6 +120,9 @@ do_on_com_e() {
 
         return 0
     fi
+    if [ "$board_subtype" == "Stinson" ] || [ "$board_subtype" == "Davenport" ] || [ "$board_subtype" == "Pescadero" ] ; then
+        echo 1 > $PWR_USRV_EN_SYSFS
+    fi
     echo 1 > $PWR_USRV_SYSFS
     return $?
 }

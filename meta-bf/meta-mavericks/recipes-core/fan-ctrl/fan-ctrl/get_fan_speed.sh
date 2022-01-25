@@ -33,7 +33,7 @@ elif [ "$board_subtype" == "Montara" ]; then
     maxnfans=5
     FANS="1 2 3 4 5"
     FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0033
-elif [ "$board_subtype" == "Newport" ]; then
+elif [ "$board_subtype" == "Newport" ] || [ "$board_subtype" == "Davenport" ] ; then
     maxnfans=6
     FANS="1 2 3 4 5 6"
     FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0066
@@ -50,6 +50,8 @@ usage() {
         echo "Usage: $0 [Fan Unit (1..6)] [board type (Newport)]" >&2
     elif [ "$board_type" == "STINSON" ]; then
         echo "Usage: $0 [Fan Unit (1..7)] [board type (Stinson)]" >&2
+    elif [ "$board_type" == "DAVENPORT" ]; then
+        echo "Usage: $0 [Fan Unit (1..6)] [board type (Davenport)]" >&2
     fi
 }
 
@@ -148,6 +150,11 @@ if [ "$#" -eq 1 ]; then
             echo "Error: This is $board_subtype"
             exit 1
         fi
+    elif [ $1 = "Davenport" ]; then
+        if [ "$board_subtype" != "Davenport" ]; then
+            echo "Error: This is $board_subtype"
+            exit 1
+        fi
     elif [ $1 -gt 0 ] 2>/dev/null ; then
         if [ $1 -gt $maxnfans ]; then
             echo "Error: The max of fan unit is $maxnfans"
@@ -179,6 +186,11 @@ elif [ "$#" -eq 2 ]; then
             echo "Error: This is $board_subtype"
             exit 1
         fi
+    elif [ $2 = "Davenport" ]; then
+        if [ "$board_subtype" != "Davenport" ]; then
+            echo "Error: This is $board_subtype"
+            exit 1
+        fi
     else
         usage
         exit 1
@@ -199,9 +211,9 @@ fi
 for fan in $FANS; do
     if [ "$board_type" == "MAVERICKS" ]; then
         echo "Fan $fan RPMs: $(show_rpm $fan), ($(show_pwm $fan))"
-    elif [ "$board_type" == "NEWPORT" ]; then
+    elif [ "$board_type" == "NEWPORT" ] || [ "$board_type" == "DAVENPORT" ] ; then
         echo "Fan $fan RPMs: $(show_rpm_newport $fan), ($(show_pwm_newport))"
-    elif [ "$board_type" == "STINSON" ]; then
+    elif [ "$board_type" == "STINSON" ] ; then
         echo "Fan $fan RPMs: $(show_rpm_stinson $fan), ($(show_pwm_newport))"
     fi
 done

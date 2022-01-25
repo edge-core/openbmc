@@ -33,6 +33,9 @@ elif [ "$board_subtype" == "Montara" ]; then
 elif [ "$board_type" == "NEWPORT" ]; then
     FANS="1 2 3 4 5 6"
     FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0066
+elif [ "$board_type" == "DAVENPORT" ]; then
+    FANS="1 2 3 4 5 6"
+    FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0066
 elif [ "$board_type" == "STINSON" ]; then
     FANS="1 2 3 4 5 6 7"
     FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0066
@@ -44,7 +47,7 @@ show_present()
         fantray_pres="${1}/fantray_present"
     elif [ "$board_subtype" == "Montara" ]; then
         fantray_pres="${FAN_DIR}/fantray_present"
-    elif [ "$board_type" == "NEWPORT" ] || [ "$board_type" == "STINSON" ]; then
+    elif [ "$board_type" == "NEWPORT" ] || [ "$board_type" == "STINSON" ] || [ "$board_type" == "DAVENPORT" ] ; then
         fantray_pres="${FAN_DIR}/fantray${1}_present"
     fi
     echo "$(cat $fantray_pres)"
@@ -58,7 +61,7 @@ if [ "$board_subtype" == "Mavericks" ]; then
     echo "Fantray_upper present: $(show_present ${FAN_DIR_UPPER})"
 elif [ "$board_subtype" == "Montara" ]; then
     echo "Fantray present: $(show_present)"
-elif [ "$board_type" == "NEWPORT" ] || [ "$board_type" == "STINSON" ]; then
+elif [ "$board_type" == "NEWPORT" ] || [ "$board_type" == "STINSON" ] || [ "$board_type" == "DAVENPORT" ] ; then
     for fan in $FANS; do
         echo "Fan $fan present: $(show_present $fan)"
     done

@@ -2511,7 +2511,7 @@ def tmp_lower(board):
             print e
             print "Error occured while reading Temperature sensor %d " % i
 
-    if board == "Montara" or board == "Newport" or board == "Stinson":
+    if board == "Montara" or board == "Newport" or board == "Stinson" or board == "Davenport":
 
         # Restore thermal sensor access from Newport R0B
         # System Assembly Part Number xxx-000004-02 is for R0A
@@ -2552,7 +2552,7 @@ def tmp_lower(board):
               output = int(output, 16)
               print " TMP SENSOR MAX Tofino          %.3f C" % (output)
 
-              if board == "Stinson":
+              if board == "Stinson" or board == "Davenport":
                 # read the remote temperature2 channel
                 output = subprocess.check_output([cmd, "-f", "-y", "3",
                                                "0x4c", "0x23"])
