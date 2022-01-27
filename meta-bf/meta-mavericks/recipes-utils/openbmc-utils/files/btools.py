@@ -13,7 +13,7 @@ import syslog
 import fcntl
 
 h_platforms = "montara/mavericks/newport"
-h_platforms_with_p0c = "montara/mavericks/mavericks-p0c/newport"
+h_platforms_with_p0c = "montara/mavericks/mavericks-p0c/newport/stinson"
 
 nolimit_ir_vdd_core = 0
 
@@ -111,6 +111,8 @@ def get_project():
         board_type = "mavericks-p0c"
     elif board_type.lower() == "newports" or board_type.lower() == "newport":
         board_type = "newport"
+    elif board_type.lower() == "stinson":
+        board_type = "stinson"
     else:
         print "Error: undefined board type [%s], defaulting to Montara" % board_type
         board_type = "montara"
@@ -737,6 +739,78 @@ def ucd_rail_voltage_newport():
     return
 
 #
+# Displays all rails voltages stinson
+#
+def ucd_rail_voltage_stinson():
+
+    i = 1
+
+    UCD_I2C_BUS = "2"
+    UCD_I2C_ADDR = "0x34"
+    UCD_READ_OP = "0x8b"
+    UCD_PAGE_OP = "0x00"
+    UCD_VOUT_MODE_OP = "0x20"
+
+    print " "
+    print " RAIL                          Voltage(V)"
+
+    string = {1: "01** - VDD12V_FUSED_2", 2: "02 - VDD1_1V", 3: "03** - VDD5V_stby_IR", 4: "04 - VDD5V_stby",
+              5: "05* - VDD3_3V", 6: "06** - VDD2_5V", 7: "07 - VDD3_3V_stby", 8: "08 - VDD2_5V_stby",
+              9: "09 - VDD1_2V_stby", 10: "10 - VDD1_8V", 11: "11 - VDD1_8V_stby", 12: "12 - VDD1_5V_stby",
+              13: "13* - VDDAH_1_2V", 14: "14* - VDDL_CORE_0_65V", 15: "15* - VDDAL_0_75V", 16: "16* - VDD_CORE_0_70V"}
+    index = 16
+
+# Parse 1 to 16 voltage rails
+    for i in range(0, index):
+
+        try:
+            set_cmd = "i2cset"
+            output = subprocess.check_output([set_cmd, "-f", "-y", UCD_I2C_BUS,
+                                     UCD_I2C_ADDR, UCD_PAGE_OP, str(hex(i))])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing i2cset for rail %.2d " % i
+            continue
+
+        try:
+            get_cmd = "i2cget"
+            mantissa = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
+                                               UCD_I2C_ADDR, UCD_READ_OP, "w"])
+
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing i2cget for rail %.2d " % i
+            continue
+
+        try:
+            # i2cget -f -y 2 0x34 0x20
+            get_cmd = "i2cget"
+            exponent = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
+                                               UCD_I2C_ADDR, UCD_VOUT_MODE_OP])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing i2cget for rail %.2d " % i
+            continue
+
+        # 2 ^ exponent
+        # exponent is 5 bit signed value. Thus calculating first exponent.
+        # It is based on UCD90120A device spec section 2.2
+        exp = int(exponent, 16) | ~0x1f
+        exp = ~exp + 1
+        div = 1 << exp
+
+        mantissa = int(mantissa, 16)
+
+        print "  %-*s          %.3f" % (20, string.get(i + 1), float(mantissa) / float(div))
+
+    print "  "
+    print "* voltages can be margined by IR CLI only "
+    print "** voltages cannot be margined "
+    print "  "
+
+    return
+
+#
 # Displays all rails voltages mavericks
 #
 def ucd_rail_voltage_mavericks(poc):
@@ -1005,7 +1079,7 @@ def ucd_voltage_margin(platform, arg):
         if not 1 <= int(arg[1]) <= 16:
              error_ucd_usage()
              return
-    elif platform == "montara" or platform == "newport":
+    elif platform == "montara" or platform == "newport" or platform == "stinson":
         if not 1 <= int(arg[1]) <= 12:
              error_ucd_usage()
              return
@@ -1109,6 +1183,8 @@ def ucd(argv):
             ucd_rail_voltage_montara()
         elif platform == "newport":
             ucd_rail_voltage_newport()
+        elif platform == "stinson":
+            ucd_rail_voltage_stinson()
         else :
             error_ucd_usage()
             return
@@ -1416,6 +1492,135 @@ def ir_voltage_show_newport(arg_ir):
             print "IR %-*s       %.3f V    %.3f A      %.3f W" % (15, string.get(i), v, amp, (v * amp))
     return
 
+def ir_voltage_show_stinson(arg_ir):
+
+    IR_I2C_BUS = "0x1"
+    IR_PMBUS_ADDR = {1: "0x40", 2: "0x40", 3: "0x47", 4:"0x47", 5:"0x58"}
+    IR_VOUT_MODE_OP = "0x20"
+    IR_READ_VOUT_OP = "0x8b"
+    IR_READ_IOUT_OP = "0x8c"
+    IR_READ_POUT_OP = "0x96"
+    IR_READ_TEMP1_OP = "0x8d"
+    PAGE_ADDR = "0"
+    string = {1: "VDD_CORE", 2: "VDDAH", 3: "VDDL_CORE", 4:"VDDAL", 5:"VDD_QSFP_3.3V"}
+    for i in range(1, 6):
+        try:
+            get_cmd = "i2cget"
+            if i == 4 or i == 2:
+                set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "1")
+            else:
+                set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "0")
+
+            exponent = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                     IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
+        except subprocess.CalledProcessError as e:
+            print e
+            print "Error occured while processing VOUT_MODE for IR "
+            continue
+
+        # 2 ^ exponent
+        # exponent is 5 bit signed value. Thus calculating first exponent.
+
+        exp = int(exponent, 16) | ~0x1f
+        exp = ~exp + 1
+        div = 1 << exp
+
+        if arg_ir[1] == "pout":
+            try:
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                             IR_PMBUS_ADDR.get(i), IR_READ_POUT_OP, "w"])
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for IR pout"
+                continue
+
+            m = int(mantissa, 16) & 0x07ff
+
+            # 2 ^ exponent
+            # exponent is 5 bit signed value. Thus calculating first exponent.
+            exp = int(mantissa, 16) & 0xf800
+            exp = exp >> 11
+            exp = ~exp + 1
+            exp = exp & 0x1f
+            div = 1 << exp
+
+            pout = (float(m)/float(div))
+
+            print "IR %-*s       %.3f W" % (15, string.get(i), pout)
+        elif arg_ir[1] == "temp1":
+            try:
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                             IR_PMBUS_ADDR.get(i), IR_READ_TEMP1_OP, "w"])
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for IR temp1"
+                continue
+
+            m = int(mantissa, 16) & 0x07ff
+
+            # 2 ^ exponent
+            # exponent is 5 bit signed value. Thus calculating first exponent.
+            exp = int(mantissa, 16) & 0xf800
+            exp = exp >> 11
+            exp = ~exp + 1
+            exp = exp & 0x1f
+            div = 1 << exp
+
+            temp1 = (float(m)/float(div))
+
+            print "IR %-*s       %.3f C" % (15, string.get(i), temp1)
+        else:
+            try:
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                             IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for IR "
+                continue
+
+            mantissa = int(mantissa, 16)
+
+            v = (float(mantissa)/float(div))
+
+            # As referred by hardware spec QSFP voltage need to be * 2
+            if i == 5:
+                # QSFP rail IR device XDPE12284 has vid=3 (not linear conversion)
+                v = float(mantissa)
+                if v >= 1:
+                  v = ((v - 1) * 10) + 200
+                else:
+                  v = 0
+                v = (v * 2) / 1000
+
+            # find current
+            try:
+                # i2cget -f -y 1 0x70 0x8c w
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                            IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for IR "
+                continue
+
+            m = int(mantissa, 16) & 0x07ff
+
+            # 2 ^ exponent
+            # exponent is 5 bit signed value. Thus calculating first exponent.
+            exp = int(mantissa, 16) & 0xf800
+            exp = exp >> 11
+            exp = ~exp + 1
+            exp = exp & 0x1f
+            div = 1 << exp
+
+            amp = (float(m)/float(div))
+
+            print "IR %-*s       %.3f V    %.3f A      %.3f W" % (15, string.get(i), v, amp, (v * amp))
+    return
+
 def ir_voltage_show_mavericks(poc):
 
     #a = ir_open_i2c_switch()
@@ -1593,6 +1798,9 @@ def error_ir_usage():
     print "                                       VDDA_1.7V     (new only)"
     print "                                       VDDT_0.9V     (new only)"
     print "                                       VDDA_AGC_1.8V (new only)"
+    print "                                       VDDAH         (stinson only)"
+    print "                                       VDDAL         (stinson only)"
+    print "                                       VDDL_CORE     (stinson only)"
     print ""
     # Commenting this part as nobody other than Barefoot Hardware team should touch this functionality
     #print "./btools.py --IR set_vdd_core [%s] <voltage>               => Set IR voltages margin for VDD_CORE" % h_platforms
@@ -2122,6 +2330,183 @@ def ir_voltage_set_newport(arg_ir):
 
     return
 
+def ir_voltage_set_stinson(arg_ir):
+
+    IR_I2C_BUS = "0x1"
+    IR_PMBUS_ADDR = {1: "0x40", 2: "0x40", 3: "0x47", 4:"0x47", 5:"0x58"}
+    PAGE_ADDR = "0"
+    string = {1: "VDD_CORE", 2: "VDDAH", 3: "VDDL_CORE", 4:"VDDAL", 5:"QSFP"}
+
+    IR_MARGIN_LOW_AOF_OP = "0x98"
+    IR_MARGIN_HIGH_AOF_OP = "0xA8"
+    IR_MARGIN_OFF = "0x80"
+    IR_OPERATION = "0x1"
+
+    IR_VOUT_MARGIN_HIGH = "0x25"
+    IR_VOUT_MARGIN_LOW = "0x26"
+    IR_VOUT_CMD = "0x21"
+
+    if arg_ir[2] == "VDDL_CORE":
+
+      # set page register in IR
+      set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(3), "0")
+      # margin voltage +3% -3%  0x1b6=>438
+      # VOLT_NORMAL = "0x180" for 1.5V
+      # VOLT_MARGIN_HIGH = "0x18C" for 15V
+      # VOLT_MARGIN_LOW = "0x174" for 1.5V
+      VOLT_MARGIN_HIGH = "0x1C0"
+      VOLT_MARGIN_LOW = "0x1A8"
+      VOLT_NORMAL = "0x1B4"
+      i2c_addr = IR_PMBUS_ADDR.get(3)
+
+      if arg_ir[1] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW
+
+      elif arg_ir[1] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+
+      elif arg_ir[1] == "n":
+        margin_cmd = IR_VOUT_CMD
+        margin_apply = IR_MARGIN_OFF
+        voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return
+
+      set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+
+    elif arg_ir[2] == "VDD_CORE":
+
+      # set page register in IR
+      set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(1), "0")
+      # voltage +3% -3%
+      VOLT_MARGIN_HIGH = "0xC5C"
+      VOLT_MARGIN_LOW = "0xBA4"
+      VOLT_NORMAL =  "0xC00"
+      i2c_addr = IR_PMBUS_ADDR.get(1)
+
+      if arg_ir[1] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW
+
+      elif arg_ir[1] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+
+      elif arg_ir[1] == "n":
+        margin_cmd = IR_VOUT_CMD
+        margin_apply = IR_MARGIN_OFF
+        voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return
+
+      set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+
+    elif arg_ir[2] == "QSFP":
+
+      # set page register in IR +/- 5%
+      set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(5), "0")
+      VOLT_MARGIN_HIGH = "0x1BC"
+      VOLT_MARGIN_LOW = "0x191"
+      VOLT_NORMAL =  "0x1A6"
+      i2c_addr = IR_PMBUS_ADDR.get(5)
+
+      if arg_ir[1] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW
+
+      elif arg_ir[1] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+
+      elif arg_ir[1] == "n":
+        margin_cmd = IR_VOUT_CMD
+        margin_apply = IR_MARGIN_OFF
+        voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return
+
+      set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+
+    elif arg_ir[2] == "VDDAH":
+
+      set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(2), "0")
+      # set page register in IR +/- 3%
+      VOLT_MARGIN_HIGH = "0xED"
+      VOLT_MARGIN_LOW = "0xDF"
+      VOLT_NORMAL =  "0xE6"
+      i2c_addr = IR_PMBUS_ADDR.get(2)
+
+      if arg_ir[1] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW
+
+      elif arg_ir[1] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+
+      elif arg_ir[1] == "n":
+        margin_cmd = IR_VOUT_CMD
+        margin_apply = IR_MARGIN_OFF
+        voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return
+
+      set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+
+    elif arg_ir[2] == "VDDAL":
+      # set page register in IR +/- 3%
+      set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(4), "1")
+      VOLT_MARGIN_HIGH = "0x1DB"
+      VOLT_MARGIN_LOW = "0x1BF"
+      VOLT_NORMAL =  "0x1CD"
+
+      #set VDD
+      i2c_addr = IR_PMBUS_ADDR.get(4)
+
+      if arg_ir[1] == "l":
+        margin_cmd = IR_VOUT_MARGIN_LOW
+        margin_apply = IR_MARGIN_LOW_AOF_OP
+        voltage = VOLT_MARGIN_LOW
+
+      elif arg_ir[1] == "h":
+        margin_cmd = IR_VOUT_MARGIN_HIGH
+        margin_apply = IR_MARGIN_HIGH_AOF_OP
+        voltage = VOLT_MARGIN_HIGH
+
+      elif arg_ir[1] == "n":
+        margin_cmd = IR_VOUT_CMD
+        margin_apply = IR_MARGIN_OFF
+        voltage = VOLT_NORMAL
+
+      else:
+        error_ir_usage()
+        return
+
+      set_ir_voltage(arg_ir[2], IR_I2C_BUS, i2c_addr, margin_cmd, margin_apply, voltage)
+
+    else:
+        error_ir_usage()
+
+    return
+
 def ir_voltage_set_mavericks(arg_ir, p0c):
 
     #a = ir_open_i2c_switch()
@@ -2420,6 +2805,8 @@ def ir(argv):
             ir_voltage_show_montara()
         elif platform == "newport":
             ir_voltage_show_newport(arg_ir)
+        elif platform == "stinson":
+            ir_voltage_show_stinson(arg_ir)
         else :
             error_ir_usage()
             return
@@ -2432,6 +2819,8 @@ def ir(argv):
             ir_voltage_set_montara(arg_ir)
         elif platform == "newport":
             ir_voltage_set_newport(arg_ir)
+        elif platform == "stinson":
+            ir_voltage_set_stinson(arg_ir)
         else :
             error_ir_usage()
             return
@@ -2780,7 +3169,7 @@ def tmp(argv):
     if arg_tmp[0] == "sh":
         if platform == "montara":
             tmp_lower("Montara")
-        elif platform == "newport":
+        elif platform == "newport" or platform == "stinson":
             tmp_lower("Newport")
         elif platform == "mavericks":
 
