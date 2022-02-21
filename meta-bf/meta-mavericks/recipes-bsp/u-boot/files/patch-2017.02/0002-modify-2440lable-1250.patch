@@ -1,0 +1,15 @@
+diff --git a/board/aspeed/ast2400/ast2400.c b/board/aspeed/ast2400/ast2400.c
+old mode 100644
+new mode 100755
+index 95cd4df..4b4e6da
+--- a/board/aspeed/ast2400/ast2400.c
++++ b/board/aspeed/ast2400/ast2400.c
+@@ -296,7 +296,7 @@ int misc_init_r(void)
+     	}
+     }
+     else if (chip_id == 2) {
+-    	printf("AST2400 series chip Rev. %02x \n", revision);
++    	printf("AST1250 series chip Rev. %02x \n", revision);
+     }
+     else if (chip_id == 0) {
+ 		printf("AST2050/AST2150 series chip\n");

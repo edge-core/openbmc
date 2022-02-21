@@ -54,6 +54,7 @@ devmem 0x1e6e2070 32 0x0A0845D2
 # Reinstall PSU driver to support 'sensors' because PCA9548 is not selected/controlled when booting.
 # BMC-bus7-PCA9548(0x70)-channel1&2-PSU1&PSU2
 i2cset -f -y 7 0x70 0x3
+i2cset -f -y 9 0x70 0x10
 rmmod psu_driver
 modprobe psu_driver
 

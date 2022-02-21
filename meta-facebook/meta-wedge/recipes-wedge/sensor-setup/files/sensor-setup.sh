@@ -41,7 +41,7 @@
 
 modprobe lm75
 modprobe pmbus
-
+modprobe lm90
 # Enable the ADC inputs;  adc5 - adc9 should be connected to
 # 1V, 1.03V, 5V, 3.3V, and 2.5V.
 

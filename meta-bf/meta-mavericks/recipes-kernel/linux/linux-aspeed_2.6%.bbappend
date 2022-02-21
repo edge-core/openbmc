@@ -9,5 +9,6 @@ KERNEL_MODULE_AUTOLOAD += " \
 
 SRC_URI += "file://patch-2.6.28.9/0035-Create-Mavericks-OpenBMC.patch \
             file://patch-2.6.28.9/0036-register-i2c-device-for-tmp75-0x4d.patch \
+            file://patch-2.6.28.9/add-sensors-support-65x.patch \
             file://defconfig \
            "

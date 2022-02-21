@@ -1124,6 +1124,7 @@ static void mav_read_tofino_temp(int *temp1, int *temp2) {
   }
   if (mav_board_type == BF_BOARD_MAV) {
     /* close PCA9548 channel */
+	/*
     res = ioctl(fd, I2C_SLAVE_FORCE, 0x70);
     if (res < 0) {
       syslog(LOG_CRIT, "Failed to open slave @ address 0x70 error %d", res);
@@ -1136,7 +1137,7 @@ static void mav_read_tofino_temp(int *temp1, int *temp2) {
       close_and_remove_file(lock_file_fp, lock_file_name);
       return;
     }
-
+     */
     close_and_remove_file(lock_file_fp, lock_file_name);
  }
 }
