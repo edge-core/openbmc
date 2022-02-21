@@ -1,7 +1,7 @@
 diff --git a/arch/arm/plat-aspeed/dev-i2c.c b/arch/arm/plat-aspeed/dev-i2c.c
 old mode 100644
 new mode 100755
-index 5dd2af0..7c1a72e
+index 5dd2af0..2585a6c
 --- a/arch/arm/plat-aspeed/dev-i2c.c
 +++ b/arch/arm/plat-aspeed/dev-i2c.c
 @@ -1157,6 +1157,21 @@ static struct i2c_board_info __initdata mavericks_i2c_bus10[] = {
@@ -21,7 +21,7 @@ index 5dd2af0..7c1a72e
 +    I2C_BOARD_INFO("tmp75", 0x4b),
 +  },
 +  {
-+    I2C_BOARD_INFO("tmp75", 0x4c),
++    I2C_BOARD_INFO("max6658", 0x4c),
 +  },
  };
  
