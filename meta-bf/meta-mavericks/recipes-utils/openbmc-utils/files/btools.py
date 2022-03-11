@@ -3200,7 +3200,7 @@ def error_usage():
 def main(argv):
     os.system("touch /tmp/btools_lock")
     try:
-        opts, args = getopt.getopt(argv[1:], "hP:U:I:T:", ["help", "PSU=", "UCD=", "IR=", "TMP="])
+        opts, args = getopt.getopt(argv[1:], "hP:U:I:T:F", ["help", "PSU=", "UCD=", "IR=", "TMP=","PLT="])
 
         # No standard identifier.print the usage
         if len(opts) == 0:
@@ -3227,6 +3227,9 @@ def main(argv):
             ir(argv)
         elif opt in ("-T", "--TMP"):
             tmp(argv)
+        elif opt in ("-F", "--PLT"):
+            platform = get_project()
+            print platform
         else:
             error_usage()
 

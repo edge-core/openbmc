@@ -54,7 +54,32 @@ devmem 0x1e6e2070 32 0x0A0845D2
 # Reinstall PSU driver to support 'sensors' because PCA9548 is not selected/controlled when booting.
 # BMC-bus7-PCA9548(0x70)-channel1&2-PSU1&PSU2
 i2cset -f -y 7 0x70 0x3
-i2cset -f -y 9 0x70 0x10
 rmmod psu_driver
 modprobe psu_driver
 
+i2cset -f -y 9 0x70 0x10
+platform=$(btools.py -F 2> /dev/null | head -n 1)
+#echo "platform is ${platform} ..."
+if [ "$platform" == "mavericks-p0c" ]; then
+  #echo "mavericks65.conf"
+  #modprobe lm90
+  rm -f /etc/sensors.d/mavericks32.conf
+  mv /etc/sensors.d/mavericks65.conf /etc/sensors.d/mavericks.conf
+elif [ "$platform" == "mavericks" ] || [ "$platform" == "montara" ] || [ "$platform" == "newport" ] || [ "$platform" == "stinson" ]; then
+  #echo "mavericks32.conf"
+  rm -f /etc/sensors.d/mavericks65.conf
+  mv /etc/sensors.d/mavericks32.conf /etc/sensors.d/mavericks.conf
+else
+  sleep 1
+  platform=$(btools.py -F 2> /dev/null | head -n 1)
+  if [ "$platform" == "mavericks-p0c" ]; then
+    #echo "mavericks65.conf"
+    #modprobe lm90
+    rm -f /etc/sensors.d/mavericks32.conf
+    mv /etc/sensors.d/mavericks65.conf /etc/sensors.d/mavericks.conf
+  else
+    #echo "mavericks32.conf"
+    rm -f /etc/sensors.d/mavericks65.conf
+    mv /etc/sensors.d/mavericks32.conf /etc/sensors.d/mavericks.conf
+  fi
+fi

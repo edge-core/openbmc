@@ -41,10 +41,30 @@
 
 modprobe lm75
 modprobe pmbus
-modprobe lm90
+
 # Enable the ADC inputs;  adc5 - adc9 should be connected to
 # 1V, 1.03V, 5V, 3.3V, and 2.5V.
-
+pn=$(/usr/bin/weutil 2> /dev/null | grep -i '^Location on Fabric:' | awk  -F ": " '{print $2}' | tr '[A-Z]' '[a-z]')
+echo "pn ..."
+echo ".$pn."
+sapn=$(/usr/bin/weutil 2> /dev/null | grep -i '^System Assembly Part Number:' | awk  -F ": " '{print $2}')
+echo "sapn ... "
+echo ".$sapn."
+case "$pn" in
+    *mavericks-p0c*)
+        echo "mavericks-p0c"
+        modprobe lm90
+        ;;
+    *maverick*)
+        if [[ "$sapn" == *"015-000001-02"* ]]; then
+            echo "mavericks-p0c"
+            modprobe lm90
+        fi
+        ;;
+    *)
+        echo 'none'
+        ;;
+esac
 echo 1 > /sys/devices/platform/ast_adc.0/adc5_en
 echo 1 > /sys/devices/platform/ast_adc.0/adc6_en
 echo 1 > /sys/devices/platform/ast_adc.0/adc7_en
