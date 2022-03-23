@@ -463,40 +463,43 @@ struct rpm_to_pct_map rpm_rear_map_newport[] = {{6, 1800},
                                          {94, 16500},
                                          {100, 18000}};
 #define REAR_MAP_SIZE_NEWPORT (sizeof(rpm_rear_map_newport) / sizeof(struct rpm_to_pct_map))
-struct rpm_to_pct_map rpm_front_map_stinson[] = {{6, 2100},
-                                         {13, 3600},
-                                         {19, 5000},
-                                         {25, 6400},
-                                         {31, 7600},
-                                         {38, 8800},
-                                         {44, 10000},
-                                         {50, 11200},
-                                         {56, 12400},
-                                         {63, 13700},
-                                         {69, 14900},
-                                         {75, 16200},
-                                         {81, 17400},
-                                         {88, 18600},
-                                         {94, 20000},
-                                         {100, 21500}};
+struct rpm_to_pct_map rpm_front_map_stinson[] = {{20, 4200},
+                                         {25, 5550},
+                                         {30, 6180},
+                                         {35, 7440},
+                                         {40, 8100},
+                                         {45, 9300},
+                                         {50, 10410},
+                                         {55, 10920},
+                                         {60, 11910},
+                                         {65, 12360},
+                                         {70, 13260},
+                                         {75, 14010},
+                                         {80, 14340},
+                                         {85, 15090},
+                                         {90, 15420},
+                                         {95, 15960},
+                                         {100, 16200}};
 #define FRONT_MAP_SIZE_STINSON (sizeof(rpm_front_map_stinson) / sizeof(struct rpm_to_pct_map))
 
 struct rpm_to_pct_map rpm_rear_map_stinson[] = {{6, 1800},
-                                         {13, 3200},
-                                         {19, 4300},
-                                         {25, 5300},
-                                         {31, 6500},
-                                         {38, 7500},
-                                         {44, 8600},
-                                         {50, 9500},
-                                         {56, 10500},
-                                         {63, 11600},
-                                         {69, 12500},
-                                         {75, 13600},
-                                         {81, 14500},
-                                         {88, 15600},
-                                         {94, 16500},
-                                         {100, 18000}};
+                                        {20, 2130},
+                                        {25, 3180},
+                                        {30, 3690},
+                                        {35, 4620},
+                                        {40, 5130},
+                                        {45, 6120},
+                                        {50, 7050},
+                                        {55, 7560},
+                                        {60, 8580},
+                                        {65, 9180},
+                                        {70, 10230},
+                                        {75, 11280},
+                                        {80, 11820},
+                                        {85, 12870},
+                                        {90, 13350},
+                                        {95, 14370},
+                                        {100, 14850}};
 #define REAR_MAP_SIZE_STINSON (sizeof(rpm_rear_map_stinson) / sizeof(struct rpm_to_pct_map))
 #elif defined(CONFIG_WEDGE)
 struct rpm_to_pct_map rpm_front_map[] = {{30, 6150},
@@ -704,7 +707,7 @@ int read_temp(const char *device, int *value) {
   char full_name[LARGEST_DEVICE_NAME + 1];
   int rc = 1;
   int retry = 0;
-  
+
   /* We set an impossible value to check for errors */
   *value = BAD_TEMP;
   if (((mav_board_type == BF_BOARD_MON)||(mav_board_type == BF_BOARD_MAV)) && (strstr(device, USERVER_TEMP_DEVICE))) {
@@ -727,7 +730,7 @@ int read_temp(const char *device, int *value) {
 	//syslog(LOG_INFO, "full_name %s  retry is %d", full_name, retry);
 	usleep(10000);
   }
-  
+
   return rc;
 }
 #endif
@@ -850,7 +853,7 @@ static int bf_board_type_get() {
       syslog(LOG_INFO, "BF board type is %s", eeprom.fbw_location);
       tofino_ext_pvt_en=0;
       return BF_BOARD_STN;
-    } else if (!strncasecmp(eeprom.fbw_location, "Davenport", strlen("Davenport"))){
+    } else if (!strncasecmp(eeprom.fbw_location, "Davenpor", strlen("Davenpor"))){
       syslog(LOG_INFO, "BF board type is %s", eeprom.fbw_location);
       tofino_ext_pvt_en=0;
       return BF_BOARD_DVN;
@@ -1719,11 +1722,10 @@ int main(int argc, char **argv) {
   }
 
 #if defined(CONFIG_MAVERICKS)
-  if (mav_board_type == BF_BOARD_NEW) { //FIXME; newport-temporary
+  if (mav_board_type == BF_BOARD_NEW || mav_board_type == BF_BOARD_DVN || mav_board_type == BF_BOARD_STN || mav_board_type == BF_BOARD_PSC) {//FIXME; newport-temporary
     fan_speed =  NP_FAN_FIX;
   }
 #endif
-
   for (fan = 0; fan < total_fans; fan++) {
     fan_bad[fan] = 0;
     write_fan_speed(fan + fan_offset, fan_speed);
@@ -2043,7 +2045,7 @@ int main(int argc, char **argv) {
 
 #if defined(CONFIG_MAVERICKS)
 
-    if ((mav_board_type == BF_BOARD_MON)||(mav_board_type == BF_BOARD_NEW)) {
+    if (mav_board_type == BF_BOARD_MON || mav_board_type == BF_BOARD_NEW || mav_board_type == BF_BOARD_DVN || mav_board_type == BF_BOARD_STN || mav_board_type == BF_BOARD_PSC) {
       /* bump up the fan speed if Tofino temp mandates */
       if (tofino_jct_temp > TOFINO_THRESH) {
         /* change the lower fan tray speed if Tofino temp is high */
