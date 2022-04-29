@@ -816,7 +816,6 @@ def ucd_rail_voltage_stinson():
 def ucd_rail_voltage_mavericks(poc):
 
     i = 1
-
     UCD_I2C_BUS = "2"
     UCD_I2C_ADDR = "0x34"
     UCD_READ_OP = "0x8b"
@@ -844,46 +843,69 @@ def ucd_rail_voltage_mavericks(poc):
 
 # Parse 1 to 15 voltage rails if mav p0c
     for i in range(0, index):
-
-        try:
-            # i2cset -f -y 2 0x34 0x00 i
-            set_cmd = "i2cset"
-            output = subprocess.check_output([set_cmd, "-f", "-y", UCD_I2C_BUS,
+        retry0 = 0
+        err = 1
+        while ((err == 1) and (retry0 < 5)):
+            try:
+                # i2cset -f -y 2 0x34 0x00 i
+                set_cmd = "i2cset"
+                output = subprocess.check_output([set_cmd, "-f", "-y", UCD_I2C_BUS,
                                      UCD_I2C_ADDR, UCD_PAGE_OP, str(hex(i))])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cset for rail %.2d " % i
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cset for rail %.2d " % i
+                err = 1
+            retry0 = retry0 + 1
+        if (err == 1):
             continue
 
-        try:
-            # i2cget -f -y 2 0x34 w
-            get_cmd = "i2cget"
-            mantissa = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
+        retry1 = 0
+        mantissa = 0
+        while (((mantissa == 0) or (mantissa == 65535)) and (retry1 < 5)):
+            try:
+                # i2cget -f -y 2 0x34 w
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
                                                UCD_I2C_ADDR, UCD_READ_OP, "w"])
-
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cget for rail %.2d " % i
+                mantissa = int(mantissa, 16)
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for rail %.2d " % i
+                mantissa = 0
+            if retry1:
+                sleep(0.010)
+                #print "retry1 %d  mantissa %s"  % (retry1, str(mantissa))
+            retry1 = retry1 + 1
+        if  (mantissa == 0) or (mantissa == 65535):
             continue
 
-        try:
-            # i2cget -f -y 2 0x34 0x20
-            get_cmd = "i2cget"
-            exponent = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
+        retry2 = 0
+        exponent = 0
+        while (((exponent == 0) or (exponent == 65535) or (exponent == 255)) and (retry2 < 5)):
+            try:
+                # i2cget -f -y 2 0x34 0x20
+                get_cmd = "i2cget"
+                exponent = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
                                                UCD_I2C_ADDR, UCD_VOUT_MODE_OP])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cget for rail %.2d " % i
+                exponent = int(exponent, 16)
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for rail %.2d " % i
+                exponent = 0
+            if retry2 :
+                sleep(0.010)
+                #print "retry2 %d  exponent %s"  % (retry2, str(exponent))
+            retry2 = retry2 + 1
+        if (exponent == 0) or (exponent == 65535) or (exponent == 255):
             continue
 
         # 2 ^ exponent
         # exponent is 5 bit signed value. Thus calculating first exponent.
         # It is based on UCD90120A device spec section 2.2
-        exp = int(exponent, 16) | ~0x1f
+        exp = exponent | ~0x1f
         exp = ~exp + 1
         div = 1 << exp
-
-        mantissa = int(mantissa, 16)
 
         print "  %-*s          %.3f" % (20, string.get(i + 1), float(mantissa) / float(div))
 
@@ -901,7 +923,6 @@ def ucd_rail_voltage_mavericks(poc):
 def ucd_rail_voltage_montara():
 
     i = 1
-
     UCD_I2C_BUS = "2"
     UCD_I2C_ADDR = "0x34"
     UCD_READ_OP = "0x8b"
@@ -919,46 +940,70 @@ def ucd_rail_voltage_montara():
 
 # Parse 1 to 12 voltage rails
     for i in range(0, index):
-
-        try:
-            # i2cset -f -y 2 0x34 0x00 i
-            set_cmd = "i2cset"
-            output = subprocess.check_output([set_cmd, "-f", "-y", UCD_I2C_BUS,
+           
+        retry0 = 0
+        err = 1
+        while ((err == 1) and (retry0 < 5)):
+            try:
+                # i2cset -f -y 2 0x34 0x00 i
+                set_cmd = "i2cset"
+                output = subprocess.check_output([set_cmd, "-f", "-y", UCD_I2C_BUS,
                                      UCD_I2C_ADDR, UCD_PAGE_OP, str(hex(i))])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cset for rail %.2d " % i
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cset for rail %.2d " % i
+                err = 1
+            retry0 = retry0 + 1
+        if (err == 1):
             continue
-
-        try:
-            # i2cget -f -y 2 0x34 w
-            get_cmd = "i2cget"
-            mantissa = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
+            
+        retry1 = 0
+        mantissa = 0
+        while (((mantissa == 0) or (mantissa == 65535)) and (retry1 < 5)):
+            try:
+                # i2cget -f -y 2 0x34 w
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
                                                UCD_I2C_ADDR, UCD_READ_OP, "w"])
-
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cget for rail %.2d " % i
+                mantissa = int(mantissa, 16)
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for rail %.2d " % i
+                mantissa = 0
+            if retry1:
+                sleep(0.010)
+                #print "retry1 %d  mantissa %s"  % (retry1, str(mantissa))
+            retry1 = retry1 + 1
+        if  (mantissa == 0) or (mantissa == 65535):
             continue
 
-        try:
-            # i2cget -f -y 2 0x34 0x20
-            get_cmd = "i2cget"
-            exponent = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
+        retry2 = 0
+        exponent = 0
+        while (((exponent == 0) or (exponent == 65535) or (exponent == 255)) and (retry2 < 5)):
+            try:
+                # i2cget -f -y 2 0x34 0x20
+                get_cmd = "i2cget"
+                exponent = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
                                                UCD_I2C_ADDR, UCD_VOUT_MODE_OP])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cget for rail %.2d " % i
+                exponent = int(exponent, 16)
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for rail %.2d " % i
+                exponent = 0
+            if retry2 :
+                sleep(0.010)
+                #print "retry2 %d  exponent %s"  % (retry2, str(exponent))
+            retry2 = retry2 + 1
+        if (exponent == 0) or (exponent == 65535) or (exponent == 255):
             continue
 
         # 2 ^ exponent
         # exponent is 5 bit signed value. Thus calculating first exponent.
         # It is based on UCD90120A device spec section 2.2
-        exp = int(exponent, 16) | ~0x1f
+        exp = exponent | ~0x1f
         exp = ~exp + 1
         div = 1 << exp
-
-        mantissa = int(mantissa, 16)
 
         print "  %-*s          %.3f" % (20, string.get(i + 1), float(mantissa) / float(div))
 
