@@ -53,6 +53,13 @@ tofino_set_vdd_core() {
     esac
     return 0
   fi
+
+  if [ "$board_subtype" == "Stinson" ] || [ "$board_subtype" == "Davenport" ] || [ "$board_subtype" == "Pescadero" ] ; then
+    logger "no setting Tofino VDD_CORE for board type $board_subtype"
+    echo "no setting Tofino VDD_CORE for board type $board_subtype"
+    return 0
+  fi
+
 # set the Tofino VDD voltage here before powering-ON COMe
   if [ $CODE_M != 0 ]; then
     tbl=(0 0.83 0.78 0.88 0.755 0.855 0.805 0.905)
