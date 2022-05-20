@@ -32,6 +32,7 @@ SRC_URI += "file://disable_watchdog.sh \
             file://stress_i2c_rw.sh \
             file://fru_eeprom.py \
             file://bmc_info.sh \
+            file://tool4tpm \
            "
 
 OPENBMC_UTILS_FILES += " \
@@ -46,9 +47,11 @@ OPENBMC_UTILS_FILES += " \
     stress_i2c_rw.sh \
     fru_eeprom.py \
     bmc_info.sh \
+    tool4tpm \
     "
 
 DEPENDS_append = " update-rc.d-native"
+INSANE_SKIP_${PN} += "already-stripped"
 
 do_install_board() {
     # for backward compatible, create /usr/local/fbpackages/utils/ast-functions
