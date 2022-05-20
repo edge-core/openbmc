@@ -2440,7 +2440,7 @@ def ir_set_vdd_core_dynamic_range_newport(arg_ir):
         return
 
     # set page register in IR
-    set_ir_page(VDD_CORE_IR_I2C_BUS, VDD_CORE_IR_PMBUS_ADDR, "1")
+    set_ir_page(VDD_CORE_IR_I2C_BUS, VDD_CORE_IR_PMBUS_ADDR, "0")
 
     margin_cmd = IR_VOUT_CMD
     margin_apply = IR_MARGIN_OFF
@@ -3418,20 +3418,43 @@ def tmp_lower(board):
             print " TMP SENSOR LOCAL               %.3f C" % output
 
             if np_tvp_workaround == 0:
-              #TMP SENSORS REMOTE1:
-              output = subprocess.check_output([cmd, "-f", "-y", "3",
-                                             "0x4c", "0x01"])
-              output = int(output, 16)
-              output=convert_tmp(TMP_MAC_MANU_ID, output)
-              print " TMP SENSOR REMOTE Tofino       %.3f C" % (output)
 
-              if board == "Stinson" or board == "Davenport":
+              if board == "Stinson" :
+                #TMP SENSORS REMOTE1:
+                output = subprocess.check_output([cmd, "-f", "-y", "3",
+                                             "0x4c", "0x01"])
+                output = int(output, 16)
+                output=convert_tmp(TMP_MAC_MANU_ID, output)
+                print " TMP SENSOR TOFINO DIE0         %.3f C" % (output)
                 #TMP SENSORS REMOTE2:
                 output = subprocess.check_output([cmd, "-f", "-y", "3",
                                                "0x4c", "0x23"])
                 output = int(output, 16)
                 output=convert_tmp(TMP_MAC_MANU_ID, output)
-                print " TMP SENSOR REMOTE Tofino-1       %.3f C" % (output)
+                print " TMP SENSOR TOFINO DIE1         %.3f C" % (output)
+                return
+              if board == "Davenport" :
+                #TMP SENSORS REMOTE1:
+                output = subprocess.check_output([cmd, "-f", "-y", "3",
+                                             "0x4c", "0x01"])
+                output = int(output, 16)
+                output=convert_tmp(TMP_MAC_MANU_ID, output)
+                print " TMP SENSOR TOFINO DIE0         %.3f C" % (output)
+                return
+              if board == "Newport" :
+                #TMP SENSORS REMOTE1:
+                output = subprocess.check_output([cmd, "-f", "-y", "3",
+                                             "0x4c", "0x01"])
+                output = int(output, 16)
+                output=convert_tmp(TMP_MAC_MANU_ID, output)
+                print " TMP SENSOR TOFINO              %.3f C" % (output)
+                return
+              #TMP SENSORS REMOTE1:
+              output = subprocess.check_output([cmd, "-f", "-y", "3",
+                                             "0x4c", "0x01"])
+              output = int(output, 16)
+              output=convert_tmp(TMP_MAC_MANU_ID, output)
+              print " TMP SENSOR REMOTE TOFINO       %.3f C" % (output)
 
             else:  # read PVT register thru BMC i2c instead
               cmd = "/usr/local/bin/i2c_set_get"
@@ -3444,13 +3467,13 @@ def tmp_lower(board):
               upper = int(oplist[1], 0) & 0x3
               valid = int(oplist[1], 0) & 0x10
               if valid == 0: # reading is not valid
-                print " TMP SENSOR Tofino 0.0 C"
+                print " TMP SENSOR TOFINO 0.0 C"
                 return
               upper = (upper << 8) | lower
               x = float(upper)
               x2 = x * x
               temperature = (x2 * (-0.000011677)) + (x * 0.28031) - 66.599
-              print " TMP SENSOR Tofino          %.3f C" % (temperature)
+              print " TMP SENSOR TOFINO              %.3f C" % (temperature)
 
         except subprocess.CalledProcessError as e:
             print e
@@ -3625,10 +3648,13 @@ def tmp(argv):
     if arg_tmp[0] == "sh":
         if platform == "montara":
             tmp_lower("Montara")
-        elif platform == "newport" or platform == "stinson" or platform == "davenport":
+        elif platform == "newport":
             tmp_lower("Newport")
+        elif platform == "stinson":
+            tmp_lower("Stinson")
+        elif platform == "davenport":
+            tmp_lower("Davenport")
         elif platform == "mavericks":
-
             tmp_lower("Mavericks")
             #a = tmp_open_i2c_switch()
             tmp_upper(0)
@@ -3656,7 +3682,7 @@ def error_usage():
 def main(argv):
     os.system("touch /tmp/btools_lock")
     try:
-        opts, args = getopt.getopt(argv[1:], "hP:U:I:T:F", ["help", "PSU=", "UCD=", "IR=", "TMP=","PLT="])
+        opts, args = getopt.getopt(argv[1:], "hP:U:I:T:", ["help", "PSU=", "UCD=", "IR=", "TMP="])
 
         # No standard identifier.print the usage
         if len(opts) == 0:
@@ -3683,9 +3709,6 @@ def main(argv):
             ir(argv)
         elif opt in ("-T", "--TMP"):
             tmp(argv)
-        elif opt in ("-F", "--PLT"):
-            platform = get_project()
-            print platform
         else:
             error_usage()
 

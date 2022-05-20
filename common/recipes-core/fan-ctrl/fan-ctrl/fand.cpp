@@ -501,6 +501,43 @@ struct rpm_to_pct_map rpm_rear_map_stinson[] = {{6, 1800},
                                         {95, 14370},
                                         {100, 14850}};
 #define REAR_MAP_SIZE_STINSON (sizeof(rpm_rear_map_stinson) / sizeof(struct rpm_to_pct_map))
+struct rpm_to_pct_map rpm_front_map_davenport[] = {{20, 4200},
+                                         {25, 5550},
+                                         {30, 6180},
+                                         {35, 7440},
+                                         {40, 8100},
+                                         {45, 9300},
+                                         {50, 10410},
+                                         {55, 10920},
+                                         {60, 11910},
+                                         {65, 12360},
+                                         {70, 13260},
+                                         {75, 14010},
+                                         {80, 14340},
+                                         {85, 15090},
+                                         {90, 15420},
+                                         {95, 15960},
+                                         {100, 16200}};
+#define FRONT_MAP_SIZE_DAVENPORT (sizeof(rpm_front_map_davenport) / sizeof(struct rpm_to_pct_map))
+struct rpm_to_pct_map rpm_rear_map_davenport[] = {{6, 1800},
+                                        {20, 2130},
+                                        {25, 3180},
+                                        {30, 3690},
+                                        {35, 4620},
+                                        {40, 5130},
+                                        {45, 6120},
+                                        {50, 7050},
+                                        {55, 7560},
+                                        {60, 8580},
+                                        {65, 9180},
+                                        {70, 10230},
+                                        {75, 11280},
+                                        {80, 11820},
+                                        {85, 12870},
+                                        {90, 13350},
+                                        {95, 14370},
+                                        {100, 14850}};
+#define REAR_MAP_SIZE_DAVENPORT (sizeof(rpm_rear_map_davenport) / sizeof(struct rpm_to_pct_map))
 #elif defined(CONFIG_WEDGE)
 struct rpm_to_pct_map rpm_front_map[] = {{30, 6150},
                                          {35, 7208},
@@ -1100,6 +1137,7 @@ static void mav_read_tofino_temp(int *temp1, int *temp2) {
       return;
     }
   }
+
   res = ioctl(fd, I2C_SLAVE_FORCE, 0x4c);
   if (res < 0) {
     syslog(LOG_CRIT, "Failed to open slave @ address 0x4c error %d", res);
@@ -1108,6 +1146,7 @@ static void mav_read_tofino_temp(int *temp1, int *temp2) {
     }
     return;
   }
+
   res = i2c_smbus_read_byte_data(fd, 0x1);
   if (res < 0) {
     syslog(LOG_CRIT, "Failed to read slave @ address 0x4c reg 0x01 error %d", res);
@@ -1116,8 +1155,9 @@ static void mav_read_tofino_temp(int *temp1, int *temp2) {
     }
     return;
   }
+
   *temp1 = res;
-  if ((mav_board_type == BF_BOARD_STN || mav_board_type == BF_BOARD_DVN || mav_board_type == BF_BOARD_PSC) && temp2) {
+  if ((mav_board_type == BF_BOARD_STN || mav_board_type == BF_BOARD_PSC) && temp2) {
     res = i2c_smbus_read_byte_data(fd, 0x23);
     if (res < 0) {
       syslog(LOG_CRIT, "Failed to read slave @ address 0x4c reg 0x23 error %d", res);
@@ -1125,6 +1165,11 @@ static void mav_read_tofino_temp(int *temp1, int *temp2) {
     }
     *temp2 = res;
   }
+
+  if ((mav_board_type == BF_BOARD_DVN) && temp2) {
+    *temp2 = 0;
+  }
+
   if (mav_board_type == BF_BOARD_MAV) {
     /* close PCA9548 channel */
 	/*
@@ -1283,7 +1328,7 @@ int fan_speed_okay(const int fan, const int speed, const int slop) {
    */
 
 #if defined(CONFIG_MAVERICKS)
-  if (mav_board_type == BF_BOARD_NEW || mav_board_type == BF_BOARD_DVN) {
+  if (mav_board_type == BF_BOARD_NEW) {
     real_fan = fan_to_rpm_map_newport[fan];
     front_fan = 0;
     read_fan_value(real_fan, FAN_READ_RPM_FORMAT, &front_fan);
@@ -1302,6 +1347,16 @@ int fan_speed_okay(const int fan, const int speed, const int slop) {
     rear_fan = 0;
     read_fan_value(real_fan + REAR_FAN_OFFSET, FAN_READ_RPM_FORMAT, &rear_fan);
     rear_pct = fan_rpm_to_pct(rpm_rear_map_stinson, REAR_MAP_SIZE_STINSON, rear_fan);
+#endif
+} else if (mav_board_type == BF_BOARD_DVN) {
+    real_fan = fan_to_rpm_map_newport[fan];
+    front_fan = 0;
+    read_fan_value(real_fan, FAN_READ_RPM_FORMAT, &front_fan);
+    front_pct = fan_rpm_to_pct(rpm_front_map_davenport, FRONT_MAP_SIZE_DAVENPORT, front_fan);
+#ifdef BACK_TO_BACK_FANS
+    rear_fan = 0;
+    read_fan_value(real_fan + REAR_FAN_OFFSET, FAN_READ_RPM_FORMAT, &rear_fan);
+    rear_pct = fan_rpm_to_pct(rpm_rear_map_davenport, REAR_MAP_SIZE_DAVENPORT, rear_fan);
 #endif
   } else
 #endif
@@ -1460,7 +1515,7 @@ int server_shutdown(const char *why) {
 #if defined(CONFIG_MAVERICKS)
   syslog(LOG_CRIT, "resetting Tofino...");
   system("/usr/local/bin/reset_tofino.sh");
-  mav_syscpld_write(12, 0x31, 0x32, 0x3);
+  mav_syscpld_write(12, 0x31, 0x32, 0xf);
 #endif
 
 #if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
@@ -1626,7 +1681,7 @@ int main(int argc, char **argv) {
     fd_tofino_ext_tmp = mav_open_i2c_dev(9);
   } else if (mav_board_type == BF_BOARD_MON) {
     fd_tofino_ext_tmp = mav_open_i2c_dev(3);
-  } else if (mav_board_type == BF_BOARD_NEW || mav_board_type == BF_BOARD_DVN) {
+  } else if (mav_board_type == BF_BOARD_NEW) {
     total_fans = 6; /*6 fans on lower fan board*/
     if (tofino_ext_pvt_en == 0) {
       fd_tofino_ext_tmp = mav_open_i2c_dev(3);
@@ -1641,6 +1696,9 @@ int main(int argc, char **argv) {
     }
   } else if (mav_board_type == BF_BOARD_STN || mav_board_type == BF_BOARD_PSC) {
     total_fans = 7; /* 7 fans on fan board*/
+    fd_tofino_ext_tmp = mav_open_i2c_dev(3);
+  } else if (mav_board_type == BF_BOARD_DVN) {
+    total_fans = 6; /* 6 fans on fan board*/
     fd_tofino_ext_tmp = mav_open_i2c_dev(3);
   } else {
     fd_tofino_ext_tmp = mav_open_i2c_dev(3);

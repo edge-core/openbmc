@@ -45,9 +45,10 @@ wedge_is_us_on() {
 
 TMP_EEPROM_BOARD_TYPE="/tmp/eeprom_board_type"
 TMP_EEPROM_SYS_PART_NO="/tmp/eeprom_sys_assembly_pn"
+TMP_EEPROM_SUB_VERSION="/tmp/eeprom_product_sub_version"
 
 wedge_board_type() {
-    local pn sapn
+    local pn sapn svern
     if [ -e "$TMP_EEPROM_BOARD_TYPE" ]; then
         pn=$(cat $TMP_EEPROM_BOARD_TYPE 2> /dev/null)
     else
@@ -55,6 +56,8 @@ wedge_board_type() {
         echo "$pn" > $TMP_EEPROM_BOARD_TYPE
         sapn=$(/usr/bin/weutil 2> /dev/null | grep -i '^System Assembly Part Number:')
         echo "$sapn" > $TMP_EEPROM_SYS_PART_NO
+        svern=$(/usr/bin/weutil 2> /dev/null | grep -i '^Product Sub-Version:')
+        echo "$svern" > $TMP_EEPROM_SUB_VERSION
     fi
     case "$pn" in
         *Montara*)
@@ -123,6 +126,17 @@ wedge_board_sys_assembly_pn() {
         echo "$sapn" > $TMP_EEPROM_BOARD_TYPE
     fi
     echo $sapn
+}
+
+wedge_board_sub_version() {
+    local svern
+    if [ -e "$TMP_EEPROM_SUB_VERSION" ]; then
+        svern=$(cat $TMP_EEPROM_SUB_VERSION 2> /dev/null)
+    else
+        svern=$(/usr/bin/weutil 2> /dev/null | grep -i '^Product Sub-Version::')
+        echo "$sapn" > $TMP_EEPROM_SUB_VERSION
+    fi
+    echo $svern
 }
 
 wedge_slot_id() {

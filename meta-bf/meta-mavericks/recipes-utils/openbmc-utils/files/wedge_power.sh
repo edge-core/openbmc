@@ -105,13 +105,27 @@ do_on_com_e() {
         echo "wedge_power setting pwr_usrv_en also for $board_subtype"
 
         echo 1 > $PWR_USRV_SYSFS
-        sleep 2        do_on_ucd_gpio_en
+	local svern
+	svern=$(wedge_board_sub_version)
+	case "$svern" in
+	*1)
+	logger "no voltage setting with modified HW for board type $board_subtype"
+	echo "but, no voltage setting with modified HW for board type $board_subtype"
+	sleep 2
+	# dont do 1.7V, GPIO_en and vdd_core setting on NEWPORT_MOD
+	#credo slow parts need 1.7V instead of 1.5V
+	#        btools.py --IR set n VDDA_1.7V
+	#        tofino_set_vdd_core
+	  ;;
+	*)
+	sleep 2
+	do_on_ucd_gpio_en
+	# credo slow parts need 1.7V instead of 1.5V
+	btools.py --IR set n VDDA_1.7V
+	tofino_set_vdd_core
+	   ;;
+	esac
 
-        do_on_ucd_gpio_en
-        # credo slow parts need 1.7V instead of 1.5V
-        btools.py --IR set n VDDA_1.7V
-		
-        tofino_set_vdd_core
         usleep 100000
         # issue reset to Tofino-2
         i2cset -f -y 12 0x31 0x32 0x9

@@ -31,11 +31,24 @@ usleep 10000
 echo 1 > $PWR_TF_RST_SYSFS
 
 if [ "$board_subtype" == "Newport" ] ; then
-    # sequence is important
-    wedge_ucd_gpio_set 21 0
-    wedge_ucd_gpio_set 20 0
-    wedge_ucd_gpio_set 13 0
-    wedge_ucd_gpio_set 12 0
-    wedge_ucd_gpio_set 22 0
+    local svern
+    # don't do anything else for new-port-mod
+    svern=$(wedge_board_sub_version)
+    case "$svern" in
+         *1)
+       logger "no setting GPIO with sub version greater than 0 for board type $board_subtype"
+       echo "no setting GPIO with sub version greater than 0 for board type $board_subtype"
+       # sequence is important
+       wedge_ucd_gpio_set 21 0
+       wedge_ucd_gpio_set 20 0
+       wedge_ucd_gpio_set 13 0
+       wedge_ucd_gpio_set 12 0
+       wedge_ucd_gpio_set 22 0
+               ;;
+          *)
+       logger " setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
+       echo " setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
+              ;;
+    esac
 fi
 logger "Reset Tofino"

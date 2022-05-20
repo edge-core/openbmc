@@ -36,7 +36,21 @@ tofino_set_vdd_core() {
   CODE="$(i2cget -f -y 12 0x31 0xb)"
   CODE_M=$(($CODE & 0x7))
   if [ "$board_subtype" == "Newport" ] ; then
+    local svern
     local apn
+    # don't do anything else for new-port-mod
+    svern=$(wedge_board_sub_version)
+    case "$svern" in
+      *1)
+       logger " no setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
+       echo " no setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
+       return 0
+        ;;
+      *)
+       logger " setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
+       echo " setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
+        ;;
+    esac
     apn=$(wedge_board_sys_assembly_pn)
     case "$apn" in
       *015-000004-03)
@@ -84,8 +98,20 @@ wedge_power_on_board
 
 if [ "$val" != "0x1" ]; then
   if [ "$board_subtype" == "Newport" ] ; then
-    # credo slow parts need 1.7V instead of 1.5V
-    btools.py --IR set n VDDA_1.7V
+    local svern
+
+    # don't do anything else for new-port-mod
+    svern=$(wedge_board_sub_version)
+    case "$svern" in
+      *1)
+       logger " no setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
+       echo " no setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
+        ;;
+      *)
+       # credo slow parts need 1.7V instead of 1.5V
+       btools.py --IR set n VDDA_1.7V
+        ;;
+    esac
   fi
   tofino_set_vdd_core
   usleep 100000
