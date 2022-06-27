@@ -42,6 +42,7 @@ IMAGE_INSTALL += " \
   spatula \
   trousers \
   tpm-tools \
+  cpldupdate \
   "
 
 IMAGE_FEATURES += " \

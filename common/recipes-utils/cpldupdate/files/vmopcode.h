@@ -180,33 +180,60 @@
 #define CPLD_TDO_I2C_CONFIG	3
 #define CPLD_I2C_ENABLE_OFFSET 4
 
-/*for GPIO JTAG*/
+/*------------分割线--------------------*/
 #define GPIO_BASE_ADDR 0x1e780000
+
+#define GPIOM_DATA_OFFSET (0x78)
+#define GPIOM_DIR_OFFSET  (0x7C)
+
+#define GPIOJ_DATA_OFFSET (0x70)
+#define GPIOJ_DIR_OFFSET  (0x74)
+
+#define GPIOS_DATA_OFFSET (0x80)
+#define GPIOS_DIR_OFFSET  (0x84)
+#define GPIOH_DATA_OFFSET (0x20)
+#define GPIOH_DIR_OFFSET  (0x24)
+
+#define GPIOM_DATA_ADDR (GPIO_BASE_ADDR + GPIOM_DATA_OFFSET)
+#define GPIOM_DIR_ADDR (GPIO_BASE_ADDR + GPIOM_DIR_OFFSET)
+
+#define GPIOJ_DATA_ADDR (GPIO_BASE_ADDR + GPIOJ_DATA_OFFSET)
+#define GPIOJ_DIR_ADDR (GPIO_BASE_ADDR + GPIOJ_DIR_OFFSET)
+
+#define GPIOS_DATA_ADDR (GPIO_BASE_ADDR + GPIOS_DATA_OFFSET)
+#define GPIOS_DIR_ADDR (GPIO_BASE_ADDR + GPIOS_DIR_OFFSET)
+#define GPIOH_DATA_ADDR (GPIO_BASE_ADDR + GPIOH_DATA_OFFSET)
+#define GPIOH_DIR_ADDR (GPIO_BASE_ADDR + GPIOH_DIR_OFFSET)
+
+//data register bit
+#define BMC_GPIOM4   (4) //W3
+#define BMC_GPIOM5   (5) //Y2
+#define BMC_GPIOM6   (6) //AA1
+#define BMC_GPIOM7   (7) //V5
+
+#define BMC_GPIOJ4   (12)
+#define BMC_GPIOJ5   (13)
+#define BMC_GPIOJ6   (14)
+#define BMC_GPIOJ7   (15)
+
+#define BMC_GPIOS3   (19)
+#define BMC_GPIOH0   (24)
+#define BMC_GPIOH1   (25)
+#define BMC_GPIOH2   (26)
+
+/*
+#define CPLD_TMS_CONFIG BMC_GPIOM4
+#define CPLD_TDI_CONFIG BMC_GPIOM5
+#define CPLD_TCK_CONFIG BMC_GPIOM6
+#define CPLD_TDO_CONFIG BMC_GPIOM7
+*/
+#define MAP_SIZE 4096UL
+#define MAP_MASK (MAP_SIZE - 1)
 #define SYSTEM_SCU_BASE_ADDR 0x1e6e2000
-#define GPIOL_DATA_OFFSET (0x70)
-#define GPIOL_DIR_OFFSET (0x74)
-#define GPIOF_DATA_OFFSET (0x20)
-#define GPIOF_DIR_OFFSET (0x24)
 #define SYSTEM_SCU80 0x80
 #define SYSTEM_SCU84 0x84
 #define SYSTEM_SCU_ADDR(num) (SYSTEM_SCU_BASE_ADDR + num)
-#define GPIOL_DATA_ADDR (GPIO_BASE_ADDR + GPIOL_DATA_OFFSET)
-#define GPIOL_DIR_ADDR (GPIO_BASE_ADDR + GPIOL_DIR_OFFSET)
-#define GPIOF_DATA_ADDR (GPIO_BASE_ADDR + GPIOF_DATA_OFFSET)
-#define GPIOF_DIR_ADDR (GPIO_BASE_ADDR + GPIOF_DIR_OFFSET)
-#define GPIOF_OFFSET (0x1 << 10)
-#define CPLD_UPDATE_GPIOF_ENABLE (0x1 << 26)
-#define CPLD_JTAG_GPIOL_ENABLE (0xf << 16)
-#define BMC_GPIOL0 (24)
-#define BMC_GPIOL1 (25)
-#define BMC_GPIOL2 (26)
-#define BMC_GPIOL3 (27)
-#define CPLD_TMS_CONFIG BMC_GPIOL0
-#define CPLD_TDI_CONFIG BMC_GPIOL1
-#define CPLD_TCK_CONFIG BMC_GPIOL2
-#define CPLD_TDO_CONFIG BMC_GPIOL3
-#define MAP_SIZE 4096UL
-#define MAP_MASK (MAP_SIZE - 1)
+
 #endif
 /***************************************************************
 *
@@ -239,11 +266,11 @@ extern int syscpld_update;
 extern int use_dll;
 extern const char *dll_name;
 int isp_dll_init(int argc, const char * const argv[]);
-void isp_gpio_config( unsigned int gpio, int dir );
+void isp_gpio_config( unsigned int gpio, int dir, const char * cpld_type);
 void isp_gpio_i2c_config( unsigned int gpio, int dir );
-int isp_gpio_init(void);
+int isp_gpio_init(const char * cpld_type);
 int isp_gpio_i2c_init(void);
-void isp_gpio_uninit(void);
+void isp_gpio_uninit(const char * cpld_type);
 int isp_vme_file_size_set(char *file_name);
 long isp_vme_file_size_get(void);
 int isp_print_progess_bar(long offset);

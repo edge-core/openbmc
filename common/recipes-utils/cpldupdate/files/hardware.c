@@ -18,7 +18,7 @@
  *             Moved the sclock() function from ivm_core.c to hardware.c
  *********************************************************************************/
 #include "vmopcode.h"
-#include <sys/io.h>
+//#include <sys/io.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -43,16 +43,28 @@
 *
 *********************************************************************************/
 #ifdef GALAXY100_PRJ
+extern const char *cpld_type;
 int syscpld_update = 1;
 int use_dll = 0;
 const char *dll_name = NULL;
 static struct cpldupdate_helper_st dll_helper;
 static volatile unsigned int *gpio_base;
 static volatile unsigned int *gpio_dir_base;
+static volatile unsigned int *gpio_sdata_base;
+static volatile unsigned int *gpio_sdir_base;
+static volatile unsigned int *gpio_hdata_base;
+static volatile unsigned int *gpio_hdir_base;
 static int mem_fd;
 static int mem_dir_fd;
+static int mems_fd;
+static int mems_dir_fd;
+static int memh_fd;
+static int memh_dir_fd;
+
 static long vme_file_size = 0;
 unsigned long  g_siIspPins        = 0x00000000;   /*Keeper of JTAG pin state*/
+unsigned long  g_siIspPins_s3     = 0x00000000;   /*Keeper of JTAG pin state*/
+unsigned long  g_siIspPins_h      = 0x00000800;   /*Keeper of JTAG pin state*/
 unsigned short g_usInPort         = PCA953X_INPUT;  /*Address of the TDO pin*/
 unsigned short g_usOutPort	  = PCA953X_OUTPUT;  /*Address of TDI, TMS, TCK pin*/
 unsigned short g_usCpu_Frequency  = 4000; // Here is Intel rangely CPU frequence   /*Enter your CPU frequency here, unit in MHz.*/
@@ -75,10 +87,10 @@ unsigned short g_usCpu_Frequency  = 4000; // Here is Intel rangely CPU frequence
 *********************************************************************************/
 
 #ifdef GALAXY100_PRJ
-unsigned long g_ucPinTDI          = 0x1 << CPLD_TDI_CONFIG;    /* Bit address of TDI */
-unsigned long g_ucPinTCK          = 0x1 << CPLD_TCK_CONFIG;    /* Bit address of TCK */
-unsigned long g_ucPinTMS          = 0x1 << CPLD_TMS_CONFIG;    /* Bit address of TMS */
-unsigned long g_ucPinTDO          = 0x1 << CPLD_TDO_CONFIG;    /* Bit address of TDO*/
+unsigned long g_ucPinTDI          = 0x1;    /* Bit address of TDI */
+unsigned long g_ucPinTCK          = 0x1;    /* Bit address of TCK */
+unsigned long g_ucPinTMS          = 0x1;    /* Bit address of TMS */
+unsigned long g_ucPinTDO          = 0x1;    /* Bit address of TDO*/
 const unsigned long g_ucPinENABLE       = 0x08;    /* Bit address of ENABLE */
 const unsigned long g_ucPinTRST         = 0x10;    /* Bit address of TRST */
 #else
@@ -108,6 +120,114 @@ static int open_i2c_dev(int i2cbus, char *filename, size_t size);
 static void *isp_gpio_map(unsigned int addr, int *fop);
 static void isp_gpio_unmap(void *addr, int fd);
 #endif
+
+
+int isp_gpio_init(const char *cpld_type)
+{
+	void *scu80_addr, *scu84_addr;
+	int scu80_fd, scu84_fd, gpiof_data_addr, gpiof_data_fd, gpiof_dir_addr, gpiof_dir_fd;
+	unsigned int value, temp;
+	unsigned int CPLD_TMS_CONFIG;
+    unsigned int CPLD_TDI_CONFIG;
+    unsigned int CPLD_TCK_CONFIG;
+    unsigned int CPLD_TDO_CONFIG;
+
+	if( 0 == strcmp(cpld_type, "uppersys"))
+	{
+	CPLD_TMS_CONFIG = BMC_GPIOS3;
+	CPLD_TDI_CONFIG = BMC_GPIOH0;
+	CPLD_TCK_CONFIG = BMC_GPIOH1;
+	CPLD_TDO_CONFIG = BMC_GPIOH2;
+	}
+	else if(0 == strcmp(cpld_type, "lowersys"))
+	{
+	CPLD_TMS_CONFIG = BMC_GPIOM4;
+	CPLD_TDI_CONFIG = BMC_GPIOM5;
+	CPLD_TCK_CONFIG = BMC_GPIOM6;
+	CPLD_TDO_CONFIG = BMC_GPIOM7;
+	}
+	else if(0 == strcmp(cpld_type, "fan"))
+	{
+	CPLD_TMS_CONFIG = BMC_GPIOJ4;
+	CPLD_TDI_CONFIG = BMC_GPIOJ6;
+	CPLD_TCK_CONFIG = BMC_GPIOJ5;
+	CPLD_TDO_CONFIG = BMC_GPIOJ7;
+	}
+	else
+	{
+		vme_out_string( "isp gpio init fail\n");
+		return -1;
+	}
+	g_ucPinTDI          = 0x1 << CPLD_TDI_CONFIG;    /* Bit address of TDI */
+	g_ucPinTCK          = 0x1 << CPLD_TCK_CONFIG;    /* Bit address of TCK */
+	g_ucPinTMS          = 0x1 << CPLD_TMS_CONFIG;    /* Bit address of TMS */
+	g_ucPinTDO          = 0x1 << CPLD_TDO_CONFIG;    /* Bit address of TDO*/
+#if 0
+	/*enable GPIOF to GPIO mode*/
+	scu80_addr = isp_gpio_map(SYSTEM_SCU_ADDR(SYSTEM_SCU80), &scu80_fd);
+	value = *(volatile unsigned int *)scu80_addr;
+	DPRINTF("scu80_addr origin value=0x%08x\n", value);
+	*(volatile unsigned int *)scu80_addr = value & (~CPLD_UPDATE_GPIOF_ENABLE);
+	value = *(volatile unsigned int *)scu80_addr; //read back
+	DPRINTF("GPIOF mode  enable, value=0x%08x\n", value);
+	isp_gpio_unmap(scu80_addr, scu80_fd);
+	/*set GPIOF2 direction to output*/
+
+	/*compatible FC and LC*/
+	gpiof_dir_addr = isp_gpio_map(GPIOF_DIR_ADDR, &gpiof_dir_fd);
+	value = *(volatile unsigned int *)gpiof_dir_addr;
+	DPRINTF("gpiof_dir_addr(%p) origin value=0x%08x\n", gpiof_dir_addr, value);
+	*(volatile unsigned int *)gpiof_dir_addr = value & ~(GPIOF_OFFSET);//input mode
+	value = *(volatile unsigned int *)gpiof_dir_addr; //read back
+	DPRINTF("gpiof_dir_addr set input mode, value=0x%08x\n", value);
+	gpiof_data_addr = isp_gpio_map(GPIOF_DATA_ADDR, &gpiof_data_fd);
+	value = *(volatile unsigned int *)gpiof_data_addr;
+	temp = (~(value & (GPIOF_OFFSET))) & GPIOF_OFFSET;//value negation
+	DPRINTF("gpiof_data_addr(%p) origin value=0x%08x, and temp = 0x%08x\n", gpiof_data_addr, value, temp);
+
+	value = *(volatile unsigned int *)gpiof_dir_addr;
+	*(volatile unsigned int *)gpiof_dir_addr = value | (GPIOF_OFFSET);//output mode
+	value = *(volatile unsigned int *)gpiof_dir_addr; //read back
+	DPRINTF("gpiof_dir_addr(%p) set output mode, value=0x%08x\n", gpiof_dir_addr, value);
+	/*set GPIOF2 output to negation*/
+	value = *(volatile unsigned int *)gpiof_data_addr;
+	DPRINTF("gpiof_data_addr(%p) set value=0x%08x\n", gpiof_data_addr, value);
+	*(volatile unsigned int *)gpiof_data_addr = (value & (~GPIOF_OFFSET)) | temp;
+	value = *(volatile unsigned int *)gpiof_data_addr; //read back
+	DPRINTF("gpiof_data_addr readback=0x%08x\n", value);
+	isp_gpio_unmap(gpiof_dir_addr, gpiof_dir_fd);
+	isp_gpio_unmap(gpiof_data_addr, gpiof_data_fd);
+
+	/*enable CPLD JTAG GPIO to GPIO mode*/
+	scu84_addr = isp_gpio_map(SYSTEM_SCU_ADDR(SYSTEM_SCU84), &scu84_fd);
+	value = *(volatile unsigned int *)scu84_addr;
+	*(volatile unsigned int *)scu84_addr = value & (~CPLD_JTAG_GPIOL_ENABLE);
+	value = *(volatile unsigned int *)scu84_addr; //read back
+	DPRINTF("scu84_addr(%p) set value=0x%08x\n", scu84_addr, value);
+	isp_gpio_unmap(scu84_addr, scu84_fd);
+#endif
+	/*get CPLD JTAG GPIO base address*/
+	if( 0 == strcmp(cpld_type, "uppersys"))
+	{
+	    gpio_sdata_base = (volatile unsigned int *)isp_gpio_map(GPIOS_DATA_ADDR, &mems_fd);
+	    gpio_sdir_base = (volatile unsigned int *)isp_gpio_map(GPIOS_DIR_ADDR, &mems_dir_fd);
+	    gpio_hdata_base = (volatile unsigned int *)isp_gpio_map(GPIOH_DATA_ADDR, &memh_fd);
+	    gpio_hdir_base = (volatile unsigned int *)isp_gpio_map(GPIOH_DIR_ADDR, &memh_dir_fd);
+	}
+	else if(0 == strcmp(cpld_type, "lowersys"))
+	{
+	    gpio_base = (volatile unsigned int *)isp_gpio_map(GPIOM_DATA_ADDR, &mem_fd);
+	    gpio_dir_base = (volatile unsigned int *)isp_gpio_map(GPIOM_DIR_ADDR, &mem_dir_fd);
+	}
+	else if(0 == strcmp(cpld_type, "fan"))
+	{
+	    gpio_base = (volatile unsigned int *)isp_gpio_map(GPIOJ_DATA_ADDR, &mem_fd);
+	    gpio_dir_base = (volatile unsigned int *)isp_gpio_map(GPIOJ_DIR_ADDR, &mem_dir_fd);
+	}
+
+	return 0;
+}
+
 /********************************************************************************
 * writePort
 * To apply the specified value to the pins indicated. This routine will
@@ -153,8 +273,41 @@ void writePort( unsigned long a_ucPins, unsigned char a_ucValue )
 	}
 #ifdef GALAXY100_PRJ
 	if(syscpld_update) {
-		*gpio_base = g_siIspPins;
-		while((*gpio_base & g_siIspPins) != g_siIspPins);
+		if( (0 == strcmp(cpld_type, "fan")) || (0 == strcmp(cpld_type, "lowersys")) )
+		{
+			*gpio_base = g_siIspPins;
+			while((*gpio_base & g_siIspPins) != g_siIspPins);
+		}
+		else if(0 == strcmp(cpld_type, "uppersys"))
+		{
+			if( (0x1 << BMC_GPIOS3) == a_ucPins)
+			{
+				if ( a_ucValue ) {
+					g_siIspPins_s3 = (a_ucPins | g_siIspPins_s3);
+				}
+				else {
+					g_siIspPins_s3 = (~a_ucPins & g_siIspPins_s3);
+				}
+				*gpio_sdata_base = g_siIspPins_s3;
+			    while((*gpio_sdata_base & g_siIspPins_s3) != g_siIspPins_s3 );
+			}
+			else
+			{
+				if ( a_ucValue ) {
+					g_siIspPins_h = (a_ucPins | g_siIspPins_h);
+				}
+				else {
+					g_siIspPins_h = (~a_ucPins & g_siIspPins_h);
+				}
+				*gpio_hdata_base = g_siIspPins_h;
+				//printf("[%s][%d] [0x%x]\n",__FUNCTION__,__LINE__, *gpio_hdata_base);
+				while((*gpio_hdata_base & g_siIspPins_h) != g_siIspPins_h);
+			}
+		}
+		else
+		{
+			vme_out_string( "writePort fail\n");
+		}
 	} else if (use_dll) {
 		isp_dll_write(a_ucPins, a_ucValue ? 1 : 0);
 	} else {
@@ -177,12 +330,29 @@ unsigned char readPort()
 
 #ifdef GALAXY100_PRJ
 	if(syscpld_update) {
-		while(count--) {
-			if ((*gpio_base) & g_ucPinTDO) {
-				ucRet = 0x01;
-			} else {
-				ucRet = 0x0;
+		if( (0 == strcmp(cpld_type, "fan")) || (0 == strcmp(cpld_type, "lowersys")) )
+		{
+			while(count--) {
+				if ((*gpio_base) & g_ucPinTDO) {
+					ucRet = 0x01;
+				} else {
+					ucRet = 0x0;
+				}
 			}
+		}
+		else if(0 == strcmp(cpld_type, "uppersys"))
+		{
+			while(count--) {
+				if ((*gpio_hdata_base) & g_ucPinTDO) {
+					ucRet = 0x01;
+				} else {
+					ucRet = 0x0;
+				}
+			}
+		}
+		else
+		{
+			vme_out_string( "readPort fail\n");
 		}
 	} else if (use_dll) {
 		ucRet = isp_dll_read(CPLDUPDATE_PIN_TDO);
@@ -498,79 +668,65 @@ static void isp_gpio_unmap(void *addr, int fd)
 	munmap(addr, MAP_SIZE);
 	close(fd);
 }
-int isp_gpio_init(void)
+
+void isp_gpio_uninit(const char * cpld_type)
 {
-	void *scu80_addr, *scu84_addr;
-	int scu80_fd, scu84_fd, gpiof_data_addr, gpiof_data_fd, gpiof_dir_addr, gpiof_dir_fd;
-	unsigned int value, temp;
-
-	g_ucPinTDI          = 0x1 << CPLD_TDI_CONFIG;    /* Bit address of TDI */
-	g_ucPinTCK          = 0x1 << CPLD_TCK_CONFIG;    /* Bit address of TCK */
-	g_ucPinTMS          = 0x1 << CPLD_TMS_CONFIG;    /* Bit address of TMS */
-	g_ucPinTDO          = 0x1 << CPLD_TDO_CONFIG;    /* Bit address of TDO*/
-
-	/*enable GPIOF to GPIO mode*/
-	scu80_addr = isp_gpio_map(SYSTEM_SCU_ADDR(SYSTEM_SCU80), &scu80_fd);
-	value = *(volatile unsigned int *)scu80_addr;
-	DPRINTF("scu80_addr origin value=0x%08x\n", value);
-	*(volatile unsigned int *)scu80_addr = value & (~CPLD_UPDATE_GPIOF_ENABLE);
-	value = *(volatile unsigned int *)scu80_addr; //read back
-	DPRINTF("GPIOF mode  enable, value=0x%08x\n", value);
-	isp_gpio_unmap(scu80_addr, scu80_fd);
-	/*set GPIOF2 direction to output*/
-
-	/*compatible FC and LC*/
-	gpiof_dir_addr = isp_gpio_map(GPIOF_DIR_ADDR, &gpiof_dir_fd);
-	value = *(volatile unsigned int *)gpiof_dir_addr;
-	DPRINTF("gpiof_dir_addr(%p) origin value=0x%08x\n", gpiof_dir_addr, value);
-	*(volatile unsigned int *)gpiof_dir_addr = value & ~(GPIOF_OFFSET);//input mode
-	value = *(volatile unsigned int *)gpiof_dir_addr; //read back
-	DPRINTF("gpiof_dir_addr set input mode, value=0x%08x\n", value);
-	gpiof_data_addr = isp_gpio_map(GPIOF_DATA_ADDR, &gpiof_data_fd);
-	value = *(volatile unsigned int *)gpiof_data_addr;
-	temp = (~(value & (GPIOF_OFFSET))) & GPIOF_OFFSET;//value negation
-	DPRINTF("gpiof_data_addr(%p) origin value=0x%08x, and temp = 0x%08x\n", gpiof_data_addr, value, temp);
-
-	value = *(volatile unsigned int *)gpiof_dir_addr;
-	*(volatile unsigned int *)gpiof_dir_addr = value | (GPIOF_OFFSET);//output mode
-	value = *(volatile unsigned int *)gpiof_dir_addr; //read back
-	DPRINTF("gpiof_dir_addr(%p) set output mode, value=0x%08x\n", gpiof_dir_addr, value);
-	/*set GPIOF2 output to negation*/
-	value = *(volatile unsigned int *)gpiof_data_addr;
-	DPRINTF("gpiof_data_addr(%p) set value=0x%08x\n", gpiof_data_addr, value);
-	*(volatile unsigned int *)gpiof_data_addr = (value & (~GPIOF_OFFSET)) | temp;
-	value = *(volatile unsigned int *)gpiof_data_addr; //read back
-	DPRINTF("gpiof_data_addr readback=0x%08x\n", value);
-	isp_gpio_unmap(gpiof_dir_addr, gpiof_dir_fd);
-	isp_gpio_unmap(gpiof_data_addr, gpiof_data_fd);
-
-	/*enable CPLD JTAG GPIO to GPIO mode*/
-	scu84_addr = isp_gpio_map(SYSTEM_SCU_ADDR(SYSTEM_SCU84), &scu84_fd);
-	value = *(volatile unsigned int *)scu84_addr;
-	*(volatile unsigned int *)scu84_addr = value & (~CPLD_JTAG_GPIOL_ENABLE);
-	value = *(volatile unsigned int *)scu84_addr; //read back
-	DPRINTF("scu84_addr(%p) set value=0x%08x\n", scu84_addr, value);
-	isp_gpio_unmap(scu84_addr, scu84_fd);
-	/*get CPLD JTAG GPIO base address*/
-	gpio_base = (volatile unsigned int *)isp_gpio_map(GPIOL_DATA_ADDR, &mem_fd);
-	gpio_dir_base = (volatile unsigned int *)isp_gpio_map(GPIOL_DIR_ADDR, &mem_dir_fd);
-
-	return 0;
-}
-void isp_gpio_uninit(void)
-{
-	munmap(gpio_base, MAP_SIZE);
-	munmap(gpio_dir_base, MAP_SIZE);
-	close(mem_fd);
-	close(mem_dir_fd);
-}
-void isp_gpio_config(unsigned int gpio, int dir)
-{
-	if(dir) { //1:in, 0:out
-		*(gpio_dir_base) &= ~(0x1 << gpio);
-	} else {
-		*(gpio_dir_base) |= (0x1 << gpio);
+	if( (0 == strcmp(cpld_type, "fan")) || (0 == strcmp(cpld_type, "lowersys")) )
+	{
+		munmap(gpio_base, MAP_SIZE);
+		munmap(gpio_dir_base, MAP_SIZE);
+		close(mem_fd);
+		close(mem_dir_fd);
 	}
+	else if(0 == strcmp(cpld_type, "uppersys"))
+	{
+		munmap(gpio_sdir_base, MAP_SIZE);
+		munmap(gpio_sdir_base, MAP_SIZE);
+		munmap(gpio_hdir_base, MAP_SIZE);
+		munmap(gpio_hdir_base, MAP_SIZE);
+		close(mems_fd);
+		close(mems_dir_fd);
+		close(memh_fd);
+		close(memh_dir_fd);
+	}
+	else
+	{
+		vme_out_string( "isp_gpio_uninit fail\n");
+	}
+}
+void isp_gpio_config(unsigned int gpio, int dir, const char * cpld_type)
+{
+		if( (0 == strcmp(cpld_type, "fan")) || (0 == strcmp(cpld_type, "lowersys")) )
+		{
+			if(dir) { //1:in, 0:out
+				*(gpio_dir_base) &= ~(0x1 << gpio);
+			} else {
+				*(gpio_dir_base) |= (0x1 << gpio);
+			}
+		}
+		else if(0 == strcmp(cpld_type, "uppersys"))
+		{
+			if(BMC_GPIOS3 == gpio)
+			{
+				if(dir) { //1:in, 0:out
+					*(gpio_sdir_base) &= ~(0x1 << gpio);
+				} else {
+					*(gpio_sdir_base) |= (0x1 << gpio);
+				}
+			}
+			else
+			{
+				if(dir) { //1:in, 0:out
+					*(gpio_hdir_base) &= ~(0x1 << gpio);
+				} else {
+					*(gpio_hdir_base) |= (0x1 << gpio);
+				}
+			}
+		}
+		else
+		{
+			vme_out_string( "isp_gpio_config fail\n");
+		}
 }
 
 int isp_vme_file_size_set(char *file_name)
@@ -590,7 +746,7 @@ long isp_vme_file_size_get(void)
 int isp_print_progess_bar(long pec)
 {
 	int i = 0;
-
+#if 0
 	printf("\033[?251");
 	printf("\r");
 
@@ -600,9 +756,11 @@ int isp_print_progess_bar(long pec)
 	for(i = pec / 2; i < 50; i++) {
 		printf("\033[47m \033[0m");
 	}
-	printf(" [%d%%]", pec);
-	fflush(stdout);
+#endif
+
 	if(pec == 100) {
+		printf(" [%d%%]", pec);
+		fflush(stdout);
 		printf("\n");
 	}
 

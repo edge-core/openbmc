@@ -934,6 +934,7 @@ signed char ispVMCode()
 			break;
 		/* 03/14/06 Support Toggle ispENABLE signal*/
 		case ispEN:
+			vme_out_string( "g_ucPinENABLE \n");
 			ucState = GetByte();
 			if((ucState == ON)||(ucState == 0x01))
 				writePort( g_ucPinENABLE, 0x01 );
@@ -943,6 +944,7 @@ signed char ispVMCode()
 			break;
         /* 05/24/06 support Toggle TRST pin*/
 		case TRST:
+			vme_out_string( "g_ucPinTRST \n");
 			ucState = GetByte();
 			if(ucState == 0x01)
 				writePort( g_ucPinTRST, 0x01 );
@@ -2195,6 +2197,7 @@ signed char ispVMLCOUNT( unsigned short a_usCountSize )
 				ispVMComment( ( unsigned short ) ispVMDataSize() );
 				break;
 			case ispEN:
+				vme_out_string( "g_ucPinENABLE \n");
 				ucState = GetByte();
 				if((ucState == ON)||(ucState == 0x01))
 					writePort( g_ucPinENABLE, 0x01 );
@@ -2203,6 +2206,7 @@ signed char ispVMLCOUNT( unsigned short a_usCountSize )
 				ispVMDelay( 1 );
 				break;
 			case TRST:
+				vme_out_string( "g_ucPinTRST \n");
 				if(GetByte() == 0x01)
 					writePort( g_ucPinTRST, 0x01 );
 				else

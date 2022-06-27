@@ -1,6 +1,6 @@
 /**************************************************************
 *
-* Lattice Semiconductor Corp. Copyright 2008
+* Accton Corp. Copyright 2022
 *
 * ispVME Embedded allows programming of Lattice's suite of FPGA
 * devices on embedded systems through the JTAG port.  The software
@@ -41,7 +41,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/io.h>
+//#include <sys/io.h>
 #include "vmopcode.h"
 
 /***************************************************************
@@ -652,6 +652,7 @@ signed char ispVM( const char * a_pszFilename )
 ***************************************************************/
 
 const char *cpld_img = "cpld.vme";
+const char *cpld_type = "uppersys";
 #define CPLD_VERSION_REG 0x100
 int main( int argc, const char * const argv[] )
 {
@@ -662,11 +663,15 @@ int main( int argc, const char * const argv[] )
 	//08/28/08 NN Added Calculate checksum support.
 	g_usChecksum = 0;
 	g_uiChecksumIndex = 0;
-
-	vme_out_string( "                 Lattice Semiconductor Corp.\n" );
+	unsigned int CPLD_TMS_CONFIG;
+    unsigned int CPLD_TDI_CONFIG;
+    unsigned int CPLD_TCK_CONFIG;
+    unsigned int CPLD_TDO_CONFIG;
+  
+	vme_out_string( "                 Accton Corp.\n" );
 	vme_out_string( "\n             ispVME(tm) V");
     vme_out_string( VME_VERSION_NUMBER );
-    vme_out_string(" Copyright 1998-2011.\n");
+    vme_out_string(" Copyright 1998-2022.\n");
 	vme_out_string( "\nFor daisy chain programming of all in-system programmable devices\n\n" );
 	for ( iCommandLineIndex = 1; iCommandLineIndex < argc; ) {
 		if ( !strcasecmp( argv[iCommandLineIndex], "-c" )
@@ -682,7 +687,15 @@ int main( int argc, const char * const argv[] )
 			printf("CPU Freq set as %d MHZ\n", g_usCpu_Frequency);
 		}
 		else if ( !strcasecmp( argv[iCommandLineIndex], "syscpld" ) ) {
-			cpld_img = argv[iCommandLineIndex + 1];
+			cpld_type = argv[iCommandLineIndex + 1];
+			if ( strcmp(argv[iCommandLineIndex + 1], "uppersys") && \
+				 strcmp(argv[iCommandLineIndex + 1], "lowersys") && \
+				 strcmp(argv[iCommandLineIndex + 1], "fan") )
+			{
+				printf( "argv[%u] input error\n", iCommandLineIndex + 1);
+				return 0;
+			}
+			cpld_img = argv[iCommandLineIndex + 2];
 			iCommandLineIndex += 2;
 			syscpld_update = 1;
 			use_dll = 0;
@@ -706,15 +719,45 @@ int main( int argc, const char * const argv[] )
 
 #if defined(GALAXY100_PRJ)
 	if(syscpld_update) {
-		isp_gpio_init();
-		isp_gpio_config(CPLD_TCK_CONFIG, GPIO_OUT);
-		isp_gpio_config(CPLD_TMS_CONFIG, GPIO_OUT);
-		isp_gpio_config(CPLD_TDI_CONFIG, GPIO_OUT);
-		isp_gpio_config(CPLD_TDO_CONFIG, GPIO_IN);
+		isp_gpio_init(cpld_type);
+		vme_out_string( "isp gpio init\n");
+
+		if( 0 == strcmp(cpld_type, "uppersys"))
+		{
+         CPLD_TMS_CONFIG = BMC_GPIOS3;
+         CPLD_TDI_CONFIG = BMC_GPIOH0;
+         CPLD_TCK_CONFIG = BMC_GPIOH1;
+         CPLD_TDO_CONFIG = BMC_GPIOH2;
+		}
+		else if(0 == strcmp(cpld_type, "lowersys"))
+		{
+        CPLD_TMS_CONFIG = BMC_GPIOM4;
+        CPLD_TDI_CONFIG = BMC_GPIOM5;
+        CPLD_TCK_CONFIG = BMC_GPIOM6;
+        CPLD_TDO_CONFIG = BMC_GPIOM7;
+		}
+		else if(0 == strcmp(cpld_type, "fan"))
+		{
+        CPLD_TMS_CONFIG = BMC_GPIOJ4;
+        CPLD_TDI_CONFIG = BMC_GPIOJ6;
+        CPLD_TCK_CONFIG = BMC_GPIOJ5;
+ 		CPLD_TDO_CONFIG = BMC_GPIOJ7;
+		}
+		else
+		{
+			vme_out_string( "isp gpio init fail\n");
+			return -1;
+		}
+		isp_gpio_config(CPLD_TCK_CONFIG, GPIO_OUT, cpld_type);
+		isp_gpio_config(CPLD_TMS_CONFIG, GPIO_OUT, cpld_type);
+		isp_gpio_config(CPLD_TDI_CONFIG, GPIO_OUT, cpld_type);
+		isp_gpio_config(CPLD_TDO_CONFIG, GPIO_IN,  cpld_type);
 	} else if (use_dll) {
 		isp_dll_init(argc, argv);
+		vme_out_string( "isp dll init");
 	} else {
 		isp_gpio_i2c_init();
+		vme_out_string( "isp gpio i2c init");
 		isp_gpio_i2c_config(CPLD_TCK_I2C_CONFIG, GPIO_OUT);
 		isp_gpio_i2c_config(CPLD_TMS_I2C_CONFIG, GPIO_OUT);
 		isp_gpio_i2c_config(CPLD_TDI_I2C_CONFIG, GPIO_OUT);
@@ -730,6 +773,7 @@ int main( int argc, const char * const argv[] )
     printf( "Processing virtual machine file (%s)......\n", cpld_img);
 	siRetCode = ispVM(cpld_img);
 	if ( siRetCode < 0 ) {
+        printf( "ret : %d \n", siRetCode);
 		vme_out_string( "Failed due to ");
 		vme_out_string ("\n\n");
 		vme_out_string( "+=======+\n" );
@@ -737,7 +781,7 @@ int main( int argc, const char * const argv[] )
 		vme_out_string( "+=======+\n\n" );
 #if  defined(GALAXY100_PRJ)
 	if(syscpld_update) {
-		isp_gpio_uninit();
+		isp_gpio_uninit(cpld_type);
 	}
 #endif
 		return 0;
@@ -757,7 +801,7 @@ int main( int argc, const char * const argv[] )
 
 #if  defined(GALAXY100_PRJ)
 	if(syscpld_update) {
-		isp_gpio_uninit();
+		isp_gpio_uninit(cpld_type);
 	}
 #endif
 	return 1;
