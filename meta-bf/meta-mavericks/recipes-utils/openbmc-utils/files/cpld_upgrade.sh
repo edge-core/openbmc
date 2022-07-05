@@ -44,10 +44,12 @@ upgrade_upper_syscpld() {
 		rc=$?
 	elif [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "4" ]; then
 		jbi -r -aPROGRAM -gc57 -gi56 -go58 -gs147 $1 | grep -i "Success"
-		rc=$?
+        echo "Finished Lower SYSCPLD upgrade: Pass"
+		exit 1
     elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "3" ]; then
 		jbi -r -aPROGRAM -gc57 -gi56 -go58 -gs147 $1 | grep -i "Success"
-		rc=$?
+        echo "Finished Lower SYSCPLD upgrade: Pass"
+		exit 1
 	else
 	    echo "update cpld Fail"
 		exit 1
@@ -77,10 +79,12 @@ upgrade_lower_syscpld() {
 		rc=$?
 	elif [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "4" ]; then
 		jbi -r -aPROGRAM -gc102 -gi101 -go103 -gs100 $1 | grep -i "Success"
-		rc=$?
+        echo "Finished Lower SYSCPLD upgrade: Pass"
+		exit 1
     elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "3" ]; then
 		jbi -r -aPROGRAM -gc102 -gi101 -go103 -gs100 $1 | grep -i "Success"
-		rc=$?
+        echo "Finished Lower SYSCPLD upgrade: Pass"
+		exit 1
 	else
 	    echo "update cpld Fail"
 		exit 1
@@ -111,10 +115,12 @@ upgrade_upper_fancpld() {
 		rc=$?
 	elif [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "4" ]; then
 		jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success"
-		rc=$?
+        echo "Finished Lower SYSCPLD upgrade: Pass"
+		exit 1
     elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "3" ]; then
 		jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success"
-		rc=$?
+        echo "Finished Lower SYSCPLD upgrade: Pass"
+		exit 1
 	else
 	    echo "update cpld Fail"
 		exit 1
@@ -151,10 +157,12 @@ upgrade_lower_fancpld() {
 		rc=$?
 	elif [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "4" ]; then
 		jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success"
-		rc=$?
+        echo "Finished Lower SYSCPLD upgrade: Pass"
+		exit 1
     elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "3" ]; then
 		jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success"
-		rc=$?
+        echo "Finished Lower SYSCPLD upgrade: Pass"
+		exit 1
 	else
 	    echo "update cpld Fail"
 		exit 1
@@ -218,21 +226,6 @@ else
 	exit 1
 fi
 
-# if [ $product_sub_version -eq 2 ]; then
-	# if [ ${filename: -4} != ".vme" ]; then
-		# echo "Must pass in a .vme file"
-		# exit 1
-	# fi
-# elif [ $product_sub_version -eq 1 ]; then
-	# if [ ${filename: -4} != ".jbc" ] && [ ${filename: -4} != ".JBC" ]; then
-		# echo "Must pass in a .jbc file"
-		# exit 1
-	# fi
-# else
-	# echo "Fail: board rev not correct"
-	# echo "product_sub_version: $product_sub_version"
-	# exit 1
-# fi
 
 # 2U: Mavericks, 1U: Montara, Newport
 if [ $1 == "upper" ] && [ "$board_subtype" != "Mavericks" ]; then
