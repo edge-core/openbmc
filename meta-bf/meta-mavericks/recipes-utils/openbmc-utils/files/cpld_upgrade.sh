@@ -21,8 +21,8 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 
 board_subtype=$(wedge_board_subtype)
-board_rev=$(wedge_board_rev)
-
+#board_rev=$(wedge_board_rev)
+product_sub_version=$(cat /tmp/eeprom_product_sub_version | awk '{print $3}')
 usage() {
     echo "Usage: ${0} <target board (upper lower)> <target cpld (sys fan)> <cpld_image>" >&2
 }
@@ -36,14 +36,20 @@ upgrade_upper_syscpld() {
     i2cset -y -f 12 0x30 0x2e 0x18
 
     #program syscpld, board_rev=010 new board, board_rev=001 old board
-    if [ $board_rev -eq 10 ]; then
+    if [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "5" ]; then
 	    ispvm syscpld uppersys $1
 		rc=$?
-	elif [ $board_rev -eq 1 ]; then
-        jbi -r -aPROGRAM -gc57 -gi56 -go58 -gs147 $1 | grep -i "Success"
+    elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "4" ]; then
+	    ispvm syscpld uppersys $1
+		rc=$?
+	elif [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "4" ]; then
+		jbi -r -aPROGRAM -gc57 -gi56 -go58 -gs147 $1 | grep -i "Success"
+		rc=$?
+    elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "3" ]; then
+		jbi -r -aPROGRAM -gc57 -gi56 -go58 -gs147 $1 | grep -i "Success"
 		rc=$?
 	else
-	    echo "Fail: board rev not correct"
+	    echo "update cpld Fail"
 		exit 1
 	fi
 
@@ -63,14 +69,20 @@ upgrade_lower_syscpld() {
     i2cset -y -f 12 0x31 0x2e 0x18
 
     #program syscpld, board_rev=010 new board, board_rev=001 old board
-    if [ $board_rev -eq 10 ]; then
-	    ispvm syscpld lowersys $1
+    if [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "5" ]; then
+		ispvm syscpld lowersys $1
 		rc=$?
-	elif [ $board_rev -eq 1 ]; then
-        jbi -r -aPROGRAM -gc102 -gi101 -go103 -gs100 $1 | grep -i "Success"
+    elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "4" ]; then
+		ispvm syscpld lowersys $1
+		rc=$?
+	elif [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "4" ]; then
+		jbi -r -aPROGRAM -gc102 -gi101 -go103 -gs100 $1 | grep -i "Success"
+		rc=$?
+    elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "3" ]; then
+		jbi -r -aPROGRAM -gc102 -gi101 -go103 -gs100 $1 | grep -i "Success"
 		rc=$?
 	else
-	    echo "Fail: board rev not correct"
+	    echo "update cpld Fail"
 		exit 1
 	fi
 
@@ -91,14 +103,20 @@ upgrade_upper_fancpld() {
     echo 1 > /tmp/gpionames/BMC_FANCARD_CPLD_JTAG__SEL/value
 
     #program syscpld, board_rev=010 new board, board_rev=001 old board
-    if [ $board_rev -eq 10 ]; then
-	    ispvm syscpld fan $1
+    if [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "5" ]; then
+		ispvm syscpld fan $1
 		rc=$?
-	elif [ $board_rev -eq 1 ]; then
-        jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success"
+    elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "4" ]; then
+	    ispvm syscpld uppersys $1
+		rc=$?
+	elif [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "4" ]; then
+		jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success"
+		rc=$?
+    elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "3" ]; then
+		jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success"
 		rc=$?
 	else
-	    echo "Fail: board rev not correct"
+	    echo "update cpld Fail"
 		exit 1
 	fi
     
@@ -125,14 +143,20 @@ upgrade_lower_fancpld() {
     fi
 
     #program syscpld, board_rev=010 new board, board_rev=001 old board
-    if [ $board_rev -eq 10 ]; then
-	    ispvm syscpld fan $1
+    if [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "5" ]; then
+		ispvm syscpld fan $1
 		rc=$?
-	elif [ $board_rev -eq 1 ]; then
-        jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success"
+    elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "4" ]; then
+		ispvm syscpld fan $1
+		rc=$?
+	elif [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "4" ]; then
+		jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success"
+		rc=$?
+    elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "3" ]; then
+		jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $1 | grep -i "Success"
 		rc=$?
 	else
-	    echo "Fail: board rev not correct"
+	    echo "update cpld Fail"
 		exit 1
 	fi
     
@@ -168,25 +192,51 @@ fi
 # Check the file path extension is .jbc or .vme
 filename="$(basename $cpldfile)"
 
-if [ $board_rev -eq 10 ]; then
+if [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "5" ]; then
 	if [ ${filename: -4} != ".vme" ]; then
 		echo "Must pass in a .vme file"
 		exit 1
 	fi
-elif [ $board_rev -eq 1 ]; then
+elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "4" ]; then
+	if [ ${filename: -4} != ".vme" ]; then
+		echo "Must pass in a .vme file"
+		exit 1
+	fi
+elif [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "4" ]; then
+	if [ ${filename: -4} != ".jbc" ] && [ ${filename: -4} != ".JBC" ]; then
+		echo "Must pass in a .jbc file"
+		exit 1
+	fi
+elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "3" ]; then
 	if [ ${filename: -4} != ".jbc" ] && [ ${filename: -4} != ".JBC" ]; then
 		echo "Must pass in a .jbc file"
 		exit 1
 	fi
 else
-	echo "Fail: board rev not correct"
+	echo "$board_subtype  $product_sub_version"
+    echo "check file fail"
 	exit 1
 fi
+
+# if [ $product_sub_version -eq 2 ]; then
+	# if [ ${filename: -4} != ".vme" ]; then
+		# echo "Must pass in a .vme file"
+		# exit 1
+	# fi
+# elif [ $product_sub_version -eq 1 ]; then
+	# if [ ${filename: -4} != ".jbc" ] && [ ${filename: -4} != ".JBC" ]; then
+		# echo "Must pass in a .jbc file"
+		# exit 1
+	# fi
+# else
+	# echo "Fail: board rev not correct"
+	# echo "product_sub_version: $product_sub_version"
+	# exit 1
+# fi
 
 # 2U: Mavericks, 1U: Montara, Newport
 if [ $1 == "upper" ] && [ "$board_subtype" != "Mavericks" ]; then
     echo "upper board does not exist"
-	echo $board_subtype
     exit 1
 fi
 
