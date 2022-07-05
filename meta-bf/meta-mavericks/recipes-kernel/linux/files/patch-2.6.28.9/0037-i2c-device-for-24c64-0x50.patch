@@ -1,0 +1,14 @@
+diff --git a/arch/arm/plat-aspeed/dev-i2c.c b/arch/arm/plat-aspeed/dev-i2c.c
+index 2585a6c..511036b 100755
+--- a/arch/arm/plat-aspeed/dev-i2c.c
++++ b/arch/arm/plat-aspeed/dev-i2c.c
+@@ -1103,6 +1103,9 @@ static struct i2c_board_info __initdata mavericks_i2c_bus7[] = {
+   },
+   {
+     I2C_BOARD_INFO("24c64", 0x51),
++  },
++  {
++    I2C_BOARD_INFO("24c64", 0x50),
+   }
+ };
+ 

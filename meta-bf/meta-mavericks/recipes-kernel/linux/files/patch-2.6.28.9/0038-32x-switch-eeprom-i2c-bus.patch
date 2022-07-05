@@ -1,0 +1,13 @@
+diff --git a/arch/arm/plat-aspeed/dev-i2c.c b/arch/arm/plat-aspeed/dev-i2c.c
+index 511036b..a8a14ff 100755
+--- a/arch/arm/plat-aspeed/dev-i2c.c
++++ b/arch/arm/plat-aspeed/dev-i2c.c
+@@ -1112,7 +1112,7 @@ static struct i2c_board_info __initdata mavericks_i2c_bus7[] = {
+ static struct i2c_board_info __initdata mavericks_i2c_bus8[] = {
+   /* BMC PHY EEPROM */
+   {
+-    I2C_BOARD_INFO("24c02", 0x50),
++    I2C_BOARD_INFO("24c64", 0x50),
+   },
+   // EEPROM on the pfe1100 power supplies
+   {
