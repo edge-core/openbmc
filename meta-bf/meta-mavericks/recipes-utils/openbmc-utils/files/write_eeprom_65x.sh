@@ -13,12 +13,9 @@ if [ -e $eeprom ]; then
 	dd if=/home/root/$1 of=$eeprom 
 	cat $eeprom | hexdump -C > /tmp/new_eeprom
 	
-	str=$(diff /tmp/old_eeprom /tmp/new_eeprom)
-	if [ -z "$str" ]; then
-	    echo "write eeprom success"
-	else 
-	    echo "write eeprom fail"
-	fi
+    echo "write eeprom success"
+
 else
 	echo "eeprom driver not probe"
 fi
+

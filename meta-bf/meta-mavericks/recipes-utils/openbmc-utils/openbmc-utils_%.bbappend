@@ -33,6 +33,8 @@ SRC_URI += "file://disable_watchdog.sh \
             file://fru_eeprom.py \
             file://bmc_info.sh \
             file://tool4tpm \
+            file://write_eeprom_65x.sh \
+            file://write_eeprom_32x.sh \
            "
 
 OPENBMC_UTILS_FILES += " \
