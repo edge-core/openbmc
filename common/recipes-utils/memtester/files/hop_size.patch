@@ -1,0 +1,305 @@
+--- memtester-4.5.0-ori/memtester.c	2020-09-21 03:43:55.000000000 +0800
++++ memtester-4.5.0/memtester.c	2021-06-22 17:19:52.627122843 +0800
+@@ -98,11 +98,12 @@
+ /* Global vars - so tests have access to this information */
+ int use_phys = 0;
+ off_t physaddrbase = 0;
++unsigned long hop_size = 64;
+ 
+ /* Function definitions */
+ void usage(char *me) {
+     fprintf(stderr, "\n"
+-            "Usage: %s [-p physaddrbase [-d device]] <mem>[B|K|M|G] [loops]\n",
++            "Usage: %s [-s HopSize] [-p physaddrbase [-d device]] <mem>[B|K|M|G] [loops]\n",
+             me);
+     exit(EXIT_FAIL_NONSTARTER);
+ }
+@@ -150,7 +151,7 @@
+         printf("using testmask 0x%lx\n", testmask);
+     }
+ 
+-    while ((opt = getopt(argc, argv, "p:d:")) != -1) {
++    while ((opt = getopt(argc, argv, "p:d:s:")) != -1) {
+         switch (opt) {
+             case 'p':
+                 errno = 0;
+@@ -193,10 +194,21 @@
+                     }
+                 }
+                 break;              
++            case 's':
++                errno = 0;
++                hop_size = strtoul(optarg, 0, 10);
++                if (errno) {
++                    fprintf(stderr, "failed to parse hop_size arg; should be the dex value\r\n");
++                    usage(argv[0]); /* doesn't return */
++                }
++                if (hop_size == 0)
++                    hop_size = 1;
++                break;
+             default: /* '?' */
+                 usage(argv[0]); /* doesn't return */
+         }
+     }
++    printf("using hopsize %lu\r\n", hop_size);
+ 
+     if (device_specified && !use_phys) {
+         fprintf(stderr, 
+--- memtester-4.5.0-ori/tests.c	2020-09-21 03:43:55.000000000 +0800
++++ memtester-4.5.0/tests.c	2021-06-22 17:16:29.510510146 +0800
+@@ -27,6 +27,9 @@
+ #define PROGRESSOFTEN 2500
+ #define ONE 0x00000001L
+ 
++
++extern unsigned long hop_size;
++
+ union {
+     unsigned char bytes[UL_LEN/8];
+     ul val;
+@@ -46,7 +49,7 @@
+     ulv *p2 = bufb;
+     off_t physaddr;
+ 
+-    for (i = 0; i < count; i++, p1++, p2++) {
++    for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
+         if (*p1 != *p2) {
+             if (use_phys) {
+                 physaddr = physaddrbase + (i * sizeof(ul));
+@@ -79,15 +82,14 @@
+         p1 = (ulv *) bufa;
+         printf("setting %3u", j);
+         fflush(stdout);
+-        for (i = 0; i < count; i++) {
++        for (i = 0; i < count; i+=hop_size, p1+=hop_size) {
+             *p1 = ((j + i) % 2) == 0 ? (ul) p1 : ~((ul) p1);
+-            *p1++;
+         }
+         printf("\b\b\b\b\b\b\b\b\b\b\b");
+         printf("testing %3u", j);
+         fflush(stdout);
+         p1 = (ulv *) bufa;
+-        for (i = 0; i < count; i++, p1++) {
++        for (i = 0; i < count; i+=hop_size, p1+=hop_size) {
+             if (*p1 != (((j + i) % 2) == 0 ? (ul) p1 : ~((ul) p1))) {
+                 if (use_phys) {
+                     physaddr = physaddrbase + (i * sizeof(ul));
+@@ -120,8 +122,8 @@
+ 
+     putchar(' ');
+     fflush(stdout);
+-    for (i = 0; i < count; i++) {
+-        *p1++ = *p2++ = rand_ul();
++    for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
++        *p1 = *p2 = rand_ul();
+         if (!(i % PROGRESSOFTEN)) {
+             putchar('\b');
+             putchar(progress[++j % PROGRESSLEN]);
+@@ -139,9 +141,9 @@
+     size_t i;
+     ul q = rand_ul();
+ 
+-    for (i = 0; i < count; i++) {
+-        *p1++ ^= q;
+-        *p2++ ^= q;
++    for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
++        *p1 ^= q;
++        *p2 ^= q;
+     }
+     return compare_regions(bufa, bufb, count);
+ }
+@@ -152,9 +154,9 @@
+     size_t i;
+     ul q = rand_ul();
+ 
+-    for (i = 0; i < count; i++) {
+-        *p1++ -= q;
+-        *p2++ -= q;
++    for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
++        *p1 -= q;
++        *p2 -= q;
+     }
+     return compare_regions(bufa, bufb, count);
+ }
+@@ -165,9 +167,9 @@
+     size_t i;
+     ul q = rand_ul();
+ 
+-    for (i = 0; i < count; i++) {
+-        *p1++ *= q;
+-        *p2++ *= q;
++    for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
++        *p1 *= q;
++        *p2 *= q;
+     }
+     return compare_regions(bufa, bufb, count);
+ }
+@@ -178,12 +180,12 @@
+     size_t i;
+     ul q = rand_ul();
+ 
+-    for (i = 0; i < count; i++) {
++    for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
+         if (!q) {
+             q++;
+         }
+-        *p1++ /= q;
+-        *p2++ /= q;
++        *p1 /= q;
++        *p2 /= q;
+     }
+     return compare_regions(bufa, bufb, count);
+ }
+@@ -194,9 +196,9 @@
+     size_t i;
+     ul q = rand_ul();
+ 
+-    for (i = 0; i < count; i++) {
+-        *p1++ |= q;
+-        *p2++ |= q;
++    for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
++        *p1 |= q;
++        *p2 |= q;
+     }
+     return compare_regions(bufa, bufb, count);
+ }
+@@ -207,9 +209,9 @@
+     size_t i;
+     ul q = rand_ul();
+ 
+-    for (i = 0; i < count; i++) {
+-        *p1++ &= q;
+-        *p2++ &= q;
++    for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
++        *p1 &= q;
++        *p2 &= q;
+     }
+     return compare_regions(bufa, bufb, count);
+ }
+@@ -220,8 +222,8 @@
+     size_t i;
+     ul q = rand_ul();
+ 
+-    for (i = 0; i < count; i++) {
+-        *p1++ = *p2++ = (i + q);
++    for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
++        *p1 = *p2 = (i + q);
+     }
+     return compare_regions(bufa, bufb, count);
+ }
+@@ -242,8 +244,8 @@
+         fflush(stdout);
+         p1 = (ulv *) bufa;
+         p2 = (ulv *) bufb;
+-        for (i = 0; i < count; i++) {
+-            *p1++ = *p2++ = (i % 2) == 0 ? q : ~q;
++        for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
++            *p1 = *p2 = (i % 2) == 0 ? q : ~q;
+         }
+         printf("\b\b\b\b\b\b\b\b\b\b\b");
+         printf("testing %3u", j);
+@@ -273,8 +275,8 @@
+         fflush(stdout);
+         p1 = (ulv *) bufa;
+         p2 = (ulv *) bufb;
+-        for (i = 0; i < count; i++) {
+-            *p1++ = *p2++ = (i % 2) == 0 ? q : ~q;
++        for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
++            *p1 = *p2 = (i % 2) == 0 ? q : ~q;
+         }
+         printf("\b\b\b\b\b\b\b\b\b\b\b");
+         printf("testing %3u", j);
+@@ -302,8 +304,8 @@
+         p2 = (ulv *) bufb;
+         printf("setting %3u", j);
+         fflush(stdout);
+-        for (i = 0; i < count; i++) {
+-            *p1++ = *p2++ = (ul) UL_BYTE(j);
++        for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
++            *p1 = *p2 = (ul) UL_BYTE(j);
+         }
+         printf("\b\b\b\b\b\b\b\b\b\b\b");
+         printf("testing %3u", j);
+@@ -331,11 +333,11 @@
+         p2 = (ulv *) bufb;
+         printf("setting %3u", j);
+         fflush(stdout);
+-        for (i = 0; i < count; i++) {
++        for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
+             if (j < UL_LEN) { /* Walk it up. */
+-                *p1++ = *p2++ = ONE << j;
++                *p1 = *p2 = ONE << j;
+             } else { /* Walk it back down. */
+-                *p1++ = *p2++ = ONE << (UL_LEN * 2 - j - 1);
++                *p1 = *p2 = ONE << (UL_LEN * 2 - j - 1);
+             }
+         }
+         printf("\b\b\b\b\b\b\b\b\b\b\b");
+@@ -364,11 +366,11 @@
+         p2 = (ulv *) bufb;
+         printf("setting %3u", j);
+         fflush(stdout);
+-        for (i = 0; i < count; i++) {
++        for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
+             if (j < UL_LEN) { /* Walk it up. */
+-                *p1++ = *p2++ = UL_ONEBITS ^ (ONE << j);
++                *p1 = *p2 = UL_ONEBITS ^ (ONE << j);
+             } else { /* Walk it back down. */
+-                *p1++ = *p2++ = UL_ONEBITS ^ (ONE << (UL_LEN * 2 - j - 1));
++                *p1 = *p2 = UL_ONEBITS ^ (ONE << (UL_LEN * 2 - j - 1));
+             }
+         }
+         printf("\b\b\b\b\b\b\b\b\b\b\b");
+@@ -397,14 +399,14 @@
+         p2 = (ulv *) bufb;
+         printf("setting %3u", j);
+         fflush(stdout);
+-        for (i = 0; i < count; i++) {
++        for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
+             if (j < UL_LEN) { /* Walk it up. */
+-                *p1++ = *p2++ = (i % 2 == 0)
++                *p1 = *p2 = (i % 2 == 0)
+                     ? (ONE << j) | (ONE << (j + 2))
+                     : UL_ONEBITS ^ ((ONE << j)
+                                     | (ONE << (j + 2)));
+             } else { /* Walk it back down. */
+-                *p1++ = *p2++ = (i % 2 == 0)
++                *p1 = *p2 = (i % 2 == 0)
+                     ? (ONE << (UL_LEN * 2 - 1 - j)) | (ONE << (UL_LEN * 2 + 1 - j))
+                     : UL_ONEBITS ^ (ONE << (UL_LEN * 2 - 1 - j)
+                                     | (ONE << (UL_LEN * 2 + 1 - j)));
+@@ -440,8 +442,8 @@
+             fflush(stdout);
+             p1 = (ulv *) bufa;
+             p2 = (ulv *) bufb;
+-            for (i = 0; i < count; i++) {
+-                *p1++ = *p2++ = (i % 2) == 0 ? q : ~q;
++            for (i = 0; i < count; i+=hop_size, p1+=hop_size, p2+=hop_size) {
++                *p1 = *p2 = (i % 2) == 0 ? q : ~q;
+             }
+             printf("\b\b\b\b\b\b\b\b\b\b\b");
+             printf("testing %3u", k * 8 + j);
+@@ -474,9 +476,9 @@
+             p1 = (u8v *) bufb;
+             p2 = bufa;
+         }
+-        for (i = 0; i < count; i++) {
++        for (i = 0; i < count; i+=hop_size, p1+=((hop_size-1)*(UL_LEN/8)), p2+=hop_size) {
+             t = mword8.bytes;
+-            *p2++ = mword8.val = rand_ul();
++            *p2 = mword8.val = rand_ul();
+             for (b=0; b < UL_LEN/8; b++) {
+                 *p1++ = *t++;
+             }
+@@ -512,9 +514,9 @@
+             p1 = (u16v *) bufb;
+             p2 = bufa;
+         }
+-        for (i = 0; i < count; i++) {
++        for (i = 0; i < count; i+=hop_size, p1+=((hop_size-1)*(UL_LEN/16)), p2+=hop_size) {
+             t = mword16.u16s;
+-            *p2++ = mword16.val = rand_ul();
++            *p2 = mword16.val = rand_ul();
+             for (b = 0; b < UL_LEN/16; b++) {
+                 *p1++ = *t++;
+             }

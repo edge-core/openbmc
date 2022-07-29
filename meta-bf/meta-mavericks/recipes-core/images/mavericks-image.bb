@@ -43,6 +43,8 @@ IMAGE_INSTALL += " \
   trousers \
   tpm-tools \
   cpldupdate \
+  fio \
+  stressapptest \
   "
 
 IMAGE_FEATURES += " \
