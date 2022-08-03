@@ -38,16 +38,16 @@ if [ "$board_subtype" == "Newport" ] ; then
          *1)
        logger "no setting GPIO with sub version greater than 0 for board type $board_subtype"
        echo "no setting GPIO with sub version greater than 0 for board type $board_subtype"
+               ;;
+          *)
+       logger " setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
+       echo " setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
        # sequence is important
        wedge_ucd_gpio_set 21 0
        wedge_ucd_gpio_set 20 0
        wedge_ucd_gpio_set 13 0
        wedge_ucd_gpio_set 12 0
        wedge_ucd_gpio_set 22 0
-               ;;
-          *)
-       logger " setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
-       echo " setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
               ;;
     esac
 fi
