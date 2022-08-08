@@ -35,7 +35,8 @@ SRC_URI += "file://disable_watchdog.sh \
             file://tool4tpm \
             file://write_eeprom_65x.sh \
             file://write_eeprom_32x.sh \
-			file://diag_flashinfo.sh \
+            file://diag_flashinfo.sh \
+            file://bios_upgrade.sh \
            "
 
 OPENBMC_UTILS_FILES += " \
@@ -51,9 +52,10 @@ OPENBMC_UTILS_FILES += " \
     fru_eeprom.py \
     bmc_info.sh \
     tool4tpm \
-	write_eeprom_65x.sh \
-	write_eeprom_32x.sh \
-	diag_flashinfo.sh \
+    write_eeprom_65x.sh \
+    write_eeprom_32x.sh \
+    diag_flashinfo.sh \
+    bios_upgrade.sh \
     "
 
 DEPENDS_append = " update-rc.d-native"
