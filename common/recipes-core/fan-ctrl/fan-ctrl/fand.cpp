@@ -78,6 +78,8 @@
 
 #include "watchdog.h"
 
+#define USERVER_ERROR_THRESHOLD INTERNAL_TEMPS(120)
+
 #if !defined(CONFIG_LIGHTNING)
 /* Sensor definitions */
 
@@ -768,6 +770,21 @@ int read_temp(const char *device, int *value) {
 	usleep(10000);
   }
 
+    if (strstr(device, USERVER_TEMP_DEVICE)) {
+        retry = 0;
+        if (*value > USERVER_ERROR_THRESHOLD) {
+            while(retry++ <= 3) {
+			    *value = 0;
+                rc = read_device(full_name, value);
+			    usleep(10000);
+            }
+            if (*value > USERVER_ERROR_THRESHOLD) {
+                syslog(LOG_CRIT, "Userver(COMe) temperature read error, value:%d. \n", (*value)/1000);
+		        *value = BAD_TEMP;
+            }
+	    }
+    }
+    
   return rc;
 }
 #endif
@@ -1505,6 +1522,10 @@ int write_fan_led(const int fan, const char *color) {
 }
 
 int server_shutdown(const char *why) {
+  if(0 == access("/mnt/data/etc/not_shutdown_come", F_OK))
+  {
+      return 0;
+  }
   int fan;
   for (fan = 0; fan < total_fans; fan++) {
     write_fan_speed(fan + fan_offset, fan_max);
