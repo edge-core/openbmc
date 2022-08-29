@@ -93,15 +93,20 @@ static ssize_t i2c_dev_show_cpu_temp(struct device *dev,
                                      struct device_attribute *attr,
                                      char *buf)
 {
+  uint8_t temp_value;
+  int value;
   int ret_val;
 
   ret_val = i2c_dev_read_byte(dev, attr);
+
   if (ret_val < 0) {
     return ret_val;
   }
+  temp_value = (uint8_t)(ret_val & 0xff);
+  
   // For lm_sensors multiply by 1000
-  ret_val *= 1000;
-  return scnprintf(buf, PAGE_SIZE, "%u\n", ret_val);
+  value = temp_value * 1000;
+  return scnprintf(buf, PAGE_SIZE, "%d\n", value);
 }
 
 static ssize_t i2c_dev_show_mem_temp(struct device *dev,
@@ -131,7 +136,7 @@ static ssize_t i2c_dev_show_mem_temp(struct device *dev,
   /*
    * now val holds the value as a number of 1/16, times 1000 for lm-sensors */
   ret_val *= 1000 / 16;
-  return scnprintf(buf, PAGE_SIZE, "%u\n", ret_val);
+  return scnprintf(buf, PAGE_SIZE, "%d\n", ret_val);
 }
 
 static ssize_t i2c_dev_show_voltage0(struct device *dev,
