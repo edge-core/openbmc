@@ -60,7 +60,7 @@ wedge_board_type() {
         echo "$svern" > $TMP_EEPROM_SUB_VERSION
     fi
     case "$pn" in
-        *Montara*)
+        *Montara*|*Keysight*)
             echo 'MAVERICKS'
             ;;
         *Maverick*)
@@ -93,7 +93,7 @@ wedge_board_subtype() {
         echo "$pn" > $TMP_EEPROM_BOARD_TYPE
     fi
     case "$pn" in
-        *Montara*)
+        *Montara*|*Keysight*)
             echo 'Montara'
             ;;
         *Maverick*)
