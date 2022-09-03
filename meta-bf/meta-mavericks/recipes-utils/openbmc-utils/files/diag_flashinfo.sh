@@ -21,11 +21,11 @@ check_type(){
     fi
 
     flash_main_type_num=`cat $spi_path | grep $BMC_FLASH_MAIN_TYPE | wc -l`
-	flash_replace_type_num=`cat $spi_path | grep $BMC_FLASH_REPLACE_TYPE | wc -l`
     if [ "$flash_main_type_num" == "3" ]; then
         echo "BMC FLASH type is ${BMC_FLASH_MAIN_TYPE}"
         echo "check BMC FLASH type: pass"
-    else 
+    else
+		flash_replace_type_num=`cat $spi_path | grep $BMC_FLASH_REPLACE_TYPE | wc -l`
 		if [ "$flash_replace_type_num" == "3" ]; then
 			echo "BMC FLASH type is ${BMC_FLASH_REPLACE_TYPE}"
 			echo "check BMC FLASH type: pass"
