@@ -38,6 +38,7 @@ SRC_URI += "file://disable_watchdog.sh \
             file://diag_flashinfo.sh \
             file://bios_upgrade.sh \
             file://diag_i2c.sh \
+            file://version.sh \
            "
 
 OPENBMC_UTILS_FILES += " \
@@ -58,6 +59,7 @@ OPENBMC_UTILS_FILES += " \
     diag_flashinfo.sh \
     bios_upgrade.sh \
     diag_i2c.sh \
+    version.sh \
     "
 
 DEPENDS_append = " update-rc.d-native"
