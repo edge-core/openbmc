@@ -83,3 +83,5 @@ else
     mv /etc/sensors.d/mavericks32.conf /etc/sensors.d/mavericks.conf
   fi
 fi
+
+/usr/local/bin/enable_ucd_security.sh
