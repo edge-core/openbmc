@@ -57,3 +57,4 @@ i2cset -f -y 7 0x70 0x3
 rmmod psu_driver
 modprobe psu_driver
 
+/usr/local/bin/enable_ucd_security.sh
