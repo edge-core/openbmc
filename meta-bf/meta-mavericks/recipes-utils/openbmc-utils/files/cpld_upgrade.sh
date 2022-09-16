@@ -71,7 +71,6 @@ upgrade_upper_syscpld() {
     #disable heartbeat
     i2cset -y -f 12 0x30 0x2e 0x18
 
-    #program syscpld, board_rev=010 new board, board_rev=001 old board
     if [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "5" ]; then
         check_file_name $1 $2 $3
         if [ $? -eq 2 ]; then
@@ -92,7 +91,7 @@ upgrade_upper_syscpld() {
             exit 1
         fi
         jbi -r -aPROGRAM -gc57 -gi56 -go58 -gs147 $3 | grep -i "Success"
-        echo "Finished Lower SYSCPLD upgrade: Pass"
+        echo "Finished Upper SYSCPLD upgrade: Pass"
         exit 1
     elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "3" ]; then
         check_file_name $1 $2 $3
@@ -100,7 +99,7 @@ upgrade_upper_syscpld() {
             exit 1
         fi
         jbi -r -aPROGRAM -gc57 -gi56 -go58 -gs147 $3 | grep -i "Success"
-        echo "Finished Lower SYSCPLD upgrade: Pass"
+        echo "Finished Upper SYSCPLD upgrade: Pass"
         exit 1
     else
         echo "update cpld Fail"
@@ -122,7 +121,6 @@ upgrade_lower_syscpld() {
     #disable heartbeat
     i2cset -y -f 12 0x31 0x2e 0x18
 
-    #program syscpld, board_rev=010 new board, board_rev=001 old board
     if [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "5" ]; then
         check_file_name $1 $2 $3
         if [ $? -eq 2 ]; then
@@ -174,7 +172,6 @@ upgrade_upper_fancpld() {
     echo out > /tmp/gpionames/BMC_FANCARD_CPLD_JTAG__SEL/direction
     echo 1 > /tmp/gpionames/BMC_FANCARD_CPLD_JTAG__SEL/value
 
-    #program syscpld, board_rev=010 new board, board_rev=001 old board
     if [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "5" ]; then
         check_file_name $1 $2 $3
         if [ $? -eq 2 ]; then
@@ -187,7 +184,7 @@ upgrade_upper_fancpld() {
         if [ $? -eq 2 ]; then
             exit 1
         fi
-        ispvm syscpld uppersys $3
+        ispvm syscpld fan $3
         rc=$?
     elif [ "$board_subtype" == "Mavericks" ] && [ "$product_sub_version" == "4" ]; then
         check_file_name $1 $2 $3
@@ -195,7 +192,7 @@ upgrade_upper_fancpld() {
             exit 1
         fi
         jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $3 | grep -i "Success"
-        echo "Finished Lower SYSCPLD upgrade: Pass"
+        echo "Finished Upper FANCPLD upgrade: Pass"
         exit 1
     elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "3" ]; then
         check_file_name $1 $2 $3
@@ -203,7 +200,7 @@ upgrade_upper_fancpld() {
             exit 1
         fi
         jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $3 | grep -i "Success"
-        echo "Finished Lower SYSCPLD upgrade: Pass"
+        echo "Finished Upper FANCPLD upgrade: Pass"
         exit 1
     else
         echo "update cpld Fail"
@@ -253,7 +250,7 @@ upgrade_lower_fancpld() {
             exit 1
         fi
         jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $3 | grep -i "Success"
-        echo "Finished Lower SYSCPLD upgrade: Pass"
+        echo "Finished Lower FANCPLD upgrade: Pass"
         exit 1
     elif [ "$board_subtype" == "Montara" ] && [ "$product_sub_version" == "3" ]; then
         check_file_name $1 $2 $3
@@ -261,7 +258,7 @@ upgrade_lower_fancpld() {
             exit 1
         fi
         jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $3 | grep -i "Success"
-        echo "Finished Lower SYSCPLD upgrade: Pass"
+        echo "Finished Lower FANCPLD upgrade: Pass"
         exit 1
     else
         echo "update cpld Fail"

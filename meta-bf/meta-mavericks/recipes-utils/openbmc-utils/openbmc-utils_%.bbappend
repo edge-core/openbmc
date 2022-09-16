@@ -40,6 +40,7 @@ SRC_URI += "file://disable_watchdog.sh \
             file://diag_i2c.sh \
             file://version.sh \
             file://enable_ucd_security.sh \
+            file://cpld_refresh.sh \
            "
 
 OPENBMC_UTILS_FILES += " \
@@ -62,6 +63,7 @@ OPENBMC_UTILS_FILES += " \
     diag_i2c.sh \
     version.sh \
     enable_ucd_security.sh \
+    cpld_refresh.sh \
     "
 
 DEPENDS_append = " update-rc.d-native"
