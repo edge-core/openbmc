@@ -3,7 +3,7 @@ PROGRAM_TITLE=`basename $0`
 
 usage() {
     echo "Usage: $PROGRAM_TITLE  <bios firmware name>"
-    echo ""
+    echo "This script is only used to update external BIOS"
     echo "Examples:"
     echo "      $PROGRAM_TITLE PCOM-B634VG-BAREFOOT_R100E8.BIN"
 }
