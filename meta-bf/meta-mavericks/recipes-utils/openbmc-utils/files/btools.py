@@ -1342,25 +1342,38 @@ def ir_voltage_show_montara():
     string ={1: "VDD_CORE", 2: "AVDD", 3: "QSFP"}
 
     for i in range(1, 4):
-
-        try:
-            # i2cget -f -y 1 0x70 0x8b w
-            get_cmd = "i2cget"
-            exponent = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                     IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing VOUT_MODE for IR "
+        retry = 0
+        err = 1
+        while((err == 1) and (retry < 5)):
+            try:
+                # i2cget -f -y 1 0x70 0x8b w
+                get_cmd = "i2cget"
+                exponent = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                         IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing VOUT_MODE for IR "
+                err = 1
+            retry = retry + 1
+        if (err == 1):
             continue
 
-        try:
-            # i2cget -f -y 1 0x70 0x8b w
-            get_cmd = "i2cget"
-            mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                         IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cget for IR "
+        retry = 0
+        err = 1
+        while((err == 1) and (retry < 5)):
+            try:
+                # i2cget -f -y 1 0x70 0x8b w
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                             IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for IR "
+                err = 1
+            retry = retry + 1
+        if (err == 1):
             continue
 
         # 2 ^ exponent
@@ -1378,14 +1391,21 @@ def ir_voltage_show_montara():
             v = v * 2
 
         # find current
-        try:
-            # i2cget -f -y 1 0x70 0x8c w
-            get_cmd = "i2cget"
-            mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                         IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cget for IR "
+        retry = 0
+        err = 1
+        while((err == 1) and (retry < 5)):
+            try:
+                # i2cget -f -y 1 0x70 0x8c w
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                             IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for IR "
+                err = 1
+            retry = retry + 1
+        if (err == 1):
             continue
 
         m = int(mantissa, 16) & 0x07ff
@@ -1502,18 +1522,25 @@ def ir_voltage_show_newport(arg_ir):
     PAGE_ADDR = "0"
     string = {1: "VDD_CORE_0.75V", 2: "VDDT_0.9V", 3: "VDDA_1.7V", 4:"VDDA_AGC_1.8V", 5:"VDD_QSFP_3.3V"}
     for i in range(1, 6):
-        try:
-            get_cmd = "i2cget"
-            if i == 4:
-                set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "1")
-            else:
-                set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "0")
+        retry = 0
+        err = 1
+        while((err == 1) and (retry < 5)):
+            try:
+                get_cmd = "i2cget"
+                if i == 4:
+                    set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "1")
+                else:
+                    set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "0")
 
-            exponent = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                     IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing VOUT_MODE for IR "
+                exponent = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                         IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing VOUT_MODE for IR "
+                err = 1
+            retry = retry + 1
+        if (err == 1):
             continue
 
         # 2 ^ exponent
@@ -1523,13 +1550,20 @@ def ir_voltage_show_newport(arg_ir):
         div = 1 << exp
 
         if arg_ir[1] == "pout":
-            try:
-                get_cmd = "i2cget"
-                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                             IR_PMBUS_ADDR.get(i), IR_READ_POUT_OP, "w"])
-            except subprocess.CalledProcessError as e:
-                print e
-                print "Error occured while processing i2cget for IR pout"
+            retry = 0
+            err = 1
+            while((err == 1) and (retry < 5)):
+                try:
+                    get_cmd = "i2cget"
+                    mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                                 IR_PMBUS_ADDR.get(i), IR_READ_POUT_OP, "w"])
+                    err = 0
+                except subprocess.CalledProcessError as e:
+                    print e
+                    print "Error occured while processing i2cget for IR pout"
+                    err = 1
+                retry = retry + 1
+            if (err == 1):
                 continue
 
             m = int(mantissa, 16) & 0x07ff
@@ -1546,13 +1580,20 @@ def ir_voltage_show_newport(arg_ir):
 
             print "IR %-*s       %.3f W" % (15, string.get(i), pout)
         elif arg_ir[1] == "temp1":
-            try:
-                get_cmd = "i2cget"
-                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                             IR_PMBUS_ADDR.get(i), IR_READ_TEMP1_OP, "w"])
-            except subprocess.CalledProcessError as e:
-                print e
-                print "Error occured while processing i2cget for IR temp1"
+            retry = 0
+            err = 1
+            while((err == 1) and (retry < 5)):
+                try:
+                    get_cmd = "i2cget"
+                    mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                                 IR_PMBUS_ADDR.get(i), IR_READ_TEMP1_OP, "w"])
+                    err = 0 
+                except subprocess.CalledProcessError as e:
+                    print e
+                    print "Error occured while processing i2cget for IR temp1"
+                    err = 1
+                retry = retry + 1
+            if (err == 1):
                 continue
 
             m = int(mantissa, 16) & 0x07ff
@@ -1569,13 +1610,20 @@ def ir_voltage_show_newport(arg_ir):
 
             print "IR %-*s       %.3f C" % (15, string.get(i), temp1)
         else:
-            try:
-                get_cmd = "i2cget"
-                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                             IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
-            except subprocess.CalledProcessError as e:
-                print e
-                print "Error occured while processing i2cget for IR "
+            retry = 0
+            err = 1
+            while((err == 1) and (retry < 5)):
+                try:
+                    get_cmd = "i2cget"
+                    mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                                 IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
+                    err = 0
+                except subprocess.CalledProcessError as e:
+                    print e
+                    print "Error occured while processing i2cget for IR "
+                    err = 1
+                retry = retry + 1
+            if (err == 1):
                 continue
 
             mantissa = int(mantissa, 16)
@@ -1587,14 +1635,21 @@ def ir_voltage_show_newport(arg_ir):
                 v = v * 2
 
             # find current
-            try:
-                # i2cget -f -y 1 0x70 0x8c w
-                get_cmd = "i2cget"
-                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                            IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
-            except subprocess.CalledProcessError as e:
-                print e
-                print "Error occured while processing i2cget for IR "
+            retry = 0
+            err = 1
+            while((err == 1) and (retry < 5)):
+                try:
+                    # i2cget -f -y 1 0x70 0x8c w
+                    get_cmd = "i2cget"
+                    mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                                IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
+                    err = 0
+                except subprocess.CalledProcessError as e:
+                    print e
+                    print "Error occured while processing i2cget for IR "
+                    err = 1
+                retry = retry + 1
+            if (err == 1):
                 continue
 
             m = int(mantissa, 16) & 0x07ff
@@ -1626,18 +1681,25 @@ def ir_voltage_show_davenport(arg_ir):
     string = {1: "VDD_CORE", 2: "VDDAH", 3: "VDDL_CORE", 4:"VDDAL", 5:"VDD_QSFP_3.3V"}
 #    string = {1: "VDD_CORE_0.75V", 2: "VDDT_0.9V", 3: "VDDA_1.7V", 4:"VDDA_AGC_1.8V", 5:"VDD_QSFP_3.3V"}
     for i in range(1, 6):
-        try:
-            get_cmd = "i2cget"
-            if i == 3:
-                set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "1")
-            else:
-                set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "0")
+        retry = 0
+        err = 1
+        while((err == 1) and (retry < 5)):
+            try:
+                get_cmd = "i2cget"
+                if i == 3:
+                    set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "1")
+                else:
+                    set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "0")
 
-            exponent = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                     IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing VOUT_MODE for IR "
+                exponent = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                         IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing VOUT_MODE for IR "
+                err = 1
+            retry = retry + 1
+        if (err == 1):
             continue
 
         # 2 ^ exponent
@@ -1647,13 +1709,20 @@ def ir_voltage_show_davenport(arg_ir):
         div = 1 << exp
 
         if arg_ir[1] == "pout":
-            try:
-                get_cmd = "i2cget"
-                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                             IR_PMBUS_ADDR.get(i), IR_READ_POUT_OP, "w"])
-            except subprocess.CalledProcessError as e:
-                print e
-                print "Error occured while processing i2cget for IR pout"
+            retry = 0
+            err = 1
+            while((err == 1) and (retry < 5)):
+                try:
+                    get_cmd = "i2cget"
+                    mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                                 IR_PMBUS_ADDR.get(i), IR_READ_POUT_OP, "w"])
+                    err = 0
+                except subprocess.CalledProcessError as e:
+                    print e
+                    print "Error occured while processing i2cget for IR pout"
+                    err = 1
+                retry = retry + 1
+            if (err == 1):
                 continue
 
             m = int(mantissa, 16) & 0x07ff
@@ -1670,13 +1739,20 @@ def ir_voltage_show_davenport(arg_ir):
 
             print "IR %-*s       %.3f W" % (15, string.get(i), pout)
         elif arg_ir[1] == "temp1":
-            try:
-                get_cmd = "i2cget"
-                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                             IR_PMBUS_ADDR.get(i), IR_READ_TEMP1_OP, "w"])
-            except subprocess.CalledProcessError as e:
-                print e
-                print "Error occured while processing i2cget for IR temp1"
+            retry = 0
+            err = 1
+            while((err == 1) and (retry < 5)):
+                try:
+                    get_cmd = "i2cget"
+                    mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                                 IR_PMBUS_ADDR.get(i), IR_READ_TEMP1_OP, "w"])
+                    err = 0
+                except subprocess.CalledProcessError as e:
+                    print e
+                    print "Error occured while processing i2cget for IR temp1"
+                    err = 1
+                retry = retry + 1
+            if (err == 1):
                 continue
 
             m = int(mantissa, 16) & 0x07ff
@@ -1693,13 +1769,20 @@ def ir_voltage_show_davenport(arg_ir):
 
             print "IR %-*s       %.3f C" % (15, string.get(i), temp1)
         else:
-            try:
-                get_cmd = "i2cget"
-                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                             IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
-            except subprocess.CalledProcessError as e:
-                print e
-                print "Error occured while processing i2cget for IR "
+            retry = 0
+            err = 1
+            while((err == 1) and (retry < 5)):
+                try:
+                    get_cmd = "i2cget"
+                    mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                                 IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
+                    err = 0
+                except subprocess.CalledProcessError as e:
+                    print e
+                    print "Error occured while processing i2cget for IR "
+                    err = 1
+                retry = retry + 1
+            if (err == 1):
                 continue
 
             mantissa = int(mantissa, 16)
@@ -1711,14 +1794,21 @@ def ir_voltage_show_davenport(arg_ir):
                 v = v * 2
 
             # find current
-            try:
-                # i2cget -f -y 1 0x70 0x8c w
-                get_cmd = "i2cget"
-                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                            IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
-            except subprocess.CalledProcessError as e:
-                print e
-                print "Error occured while processing i2cget for IR "
+            retry = 0
+            err = 1
+            while((err == 1) and (retry < 5)):
+                try:
+                    # i2cget -f -y 1 0x70 0x8c w
+                    get_cmd = "i2cget"
+                    mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                                IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
+                    err = 0
+                except subprocess.CalledProcessError as e:
+                    print e
+                    print "Error occured while processing i2cget for IR "
+                    err = 1
+                retry = retry + 1
+            if (err == 1):
                 continue
 
             m = int(mantissa, 16) & 0x07ff
@@ -1747,18 +1837,25 @@ def ir_voltage_show_stinson(arg_ir):
     PAGE_ADDR = "0"
     string = {1: "VDD_CORE", 2: "VDDAH", 3: "VDDL_CORE", 4:"VDDAL", 5:"VDD_QSFP_3.3V"}
     for i in range(1, 6):
-        try:
-            get_cmd = "i2cget"
-            if i == 4 or i == 2:
-                set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "1")
-            else:
-                set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "0")
+        retry = 0
+        err = 1
+        while((err == 1) and (retry < 5)):
+            try:
+                get_cmd = "i2cget"
+                if i == 4 or i == 2:
+                    set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "1")
+                else:
+                    set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "0")
 
-            exponent = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                     IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing VOUT_MODE for IR "
+                exponent = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                         IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing VOUT_MODE for IR "
+                err = 1
+            retry = retry + 1
+        if (err == 1):
             continue
 
         # 2 ^ exponent
@@ -1769,13 +1866,20 @@ def ir_voltage_show_stinson(arg_ir):
         div = 1 << exp
 
         if arg_ir[1] == "pout":
-            try:
-                get_cmd = "i2cget"
-                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                             IR_PMBUS_ADDR.get(i), IR_READ_POUT_OP, "w"])
-            except subprocess.CalledProcessError as e:
-                print e
-                print "Error occured while processing i2cget for IR pout"
+            retry = 0
+            err = 1
+            while((err == 1) and (retry < 5)):
+                try:
+                    get_cmd = "i2cget"
+                    mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                                 IR_PMBUS_ADDR.get(i), IR_READ_POUT_OP, "w"])
+                    err = 0
+                except subprocess.CalledProcessError as e:
+                    print e
+                    print "Error occured while processing i2cget for IR pout"
+                    err = 1
+                retry = retry + 1
+            if (err == 1):
                 continue
 
             m = int(mantissa, 16) & 0x07ff
@@ -1792,13 +1896,20 @@ def ir_voltage_show_stinson(arg_ir):
 
             print "IR %-*s       %.3f W" % (15, string.get(i), pout)
         elif arg_ir[1] == "temp1":
-            try:
-                get_cmd = "i2cget"
-                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                             IR_PMBUS_ADDR.get(i), IR_READ_TEMP1_OP, "w"])
-            except subprocess.CalledProcessError as e:
-                print e
-                print "Error occured while processing i2cget for IR temp1"
+            retry = 0
+            err = 1
+            while((err == 1) and (retry < 5)):
+                try:
+                    get_cmd = "i2cget"
+                    mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                                 IR_PMBUS_ADDR.get(i), IR_READ_TEMP1_OP, "w"])
+                    err = 0
+                except subprocess.CalledProcessError as e:
+                    print e
+                    print "Error occured while processing i2cget for IR temp1"
+                    err = 1
+                retry = retry + 1
+            if (err == 1):
                 continue
 
             m = int(mantissa, 16) & 0x07ff
@@ -1815,13 +1926,20 @@ def ir_voltage_show_stinson(arg_ir):
 
             print "IR %-*s       %.3f C" % (15, string.get(i), temp1)
         else:
-            try:
-                get_cmd = "i2cget"
-                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                             IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
-            except subprocess.CalledProcessError as e:
-                print e
-                print "Error occured while processing i2cget for IR "
+            retry = 0
+            err = 1
+            while((err == 1) and (retry < 5)):
+                try:
+                    get_cmd = "i2cget"
+                    mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                                 IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
+                    err = 0
+                except subprocess.CalledProcessError as e:
+                    print e
+                    print "Error occured while processing i2cget for IR "
+                    err = 1
+                retry = retry + 1
+            if (err == 1):
                 continue
 
             mantissa = int(mantissa, 16)
@@ -1839,14 +1957,21 @@ def ir_voltage_show_stinson(arg_ir):
                 v = (v * 2) / 1000
 
             # find current
-            try:
-                # i2cget -f -y 1 0x70 0x8c w
-                get_cmd = "i2cget"
-                mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
-                                            IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
-            except subprocess.CalledProcessError as e:
-                print e
-                print "Error occured while processing i2cget for IR "
+            retry = 0
+            err = 1
+            while((err == 1) and (retry < 5)):
+                try:
+                    # i2cget -f -y 1 0x70 0x8c w
+                    get_cmd = "i2cget"
+                    mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
+                                                IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
+                    err = 0
+                except subprocess.CalledProcessError as e:
+                    print e
+                    print "Error occured while processing i2cget for IR "
+                    err = 1
+                retry = retry + 1
+            if (err == 1):
                 continue
 
             m = int(mantissa, 16) & 0x07ff
@@ -1867,7 +1992,6 @@ def ir_voltage_show_stinson(arg_ir):
 def ir_voltage_show_mavericks(poc):
 
     #a = ir_open_i2c_switch()
-
     UPPER_IR_I2C_BUS = "0x9"
     UPPER_IR_PMBUS_ADDR = {1: "0x40", 2: "0x74", 3: "0x71"}
     IR_VOUT_MODE_OP = "0x20"
@@ -1880,27 +2004,40 @@ def ir_voltage_show_mavericks(poc):
         while (a < 0):
           time.sleep(0.010) # 10ms
           a = ir_open_i2c_switch()
-        
-        try:
-            # i2cget -f -y 1 0x70 0x20 w
-            get_cmd = "i2cget"
-            exponent = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
-                                     UPPER_IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing VOUT_MODE for UPPER IR "
-            ir_restore_i2c_switch(a)
+        retry = 0
+        err = 1
+        while((err == 1) and (retry < 5)):
+            try:
+                # i2cget -f -y 1 0x70 0x20 w
+                get_cmd = "i2cget"
+                exponent = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
+                                         UPPER_IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing VOUT_MODE for UPPER IR "
+                ir_restore_i2c_switch(a)
+                err = 1
+            retry = retry + 1
+        if (err == 1):
             continue
-
-        try:
-            # i2cget -f -y 1 0x70 0x8b w
-            get_cmd = "i2cget"
-            mantissa = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
-                                         UPPER_IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cget for UPPER IR "
-            ir_restore_i2c_switch(a)
+            
+        retry = 0
+        err = 1
+        while((err == 1) and (retry < 5)):
+            try:
+                # i2cget -f -y 1 0x70 0x8b w
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
+                                             UPPER_IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for UPPER IR "
+                ir_restore_i2c_switch(a)
+                err = 1
+            retry = retry + 1
+        if (err == 1):
             continue
 
         # 2 ^ exponent
@@ -1918,16 +2055,23 @@ def ir_voltage_show_mavericks(poc):
             v = v * 2
 
         # find current
-        try:
-            # i2cget -f -y 1 0x70 0x8c w
-            get_cmd = "i2cget"
-            mantissa = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
-                                        UPPER_IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
-            ir_restore_i2c_switch(a) 
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cget for IR "
-            ir_restore_i2c_switch(a) 
+        retry = 0
+        err = 1
+        while((err == 1) and (retry < 5)):
+            try:
+                # i2cget -f -y 1 0x70 0x8c w
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
+                                            UPPER_IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
+                ir_restore_i2c_switch(a)
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for IR "
+                ir_restore_i2c_switch(a) 
+                err = 1
+            retry = retry + 1
+        if (err == 1):
             continue
 
         m = int(mantissa, 16) & 0x07ff
@@ -1959,25 +2103,38 @@ def ir_voltage_show_mavericks(poc):
       range_p0c = 3;
 
     for i in range(1, range_p0c):
-
-        try:
-            # i2cget -f -y 1 0x70 0x8b w
-            get_cmd = "i2cget"
-            exponent = subprocess.check_output([get_cmd, "-f", "-y", LOWER_IR_I2C_BUS,
-                                     LOWER_IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing VOUT_MODE for LOWER IR "
+        retry = 0
+        err = 1
+        while((err == 1) and (retry < 5)):
+            try:
+                # i2cget -f -y 1 0x70 0x8b w
+                get_cmd = "i2cget"
+                exponent = subprocess.check_output([get_cmd, "-f", "-y", LOWER_IR_I2C_BUS,
+                                         LOWER_IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing VOUT_MODE for LOWER IR "
+                err = 1
+            retry = retry + 1
+        if (err == 1):
             continue
 
-        try:
-            # i2cget -f -y 1 0x70 0x8b w
-            get_cmd = "i2cget"
-            mantissa = subprocess.check_output([get_cmd, "-f", "-y", LOWER_IR_I2C_BUS,
-                                         LOWER_IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cget for LOWER IR "
+        retry = 0
+        err = 1
+        while((err == 1) and (retry < 5)):
+            try:
+                # i2cget -f -y 1 0x70 0x8b w
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", LOWER_IR_I2C_BUS,
+                                             LOWER_IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for LOWER IR "
+                err = 1
+            retry = retry + 1
+        if (err == 1):
             continue
 
         # 2 ^ exponent
@@ -1995,14 +2152,21 @@ def ir_voltage_show_mavericks(poc):
           v = (float(mantissa)/float(div)) * 2
 
         # find current
-        try:
-            # i2cget -f -y 1 0x70 0x8c w
-            get_cmd = "i2cget"
-            mantissa = subprocess.check_output([get_cmd, "-f", "-y", LOWER_IR_I2C_BUS,
-                                        LOWER_IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
-        except subprocess.CalledProcessError as e:
-            print e
-            print "Error occured while processing i2cget for LOWER IR "
+        retry = 0
+        err = 1
+        while((err == 1) and (retry < 5)):
+            try:
+                # i2cget -f -y 1 0x70 0x8c w
+                get_cmd = "i2cget"
+                mantissa = subprocess.check_output([get_cmd, "-f", "-y", LOWER_IR_I2C_BUS,
+                                            LOWER_IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
+                err = 0
+            except subprocess.CalledProcessError as e:
+                print e
+                print "Error occured while processing i2cget for LOWER IR "
+                err = 1
+            retry = retry + 1
+        if (err == 1):
             continue
 
         m = int(mantissa, 16) & 0x07ff
