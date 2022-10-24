@@ -11,6 +11,7 @@ import os.path
 from time import sleep
 import syslog
 import fcntl
+import time
 
 h_platforms = "montara/mavericks/newport"
 h_platforms_with_p0c = "montara/mavericks/mavericks-p0c/newport/stinson"
@@ -1350,6 +1351,7 @@ def ir_voltage_show_montara():
                 get_cmd = "i2cget"
                 exponent = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                          IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
+                time.sleep(0.010)
                 err = 0
             except subprocess.CalledProcessError as e:
                 print e
@@ -1367,7 +1369,12 @@ def ir_voltage_show_montara():
                 get_cmd = "i2cget"
                 mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                              IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
-                err = 0
+                time.sleep(0.010)
+                tmp = int(mantissa, 16)
+                if(tmp == 0 or tmp == 65535):
+                    err = 1
+                else:
+                    err = 0
             except subprocess.CalledProcessError as e:
                 print e
                 print "Error occured while processing i2cget for IR "
@@ -1399,7 +1406,12 @@ def ir_voltage_show_montara():
                 get_cmd = "i2cget"
                 mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                              IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
-                err = 0
+                time.sleep(0.010)
+                tmp = int(mantissa, 16)
+                if(tmp == 0 or tmp == 65535):
+                    err = 1
+                else:
+                    err = 0
             except subprocess.CalledProcessError as e:
                 print e
                 print "Error occured while processing i2cget for IR "
@@ -1557,7 +1569,12 @@ def ir_voltage_show_newport(arg_ir):
                     get_cmd = "i2cget"
                     mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                                  IR_PMBUS_ADDR.get(i), IR_READ_POUT_OP, "w"])
-                    err = 0
+                    time.sleep(0.010)
+                    tmp = int(mantissa, 16)
+                    if(tmp == 0 or tmp == 65535):
+                        err = 1
+                    else:
+                        err = 0
                 except subprocess.CalledProcessError as e:
                     print e
                     print "Error occured while processing i2cget for IR pout"
@@ -1587,7 +1604,13 @@ def ir_voltage_show_newport(arg_ir):
                     get_cmd = "i2cget"
                     mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                                  IR_PMBUS_ADDR.get(i), IR_READ_TEMP1_OP, "w"])
-                    err = 0 
+                    
+                    time.sleep(0.010)
+                    tmp = int(mantissa, 16)
+                    if(tmp == 0 or tmp == 65535):
+                        err = 1
+                    else:
+                        err = 0
                 except subprocess.CalledProcessError as e:
                     print e
                     print "Error occured while processing i2cget for IR temp1"
@@ -1617,7 +1640,12 @@ def ir_voltage_show_newport(arg_ir):
                     get_cmd = "i2cget"
                     mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                                  IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
-                    err = 0
+                    time.sleep(0.010)
+                    tmp = int(mantissa, 16)
+                    if(tmp == 0 or tmp == 65535):
+                        err = 1
+                    else:
+                        err = 0
                 except subprocess.CalledProcessError as e:
                     print e
                     print "Error occured while processing i2cget for IR "
@@ -1643,7 +1671,12 @@ def ir_voltage_show_newport(arg_ir):
                     get_cmd = "i2cget"
                     mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                                 IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
-                    err = 0
+                    time.sleep(0.010)
+                    tmp = int(mantissa, 16)
+                    if(tmp == 0 or tmp == 65535):
+                        err = 1
+                    else:
+                        err = 0
                 except subprocess.CalledProcessError as e:
                     print e
                     print "Error occured while processing i2cget for IR "
@@ -1716,7 +1749,12 @@ def ir_voltage_show_davenport(arg_ir):
                     get_cmd = "i2cget"
                     mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                                  IR_PMBUS_ADDR.get(i), IR_READ_POUT_OP, "w"])
-                    err = 0
+                    time.sleep(0.010)
+                    tmp = int(mantissa, 16)
+                    if(tmp == 0 or tmp == 65535):
+                        err = 1
+                    else:
+                        err = 0
                 except subprocess.CalledProcessError as e:
                     print e
                     print "Error occured while processing i2cget for IR pout"
@@ -1746,7 +1784,12 @@ def ir_voltage_show_davenport(arg_ir):
                     get_cmd = "i2cget"
                     mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                                  IR_PMBUS_ADDR.get(i), IR_READ_TEMP1_OP, "w"])
-                    err = 0
+                    time.sleep(0.010)
+                    tmp = int(mantissa, 16)
+                    if(tmp == 0 or tmp == 65535):
+                        err = 1
+                    else:
+                        err = 0
                 except subprocess.CalledProcessError as e:
                     print e
                     print "Error occured while processing i2cget for IR temp1"
@@ -1776,7 +1819,12 @@ def ir_voltage_show_davenport(arg_ir):
                     get_cmd = "i2cget"
                     mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                                  IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
-                    err = 0
+                    time.sleep(0.010)
+                    tmp = int(mantissa, 16)
+                    if(tmp == 0 or tmp == 65535):
+                        err = 1
+                    else:
+                        err = 0
                 except subprocess.CalledProcessError as e:
                     print e
                     print "Error occured while processing i2cget for IR "
@@ -1802,7 +1850,12 @@ def ir_voltage_show_davenport(arg_ir):
                     get_cmd = "i2cget"
                     mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                                 IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
-                    err = 0
+                    time.sleep(0.010)
+                    tmp = int(mantissa, 16)
+                    if(tmp == 0 or tmp == 65535):
+                        err = 1
+                    else:
+                        err = 0
                 except subprocess.CalledProcessError as e:
                     print e
                     print "Error occured while processing i2cget for IR "
@@ -1873,7 +1926,12 @@ def ir_voltage_show_stinson(arg_ir):
                     get_cmd = "i2cget"
                     mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                                  IR_PMBUS_ADDR.get(i), IR_READ_POUT_OP, "w"])
-                    err = 0
+                    time.sleep(0.010)
+                    tmp = int(mantissa, 16)
+                    if(tmp == 0 or tmp == 65535):
+                        err = 1
+                    else:
+                        err = 0
                 except subprocess.CalledProcessError as e:
                     print e
                     print "Error occured while processing i2cget for IR pout"
@@ -1903,7 +1961,12 @@ def ir_voltage_show_stinson(arg_ir):
                     get_cmd = "i2cget"
                     mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                                  IR_PMBUS_ADDR.get(i), IR_READ_TEMP1_OP, "w"])
-                    err = 0
+                    time.sleep(0.010)
+                    tmp = int(mantissa, 16)
+                    if(tmp == 0 or tmp == 65535):
+                        err = 1
+                    else:
+                        err = 0
                 except subprocess.CalledProcessError as e:
                     print e
                     print "Error occured while processing i2cget for IR temp1"
@@ -1933,7 +1996,12 @@ def ir_voltage_show_stinson(arg_ir):
                     get_cmd = "i2cget"
                     mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                                  IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
-                    err = 0
+                    time.sleep(0.010)
+                    tmp = int(mantissa, 16)
+                    if(tmp == 0 or tmp == 65535):
+                        err = 1
+                    else:
+                        err = 0
                 except subprocess.CalledProcessError as e:
                     print e
                     print "Error occured while processing i2cget for IR "
@@ -1965,7 +2033,12 @@ def ir_voltage_show_stinson(arg_ir):
                     get_cmd = "i2cget"
                     mantissa = subprocess.check_output([get_cmd, "-f", "-y", IR_I2C_BUS,
                                                 IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
-                    err = 0
+                    time.sleep(0.010)
+                    tmp = int(mantissa, 16)
+                    if(tmp == 0 or tmp == 65535):
+                        err = 1
+                    else:
+                        err = 0
                 except subprocess.CalledProcessError as e:
                     print e
                     print "Error occured while processing i2cget for IR "
@@ -2012,11 +2085,13 @@ def ir_voltage_show_mavericks(poc):
                 get_cmd = "i2cget"
                 exponent = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
                                          UPPER_IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
+                time.sleep(0.010)
                 err = 0
             except subprocess.CalledProcessError as e:
                 print e
                 print "Error occured while processing VOUT_MODE for UPPER IR "
                 ir_restore_i2c_switch(a)
+                time.sleep(0.010)
                 err = 1
             retry = retry + 1
         if (err == 1):
@@ -2030,11 +2105,13 @@ def ir_voltage_show_mavericks(poc):
                 get_cmd = "i2cget"
                 mantissa = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
                                              UPPER_IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
+                time.sleep(0.010)
                 err = 0
             except subprocess.CalledProcessError as e:
                 print e
                 print "Error occured while processing i2cget for UPPER IR "
                 ir_restore_i2c_switch(a)
+                time.sleep(0.010)
                 err = 1
             retry = retry + 1
         if (err == 1):
@@ -2063,12 +2140,15 @@ def ir_voltage_show_mavericks(poc):
                 get_cmd = "i2cget"
                 mantissa = subprocess.check_output([get_cmd, "-f", "-y", UPPER_IR_I2C_BUS,
                                             UPPER_IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
+                time.sleep(0.010)
                 ir_restore_i2c_switch(a)
+                time.sleep(0.010)
                 err = 0
             except subprocess.CalledProcessError as e:
                 print e
                 print "Error occured while processing i2cget for IR "
                 ir_restore_i2c_switch(a) 
+                time.sleep(0.010)
                 err = 1
             retry = retry + 1
         if (err == 1):
@@ -2111,6 +2191,7 @@ def ir_voltage_show_mavericks(poc):
                 get_cmd = "i2cget"
                 exponent = subprocess.check_output([get_cmd, "-f", "-y", LOWER_IR_I2C_BUS,
                                          LOWER_IR_PMBUS_ADDR.get(i), IR_VOUT_MODE_OP, "w"])
+                time.sleep(0.010)
                 err = 0
             except subprocess.CalledProcessError as e:
                 print e
@@ -2128,7 +2209,12 @@ def ir_voltage_show_mavericks(poc):
                 get_cmd = "i2cget"
                 mantissa = subprocess.check_output([get_cmd, "-f", "-y", LOWER_IR_I2C_BUS,
                                              LOWER_IR_PMBUS_ADDR.get(i), IR_READ_VOUT_OP, "w"])
-                err = 0
+                time.sleep(0.010)
+                tmp = int(mantissa, 16)
+                if(tmp == 0 or tmp == 65535):
+                    err = 1
+                else:
+                    err = 0
             except subprocess.CalledProcessError as e:
                 print e
                 print "Error occured while processing i2cget for LOWER IR "
@@ -2160,7 +2246,12 @@ def ir_voltage_show_mavericks(poc):
                 get_cmd = "i2cget"
                 mantissa = subprocess.check_output([get_cmd, "-f", "-y", LOWER_IR_I2C_BUS,
                                             LOWER_IR_PMBUS_ADDR.get(i), IR_READ_IOUT_OP, "w"])
-                err = 0
+                time.sleep(0.010)
+                tmp = int(mantissa, 16)
+                if(tmp == 0 or tmp == 65535):
+                    err = 1
+                else:
+                    err = 0
             except subprocess.CalledProcessError as e:
                 print e
                 print "Error occured while processing i2cget for LOWER IR "
