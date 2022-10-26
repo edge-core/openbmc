@@ -431,6 +431,7 @@ static ssize_t psu_fan_status_show(struct device *dev,
   //}
 
   switch (model) {
+    case DELTA_1500:
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
@@ -599,6 +600,7 @@ static ssize_t psu_model_show(struct device *dev,
   }
 
     switch (model) {
+    case DELTA_1500:
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
@@ -641,6 +643,7 @@ static ssize_t psu_serial_show(struct device *dev,
   }
 
   switch (model) {
+    case DELTA_1500:
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
@@ -683,6 +686,7 @@ static ssize_t psu_revision_show(struct device *dev,
   }
 
   switch (model) {
+    case DELTA_1500:
     case BELPOWER_600_NA:
     case BELPOWER_1100_NA:
     case BELPOWER_1500_NAC:
