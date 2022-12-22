@@ -610,16 +610,16 @@ def get_bmc_ps(param1):
             err[1] = 0
           except Exception as e:
             pass
-        elif line.find('curr1_input') != -1:
+        elif line.find('curr2_input') != -1:
           try:
-            t = re.findall('\d+\.\d+', line[len('curr1_input'):])
+            t = re.findall('\d+\.\d+', line[len('curr2_input'):])
             vlist[2] = float(t[0])
             err[2] = 0
           except Exception as e:
             pass
-        elif line.find('power1_input') != -1:
+        elif line.find('power2_input') != -1:
           try:
-            t = re.findall('\d+\.\d+', line[len('power1_input'):])
+            t = re.findall('\d+\.\d+', line[len('power2_input'):])
             vlist[3] = float(t[0])
             err[3] = 0
           except Exception as e:
@@ -649,12 +649,12 @@ def get_bmc_ps(param1):
               err[6] = 0
           except Exception as e:
             pass
-        elif line.find('curr2_input') != -1:
+        elif line.find('load_sharing') != -1:
           try:
             if line.find('error') != -1:
               vlist[7] = 0
             else:
-              t = re.findall('\d+', line[len('curr2_input'):])
+              t = re.findall('\d+', line[len('load_sharing'):])
               vlist[7] = int(t[0])
               err[7] = 0
           except Exception as e:

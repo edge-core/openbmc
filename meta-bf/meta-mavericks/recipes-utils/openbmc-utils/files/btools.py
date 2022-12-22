@@ -292,7 +292,8 @@ def psu_cpld_present(power_supply):
 def psu_get_ld(param):
     i2c_dev = "/sys/class/i2c-adapter/i2c-7/7-00"
     platform = get_project()
-    val = param
+    if param == "load_sharing":
+        val = "curr2_input"
     try:
         # load sharing checking
         if val == "curr2_input":
@@ -345,7 +346,7 @@ def psu_get_ld(param):
 def psu_all(argv):
     arg_psu = argv[2:]
     i2c_dev = "/sys/class/i2c-adapter/i2c-7/7-00"
-    list = ['in0_input', 'in1_input', 'curr1_input', 'power1_input', 'fan1_input', 'fan1_fault', 'presence', 'curr2_input',  'mfr_model_label', 'mfr_serial_label', 'mfr_revision']
+    list = ['in0_input', 'in1_input', 'curr2_input', 'power2_input', 'fan1_input', 'fan1_fault', 'presence', 'load_sharing',  'mfr_model_label', 'mfr_serial_label', 'mfr_revision']
     unit = ['V', 'V', 'mA', 'mW', 'rpm', 'ffault', 'presence', 'A', 'model', 'serial', 'rev']
     # Mapping i2c bus address according to power supply number
     # 2018.09.10 Swap PSUs mapping because of reverse.
@@ -369,8 +370,8 @@ def psu_all(argv):
         return -1
 
     for i in range(11):
-        if list[i] == 'curr2_input':
-            ld = psu_get_ld("curr2_input")
+        if list[i] == 'load_sharing':
+            ld = psu_get_ld("load_sharing")
             if ld >= 0:
               print "{} : {} {}".format(list[i], int(ld), unit[i])
             else:
