@@ -78,7 +78,7 @@ upgrade_upper_syscpld() {
         fi
         rc=$(ispvm syscpld uppersys $3 | grep PASS)
     elif [ "$board_subtype" == "Mavericks" ] && [ $product_sub_version -le 4 ]; then
-        rc=$(jbi -r -aPROGRAM -gc57 -gi56 -go58 -gs147 $1 | grep -i "Success")
+        rc=$(jbi -r -aPROGRAM -gc57 -gi56 -go58 -gs147 $3 | grep -i "Success")
     else
         echo "update cpld Fail"
         exit 1
