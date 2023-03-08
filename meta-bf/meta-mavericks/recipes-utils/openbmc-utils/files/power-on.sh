@@ -97,27 +97,20 @@ val=$(cat $PWR_MAIN_SYSFS 2> /dev/null | head -n 1)
 wedge_power_on_board
 
 if [ "$val" != "0x1" ]; then
-  if [ "$board_subtype" == "Newport" ] ; then
-    local svern
 
-    # don't do anything else for new-port-mod
-    svern=$(wedge_board_sub_version)
-    case "$svern" in
-      *1)
-       logger " no setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
-       echo " no setting Tofino VDD_CORE with sub version greater than 0 for board type $board_subtype"
-        ;;
-      *)
-       # credo slow parts need 1.7V instead of 1.5V
-       btools.py --IR set n VDDA_1.7V
-        ;;
-    esac
-  fi
   tofino_set_vdd_core
   usleep 100000
   i2cset -f -y 12 0x31 0x32 0x9
   usleep 50000
   i2cset -f -y 12 0x31 0x32 0xf
+fi
+# credo parts need related voltage changes
+if [ "$board_subtype" == "Newport" ] ; then
+      btools.py --IR set n VDDA_1.7V
+      btools.py --IR set n VDDT_0.9V
+      btools.py --IR set n VDDA_AGC_1.8V
+      logger "setting Tofino credo related voltages for board type $board_subtype"
+      echo "setting Tofino credo related voltages for board type $board_subtype"
 fi
 
 echo -n "Checking microserver power status ... "

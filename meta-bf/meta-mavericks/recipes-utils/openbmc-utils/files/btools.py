@@ -829,7 +829,7 @@ def ucd_rail_voltage_davenport():
 
     print " "
     print " RAIL                          Voltage(V)"
-    string = {1: "01** - VDD12V_FUSED_2", 2: "02** - VDD1_1V", 3: "03** - VDD5V_stby_IR", 4: "04 - VDD5V_stby",
+    string = {1: "01** - VDD12V_FUSED_2", 2: "02** - VDD1_1V", 3: "03** - VDD1_8V_PLL", 4: "04 - VDD5V_stby",
               5: "05* - VDD3_3V", 6: "06** - VDD2_5V", 7: "07 - VDD3_3V_stby", 8: "08 - VDD2_5V_stby",
               9: "09 - VDD1_2V_stby", 10: "10 - VDD1_8V", 11: "11 - VDD1_8V_stby", 12: "12 - VDD1_5V_stby",
               13: "13* - VDDAH_1_2V", 14: "14* - VDDAL_0_75V", 15: "15* - VDDL_CORE", 16: "16* - VDD_CORE"}
@@ -1729,7 +1729,7 @@ def ir_voltage_show_davenport(arg_ir):
         while((err == 1) and (retry < 5)):
             try:
                 get_cmd = "i2cget"
-                if i == 3:
+                if i == 1:
                     set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "1")
                 else:
                     set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(i), "0")
@@ -2827,7 +2827,7 @@ def ir_set_vdd_core_dynamic_range_davenport(arg_ir):
         return
 
     # set page register in IR
-    set_ir_page(VDD_CORE_IR_I2C_BUS, VDD_CORE_IR_PMBUS_ADDR, "0")
+    set_ir_page(VDD_CORE_IR_I2C_BUS, VDD_CORE_IR_PMBUS_ADDR, "1")
 
     margin_cmd = IR_VOUT_CMD
     margin_apply = IR_MARGIN_OFF
@@ -2875,7 +2875,7 @@ def ir_set_vddl_core_dynamic_range_davenport(arg_ir):
         return
 
     # set page register in IR
-    set_ir_page(VDDL_CORE_IR_I2C_BUS, VDDL_CORE_IR_PMBUS_ADDR, "1")
+    set_ir_page(VDDL_CORE_IR_I2C_BUS, VDDL_CORE_IR_PMBUS_ADDR, "0")
 
     margin_cmd = IR_VOUT_CMD
     margin_apply = IR_MARGIN_OFF
@@ -3000,9 +3000,9 @@ def ir_voltage_set_newport(arg_ir):
 
       set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(2), "0")
       # set page register in IR +/- 3%
-      VOLT_MARGIN_HIGH = "0xED"
-      VOLT_MARGIN_LOW = "0xDF"
-      VOLT_NORMAL =  "0xE6"
+      VOLT_MARGIN_HIGH = "0xE3"
+      VOLT_MARGIN_LOW = "0xD6"
+      VOLT_NORMAL =  "0xDC"
       i2c_addr = IR_PMBUS_ADDR.get(2)
 
       if arg_ir[1] == "l":
@@ -3029,9 +3029,9 @@ def ir_voltage_set_newport(arg_ir):
     elif arg_ir[2] == "VDDA_AGC_1.8V":
       # set page register in IR +/- 3%
       set_ir_page(IR_I2C_BUS, IR_PMBUS_ADDR.get(4), "1")
-      VOLT_MARGIN_HIGH = "0x1DB"
-      VOLT_MARGIN_LOW = "0x1BF"
-      VOLT_NORMAL =  "0x1CD"
+      VOLT_MARGIN_HIGH = "0x1E9"
+      VOLT_MARGIN_LOW = "0x1CD"
+      VOLT_NORMAL =  "0x1DB"
 
       #set VDD
       i2c_addr = IR_PMBUS_ADDR.get(4)
