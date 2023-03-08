@@ -41,6 +41,8 @@ SRC_URI += "file://disable_watchdog.sh \
             file://version.sh \
             file://enable_ucd_security.sh \
             file://cpld_refresh.sh \
+            file://tmp431_threshold.sh \
+            file://tmp431_init.sh \
            "
 
 OPENBMC_UTILS_FILES += " \
@@ -64,6 +66,7 @@ OPENBMC_UTILS_FILES += " \
     version.sh \
     enable_ucd_security.sh \
     cpld_refresh.sh \
+    tmp431_threshold.sh \
     "
 
 DEPENDS_append = " update-rc.d-native"
@@ -104,6 +107,8 @@ do_install_board() {
 
     install -m 0755 ${WORKDIR}/disable_watchdog.sh ${D}${sysconfdir}/init.d/disable_watchdog.sh
     update-rc.d -r ${D} disable_watchdog.sh start 99 2 3 4 5 .
+    install -m 0755 ${WORKDIR}/tmp431_init.sh ${D}${sysconfdir}/init.d/tmp431_init.sh
+    update-rc.d -r ${D} tmp431_init.sh start 99 2 3 4 5 .
     
     install -m 0755 ${WORKDIR}/enable_watchdog_ext_signal.sh ${D}${sysconfdir}/init.d/enable_watchdog_ext_signal.sh
     update-rc.d -r ${D} enable_watchdog_ext_signal.sh start 99 2 3 4 5 .
