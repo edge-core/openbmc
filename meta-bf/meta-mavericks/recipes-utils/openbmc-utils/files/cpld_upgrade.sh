@@ -105,7 +105,7 @@ upgrade_lower_syscpld() {
             exit 1
         fi
         rc=$(ispvm syscpld lowersys $3 | grep PASS)
-    elif [ "$board_subtype" == "Montara" ] && [ $product_sub_version -ge 4 ]; then
+    elif [ "$board_subtype" == "Montara" ] || [ "$board_subtype" == "Newport" ] && [ $product_sub_version -ge 4 ]; then
         check_file_name $1 $2 $3
         if [ $? -eq 2 ]; then
             exit 1
@@ -113,7 +113,7 @@ upgrade_lower_syscpld() {
         rc=$(ispvm syscpld lowersys $3 | grep PASS)
     elif [ "$board_subtype" == "Mavericks" ] && [ $product_sub_version -le 4 ]; then
         rc=$(jbi -r -aPROGRAM -gc102 -gi101 -go103 -gs100 $3 | grep -i "Success")
-    elif [ "$board_subtype" == "Montara" ] && [ $product_sub_version -le 3 ]; then
+    elif [ "$board_subtype" == "Montara" ] || [ "$board_subtype" == "Newport" ] && [ $product_sub_version -le 3 ]; then
         rc=$(jbi -r -aPROGRAM -gc102 -gi101 -go103 -gs100 $3 | grep -i "Success")
     else
         echo "update cpld Fail"
@@ -121,9 +121,9 @@ upgrade_lower_syscpld() {
     fi
 
     if [[ $rc == *"Success"* ]] || [ "$rc" == "| PASS! |" ]; then
-        echo "Finished Upper SYSCPLD upgrade: Pass"
+        echo "Finished Lower SYSCPLD upgrade: Pass"
     else
-        echo "Finished Upper SYSCPLD upgrade: Fail (Program failed)"
+        echo "Finished Lower SYSCPLD upgrade: Fail (Program failed)"
     fi
 }
 
@@ -150,16 +150,16 @@ upgrade_upper_fancpld() {
     fi
     
     if [[ $rc == *"Success"* ]] || [ "$rc" == "| PASS! |" ]; then
-        echo "Finished Upper SYSCPLD upgrade: Pass"
+        echo "Finished Upper FANCPLD upgrade: Pass"
     else
-        echo "Finished Upper SYSCPLD upgrade: Fail (Program failed)"
+        echo "Finished Upper FANCPLD upgrade: Fail (Program failed)"
     fi
 }
 
 upgrade_lower_fancpld() {
     echo "Started Lower FANCPLD upgrade .."
 
-    if [ "$board_subtype" == "Montara" ] || [ "$board_subtype" == "Mavericks" ] ; then
+    if [ "$board_subtype" == "Montara" ] || [ "$board_subtype" == "Mavericks" ] || [ "$board_subtype" == "Newport" ] ; then
         # Enable CPLD update (UPD)
         echo out > /tmp/gpionames/CPLD_UPD_EN/direction
         echo 0 > /tmp/gpionames/CPLD_UPD_EN/value
@@ -186,7 +186,7 @@ upgrade_lower_fancpld() {
         rc=$(ispvm syscpld fan $3 | grep PASS)
     elif [ "$board_subtype" == "Mavericks" ] && [ $product_sub_version -le 4 ]; then
         rc=$(jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $3 | grep -i "Success")
-    elif [ "$board_subtype" == "Montara" ] && [ $product_sub_version -le 3 ]; then
+    elif [ "$board_subtype" == "Montara" ] || [ "$board_subtype" == "Newport" ] && [ $product_sub_version -le 3 ]; then
         rc=$(jbi -aPROGRAM -gc77 -gi78 -go79 -gs76 $3 | grep -i "Success")
     else
         echo "update cpld Fail"
@@ -194,9 +194,9 @@ upgrade_lower_fancpld() {
     fi
     
     if [[ $rc == *"Success"* ]] || [ "$rc" == "| PASS! |" ]; then
-        echo "Finished Upper SYSCPLD upgrade: Pass"
+        echo "Finished Lower FANCPLD upgrade: Pass"
     else
-        echo "Finished Upper SYSCPLD upgrade: Fail (Program failed)"
+        echo "Finished Lower FANCPLD upgrade: Fail (Program failed)"
     fi
 }
 
@@ -230,7 +230,7 @@ if [ "$board_subtype" == "Mavericks" ] && [ $product_sub_version -ge 5 ]; then
         echo "Must pass in a .vme file"
         exit 1
     fi
-elif [ "$board_subtype" == "Montara" ] && [ $product_sub_version -ge 4 ]; then
+elif [ "$board_subtype" == "Montara" ] || [ "$board_subtype" == "Newport" ] && [ $product_sub_version -ge 4 ]; then
     if [ ${filename: -4} != ".vme" ]; then
         echo "Must pass in a .vme file"
         exit 1
@@ -240,7 +240,7 @@ elif [ "$board_subtype" == "Mavericks" ] && [ $product_sub_version -le 4 ]; then
         echo "Must pass in a .jbc file"
         exit 1
     fi
-elif [ "$board_subtype" == "Montara" ] && [ $product_sub_version -le 3 ]; then
+elif [ "$board_subtype" == "Montara" ] || [ "$board_subtype" == "Newport" ] && [ $product_sub_version -le 3 ]; then
     if [ ${filename: -4} != ".jbc" ] && [ ${filename: -4} != ".JBC" ]; then
         echo "Must pass in a .jbc file"
         exit 1
