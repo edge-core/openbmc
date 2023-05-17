@@ -135,7 +135,7 @@ static ssize_t i2c_dev_show_mem_temp(struct device *dev,
   }
   /*
    * now val holds the value as a number of 1/16, times 1000 for lm-sensors */
-  ret_val = (ret_val * 1000) / 16;
+  ret_val *= 1000 / 16;
   return scnprintf(buf, PAGE_SIZE, "%d\n", ret_val);
 }
 
@@ -209,8 +209,6 @@ static ssize_t i2c_dev_show_voltage3(struct device *dev,
 #define temp1_max (85000)
 #define temp2_min (0)   //Memory Temp
 #define temp2_max (85000)
-#define temp3_min (0)   //Memory Temp
-#define temp3_max (85000)
 
 static ssize_t i2c_dev_show_in0_min(struct device *dev,
                                      struct device_attribute *attr,
@@ -296,18 +294,7 @@ static ssize_t i2c_dev_show_temp2_max(struct device *dev,
   return scnprintf(buf, PAGE_SIZE, "%d\n", temp2_max);
 }
 
-static ssize_t i2c_dev_show_temp3_min(struct device *dev,
-                                     struct device_attribute *attr,
-                                     char *buf)
-{
-  return scnprintf(buf, PAGE_SIZE, "%d\n", temp3_min);
-}
-static ssize_t i2c_dev_show_temp3_max(struct device *dev,
-                                     struct device_attribute *attr,
-                                     char *buf)
-{
-  return scnprintf(buf, PAGE_SIZE, "%d\n", temp3_max);
-}
+
 static ssize_t i2c_dev_show_temp1_min(struct device *dev,
                                      struct device_attribute *attr,
                                      char *buf)
@@ -350,27 +337,6 @@ static const i2c_dev_attr_st com_e_attr_table[] = {
     i2c_dev_show_mem_temp,
     NULL,
     0x04, 0, 16,
-  },
-  {
-    "temp3_min",
-    NULL,
-    i2c_dev_show_temp3_min,
-    NULL,
-    0, 0, 0,
-  },
-  {
-    "temp3_max",
-    NULL,
-    i2c_dev_show_temp3_max,
-    NULL,
-    0, 0, 0,
-  },
-  {
-    "temp3_input", // mem_temp
-    NULL,
-    i2c_dev_show_mem_temp,
-    NULL,
-    0x02, 0, 16,
   },
   {
     "temp1_min",
