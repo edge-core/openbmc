@@ -17,7 +17,16 @@
 # 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
-# Init TMP431 threshold for 90 C
-i2cset -f -y 3 0x4c 0x19 0x5A
-echo -n "Set default TMP431 Threshold for 90 C"
-echo
+. /usr/local/bin/openbmc-utils.sh
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
+
+board_subtype=$(wedge_board_subtype)
+
+# set the Tofino TMP431 threshold for 90 C on Newport
+if [ "$board_subtype" == "Newport" ] ; then
+    i2cset -f -y 3 0x4c 0x19 0x5A
+    echo "board type is $board_subtype"
+    echo -n "Set default TMP431 Threshold for 90 C"
+    echo
+fi
