@@ -57,7 +57,7 @@ i2cset -f -y 7 0x70 0x3
 rmmod psu_driver
 modprobe psu_driver
 
-i2cset -f -y 9 0x70 0x10
+
 platform=$(btools.py -F 2> /dev/null | head -n 1)
 #echo "platform is ${platform} ..."
 if [ "$platform" == "mavericks-p0c" ]; then
