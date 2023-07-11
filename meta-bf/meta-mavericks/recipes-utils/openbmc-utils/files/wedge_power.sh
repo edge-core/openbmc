@@ -34,6 +34,20 @@ PWR_USRV_EN_SYSFS="${SYSCPLD_SYSFS_DIR}/pwr_usrv_en"
 board_subtype=$(wedge_board_subtype)
 echo "board type is $board_subtype"
 
+debug_message() {
+    echo -e "# DEBUG MESSAGES #"
+    echo -e "\n### Check COMe Status ###"
+    do_status
+    echo -e "\n### Check IR ###"
+    btools.py --IR sh v
+    echo -e "\n### Check COMe Voltage ###"
+    /usr/bin/sensors com_e_driver-i2c-4-33 | head -n 6
+
+    # return COMe power status
+    val=$(cat /sys/class/i2c-adapter/i2c-12/12-0031/pwr_main_n 2> /dev/null | head -n 1)
+    return $?
+}
+
 tofino_set_vdd_core() {
   CODE="$(i2cget -f -y 12 0x31 0xb)"
   CODE_M=$(($CODE & 0x7))
@@ -169,6 +183,15 @@ do_on() {
 #    reset_brcm.sh
     # power on sequence
     do_on_com_e
+
+#   check COMe status
+    sleep 3
+    echo -e "\n# First Check for do_on #"
+    echo -n "# Start time: "; /bin/date
+    debug_message
+    sleep 3
+    echo -n "# End time: "; /bin/date
+
     ret=$?
     if [ $ret -eq 0 ]; then
         echo " Done"
@@ -265,6 +288,38 @@ case "$command" in
         ;;
     on)
         do_on $@
+        sleep 3
+        echo -e "\n# Sencond Check after do_on #"
+        echo -n "# Start time: "; /bin/date
+        debug_message
+        sleep 3
+        echo -n "# End time: "; /bin/date
+
+        if [ "$val" = "0x0" ]; then
+            until [ "$val" = "0x1" ]; do
+                sleep 3
+                echo -e "\nCOMe Power on/off fail - Do retry"
+                do_on_com_e
+                echo -e "\n### Check after retry ###"
+                echo -n "# Start time: "; /bin/date
+                debug_message
+                sleep 3
+                echo -n "# End time: "; /bin/date
+                ret=$?
+            done
+        fi
+
+        if [ "$val" = "0x0" ]; then
+            sleep 3
+            echo -e "\n# Check status now #"
+            do_on_com_e
+            echo -n "# Start time: "; /bin/date
+            debug_message
+            sleep 3
+            echo -n "# End time: "; /bin/date
+
+        fi
+
         ;;
     off)
         do_off $@
