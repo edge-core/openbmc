@@ -69,15 +69,6 @@ wedge_board_type() {
         *Newport*)
             echo 'NEWPORT'
             ;;
-         *Stinson*)
-            echo 'STINSON'
-            ;;
-         *Daven*)
-            echo 'DAVENPORT'
-            ;;
-         *Pesca*)
-            echo 'PESCADERO'
-            ;;
         *)                  # Follow bf_board_type_get() of fand.cpp, defaulting to Montara
             echo 'MAVERICKS'
             ;;
@@ -101,15 +92,6 @@ wedge_board_subtype() {
             ;;
         *Newport*)
             echo 'Newport'
-            ;;
-         *Stinson*)
-            echo 'Stinson'
-            ;;
-         *Daven*)
-            echo 'Davenport'
-            ;;
-         *Pesca*)
-            echo 'Pescadero'
             ;;
         *)                  # Follow bf_board_type_get() of fand.cpp, defaulting to Montara
             echo 'Montara'
@@ -199,20 +181,20 @@ wedge_power_on_board() {
     local val isolbuf
     board_subtype=$(wedge_board_subtype)
 
-    if [ "$board_subtype" == "Newport" ] ; then
-        # enable rails that might have been turned off during previous shutdown
-        # sequence is important
-        wedge_ucd_gpio_set 22 1
-        wedge_ucd_gpio_set 12 1
-        wedge_ucd_gpio_set 13 1
-        wedge_ucd_gpio_set 20 1
-        wedge_ucd_gpio_set 21 1
-    fi
+    # if [ "$board_subtype" == "Newport" ] ; then
+    #     # enable rails that might have been turned off during previous shutdown
+    #     # sequence is important
+    #     wedge_ucd_gpio_set 22 1
+    #     wedge_ucd_gpio_set 12 1
+    #     wedge_ucd_gpio_set 13 1
+    #     wedge_ucd_gpio_set 20 1
+    #     wedge_ucd_gpio_set 21 1
+    # fi
 
     # power on main power, uServer power, and enable power button
     val=$(cat $PWR_MAIN_SYSFS | head -n 1)
     if [ "$val" != "0x1" ]; then
-        if [ "$board_subtype" == "Newport" -o "$board_subtype" == "Stinson" -o "$board_subtype" == "Davenport" -o "$board_subtype" == "Pescadero" ] ; then
+        if [ "$board_subtype" == "Newport" ] ; then
             echo 1 > $PWR_USRV_SYSFS
             echo "setting pwr_usrv_en also for $board_subtype"
         fi

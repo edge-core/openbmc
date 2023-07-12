@@ -119,7 +119,7 @@ do_on_com_e() {
 	  ;;
 	*)
 	sleep 2
-	do_on_ucd_gpio_en
+	# do_on_ucd_gpio_en
 	# credo slow parts need 1.7V instead of 1.5V
 	btools.py --IR set n VDDA_1.7V
 	tofino_set_vdd_core
@@ -133,9 +133,6 @@ do_on_com_e() {
         i2cset -f -y 12 0x31 0x32 0xf
 
         return 0
-    fi
-    if [ "$board_subtype" == "Stinson" ] || [ "$board_subtype" == "Davenport" ] || [ "$board_subtype" == "Pescadero" ] ; then
-        echo 1 > $PWR_USRV_EN_SYSFS
     fi
     echo 1 > $PWR_USRV_SYSFS
     return $?
@@ -172,7 +169,7 @@ do_on() {
     ret=$?
     if [ $ret -eq 0 ]; then
         echo " Done"
-	logger "Successfully power on micro-server"
+        logger "Successfully power on micro-server"
     else
         echo " Failed"
         logger "Failed to power on micro-server"

@@ -33,13 +33,9 @@ elif [ "$board_subtype" == "Montara" ]; then
     maxnfans=5
     FANS="1 2 3 4 5"
     FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0033
-elif [ "$board_subtype" == "Newport" ] || [ "$board_subtype" == "Davenport" ] ; then
+elif [ "$board_subtype" == "Newport" ]; then
     maxnfans=6
     FANS="1 2 3 4 5 6"
-    FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0066
-elif [ "$board_subtype" == "Stinson" ]; then
-    maxnfans=7
-    FANS="1 2 3 4 5 6 7"
     FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0066
 fi
 
@@ -48,10 +44,6 @@ usage() {
         echo "Usage: $0 [Fan Unit (1..5)(upper: 6..10)] [board type (Mavericks Montara)]" >&2
     elif [ "$board_type" == "NEWPORT" ]; then
         echo "Usage: $0 [Fan Unit (1..6)] [board type (Newport)]" >&2
-    elif [ "$board_type" == "STINSON" ]; then
-        echo "Usage: $0 [Fan Unit (1..7)] [board type (Stinson)]" >&2
-    elif [ "$board_type" == "DAVENPORT" ]; then
-        echo "Usage: $0 [Fan Unit (1..6)] [board type (Davenport)]" >&2
     fi
 }
 
@@ -106,18 +98,6 @@ show_rpm_newport()
     echo "$(cat $front_rpm), $(cat $rear_rpm)"
 }
 
-show_rpm_stinson()
-{
-    front_rpm="${FAN_DIR}/fan$((($1 * 2 - 1)))_input"
-    rear_rpm="${FAN_DIR}/fan$((($1 * 2)))_input"
-    front_rpm=$(cat $front_rpm);
-    rear_rpm=$(cat $rear_rpm);
-    front_rpm=$(($front_rpm*2));
-    rear_rpm=$(($rear_rpm*2));
-    echo "$front_rpm $rear_rpm"
-
-}
-
 set -e
 
 if [ "$#" -gt 2 ]; then
@@ -142,16 +122,6 @@ if [ "$#" -eq 1 ]; then
         fi
     elif [ $1 = "Newport" ]; then
         if [ "$board_subtype" != "Newport" ]; then
-            echo "Error: This is $board_subtype"
-            exit 1
-        fi
-    elif [ $1 = "Stinson" ]; then
-        if [ "$board_subtype" != "Stinson" ]; then
-            echo "Error: This is $board_subtype"
-            exit 1
-        fi
-    elif [ $1 = "Davenport" ]; then
-        if [ "$board_subtype" != "Davenport" ]; then
             echo "Error: This is $board_subtype"
             exit 1
         fi
@@ -181,16 +151,6 @@ elif [ "$#" -eq 2 ]; then
             echo "Error: This is $board_subtype"
             exit 1
         fi
-    elif [ $2 = "Stinson" ]; then
-        if [ "$board_subtype" != "Stinson" ]; then
-            echo "Error: This is $board_subtype"
-            exit 1
-        fi
-    elif [ $2 = "Davenport" ]; then
-        if [ "$board_subtype" != "Davenport" ]; then
-            echo "Error: This is $board_subtype"
-            exit 1
-        fi
     else
         usage
         exit 1
@@ -211,9 +171,7 @@ fi
 for fan in $FANS; do
     if [ "$board_type" == "MAVERICKS" ]; then
         echo "Fan $fan RPMs: $(show_rpm $fan), ($(show_pwm $fan))"
-    elif [ "$board_type" == "NEWPORT" ] || [ "$board_type" == "DAVENPORT" ] ; then
+    elif [ "$board_type" == "NEWPORT" ]; then
         echo "Fan $fan RPMs: $(show_rpm_newport $fan), ($(show_pwm_newport))"
-    elif [ "$board_type" == "STINSON" ] ; then
-        echo "Fan $fan RPMs: $(show_rpm_stinson $fan), ($(show_pwm_newport))"
     fi
 done

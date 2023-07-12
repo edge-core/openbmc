@@ -1,6 +1,6 @@
 FILESEXTRAPATHS_prepend := "${THISDIR}/files:"
 
-SRC_URI += "file://rsyslog.conf \
+SRC_URI_openbmc-fb += "file://rsyslog.conf \
             file://rotate_logfile \
             file://rotate_cri_sel \
             file://rotate_console_log \
@@ -11,7 +11,7 @@ SRC_URI += "file://rsyslog.conf \
 
 MTERM_LOG_FILES ?= "mTerm_${MACHINE}"
 
-do_install_append() {
+do_install_append_openbmc-fb() {
   dst="${D}/usr/local/fbpackages/rotate"
   install -d $dst
   install -d ${D}${sysconfdir}/rsyslog.d

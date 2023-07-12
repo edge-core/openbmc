@@ -33,15 +33,6 @@ elif [ "$board_subtype" == "Montara" ]; then
 elif [ "$board_subtype" == "Newport" ]; then
     FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0066
     SYS_DIR=/sys/class/i2c-adapter/i2c-12/12-0031
-elif [ "$board_subtype" == "Stinson" ]; then           
-    FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0066        
-    SYS_DIR=/sys/class/i2c-adapter/i2c-12/12-0031
-elif [ "$board_subtype" == "Davenport" ]; then   
-    FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0066  
-    SYS_DIR=/sys/class/i2c-adapter/i2c-12/12-0031
-elif [ "$board_subtype" == "Pescadero" ]; then   
-    FAN_DIR=/sys/class/i2c-adapter/i2c-8/8-0066  
-    SYS_DIR=/sys/class/i2c-adapter/i2c-12/12-0031
 fi
 
 usage() {
@@ -93,15 +84,6 @@ fi
 
 # According to fancpld.c definition
 if [ "$board_type" == "NEWPORT" ] && [ $2 == "fan" ]; then
-    rev_hex2dec=$(cat $rev)
-    echo $(($rev_hex2dec))
-elif [ "$board_type" == "STINSON" ] && [ $2 == "fan" ]; then
-    rev_hex2dec=$(cat $rev)
-    echo $(($rev_hex2dec))
-elif [ "$board_type" == "DAVENPORT" ] && [ $2 == "fan" ]; then
-    rev_hex2dec=$(cat $rev)
-    echo $(($rev_hex2dec))
-elif [ "$board_type" == "PESCADERO" ] && [ $2 == "fan" ]; then
     rev_hex2dec=$(cat $rev)
     echo $(($rev_hex2dec))
 else
