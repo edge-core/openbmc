@@ -199,15 +199,15 @@ wedge_power_on_board() {
     local val isolbuf
     board_subtype=$(wedge_board_subtype)
 
-    if [ "$board_subtype" == "Newport" ] ; then
-        # enable rails that might have been turned off during previous shutdown
-        # sequence is important
-        wedge_ucd_gpio_set 22 1
-        wedge_ucd_gpio_set 12 1
-        wedge_ucd_gpio_set 13 1
-        wedge_ucd_gpio_set 20 1
-        wedge_ucd_gpio_set 21 1
-    fi
+    # if [ "$board_subtype" == "Newport" ] ; then
+    #     # enable rails that might have been turned off during previous shutdown
+    #     # sequence is important
+    #     wedge_ucd_gpio_set 22 1
+    #     wedge_ucd_gpio_set 12 1
+    #     wedge_ucd_gpio_set 13 1
+    #     wedge_ucd_gpio_set 20 1
+    #     wedge_ucd_gpio_set 21 1
+    # fi
 
     # power on main power, uServer power, and enable power button
     val=$(cat $PWR_MAIN_SYSFS | head -n 1)
