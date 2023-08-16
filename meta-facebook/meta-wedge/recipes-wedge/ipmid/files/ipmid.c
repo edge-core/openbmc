@@ -613,7 +613,7 @@ app_get_device_id (unsigned char *response, unsigned char *res_len)
   ipmi_res_t *res = (ipmi_res_t *) response;
   unsigned char *data = &res->data[0];
   FILE *fp=NULL;
-  int fv_major = 0x10, fv_minor = 0x03;
+  int fv_major = 0x11, fv_minor = 0x00;
   char buffer[32];
 
   fp = fopen("/etc/issue","r");
