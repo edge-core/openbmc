@@ -626,14 +626,27 @@ static int syscpld_detect(struct i2c_client *client, int kind,
   strlcpy(info->type, "syscpld", I2C_NAME_SIZE);
   return 0;
 }
+ 
+struct i2c_client *g_client;
 
 static int syscpld_probe(struct i2c_client *client,
                          const struct i2c_device_id *id)
 {
   int n_attrs = sizeof(syscpld_attr_table) / sizeof(syscpld_attr_table[0]);
+  if(client->addr==0x31)
+  {
+      g_client=client;
+  }
+
   return i2c_dev_sysfs_data_init(client, &syscpld_data,
                                  syscpld_attr_table, n_attrs);
 }
+
+struct i2c_client * syscpld_client_get()
+{
+    return g_client;
+}
+EXPORT_SYMBOL(syscpld_client_get);
 
 static int syscpld_remove(struct i2c_client *client)
 {

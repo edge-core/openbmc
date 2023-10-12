@@ -28,6 +28,7 @@
 #include <linux/delay.h>
 
 #include <i2c_dev_sysfs.h>
+#include <linux/platform_device.h>
 
 #ifdef DEBUG
 #define PSU_DEBUG(fmt, ...) do {                   \
@@ -45,6 +46,18 @@
 #define PSU_DELAY 15
 #define PMBUS_MFR_MODEL  0x9a
 #define PMBUS_POWER 0x96
+#define DELAY_MS 10
+#define RETRY_TIMES 20
+#define PSU_PRESENT 0x8
+#define PSU_PWOK 0x10
+#define PSU1_ADDR 0x5a
+#define PSU2_ADDR 0x59
+enum {
+    psu1_present,
+    psu2_present,
+    psu_allpresent,
+};
+
 typedef enum {
   DELTA_1500 = 0,
   BELPOWER_600_NA,
@@ -63,6 +76,68 @@ enum {
   LINEAR_11,
   LINEAR_16
 };
+
+struct _psu_info_cache{
+    int vin;
+    int iin;
+    int vout;
+    int iout;
+    int temp;
+    int fan;
+    int fan_status;
+    int power1;
+    int power2;
+    int vstby;
+    int istby;
+    int pstby;
+    char model[I2C_SMBUS_BLOCK_MAX + 1];
+    char serial[I2C_SMBUS_BLOCK_MAX + 1];
+    char revision[I2C_SMBUS_BLOCK_MAX + 1];
+};
+static struct _psu_info_cache  psu_info_cache[2];
+
+extern struct i2c_client * syscpld_client_get();
+
+static int psu_status_get(int addr)
+{
+    struct i2c_client *client = syscpld_client_get();
+    i2c_dev_data_st *data = i2c_get_clientdata(client);
+    int val;
+    uint8_t psu_status;
+
+    mutex_lock(&data->idd_lock);
+
+    val = i2c_smbus_read_byte_data(client, PSU_PRESENT);
+    switch(val & 0x3)
+    {
+      case 1:
+          psu_status = psu1_present;
+          break;
+      case 2:
+          psu_status = psu2_present;
+          break;
+      default:
+          psu_status = psu_allpresent;
+          break;
+    }
+
+    mutex_unlock(&data->idd_lock);
+
+    //now client is PSU2 , but PSU2 absent , so not need to read any psu info
+    if(psu1_present == psu_status && PSU2_ADDR == addr)
+    {
+        return -1;
+    }
+    else if(psu2_present == psu_status && PSU1_ADDR == addr)
+    {
+        return -1;
+    }
+    else
+    {
+        return 0;
+    }
+        
+}
 
 /*
  * PMBus Linear-11 Data Format
@@ -142,6 +217,37 @@ static int result_linear_convert(int value)
   return result;
 }
 
+static int psu_check_power_input(int addr)
+{
+    struct i2c_client *client = syscpld_client_get();
+    i2c_dev_data_st *data = i2c_get_clientdata(client);
+    int val;
+    uint8_t psu1_pwok, psu2_pwok;
+
+    mutex_lock(&data->idd_lock);
+
+    val = i2c_smbus_read_byte_data(client, PSU_PWOK);
+    psu2_pwok = (val >> 2) & 0x1;
+    psu1_pwok = (val >> 6) & 0x1;
+
+    mutex_unlock(&data->idd_lock);
+
+    //0: PSU  power input is bad
+    //1: PSU  power input is OK
+    if(0 == psu1_pwok && PSU1_ADDR == addr) //psu1 canble not plug
+    {
+        return -1;
+    }
+    else if (0 == psu2_pwok && PSU2_ADDR == addr)//psu2 canble not plug
+    {
+        return -1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 static int psu_convert(struct device *dev, struct device_attribute *attr)
 {
   struct i2c_client *client = to_i2c_client(dev);
@@ -160,29 +266,20 @@ static int psu_convert(struct device *dev, struct device_attribute *attr)
    * If read block length byte > 32, it will cause kernel panic.
    * Using read word to replace read block to identifer PSU model.
    */
-  count=10;
+  count = RETRY_TIMES;
   while((ret < 0 || length > 32) && count--) {
     ret = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL, block_buffer);
     length = ret & 0xff;
-    mdelay(10);
-  }
-  //PSU_DEBUG("1st char+length = %d + %d\n", ((ret >> 8) & 0xff), (ret & 0xff));
-  if (ret < 0 || length > 32) {
-    PSU_DEBUG("Failed to read Manufacturer Model\n");
-  } else {
-    count=10;
-    while((value < 0 || value == 0xffff) && count--) {
-      value = i2c_smbus_read_word_data(client, PMBUS_POWER);
-    }
+    mdelay(DELAY_MS);
   }
 
   mutex_unlock(&data->idd_lock);
-  //printk("%d\n", value);
-  if (value < 0 || value == 0xffff) {
-    /* error case */
-    PSU_DEBUG("I2C read error, value: %d\n", value);
+
+  if (ret < 0 || length > 32) {
+    PSU_DEBUG("Failed to read Manufacturer Model\n");
     return -1;
-  }
+  } 
+
 
   if (strncmp(block_buffer, "PFE600-12-054NA", 15)== 0)
   {
@@ -231,24 +328,21 @@ static int psu_convert(struct device *dev, struct device_attribute *attr)
       model = UNKNOWN;
   }
 
-  if(result_linear_convert(value) > 0) {
-	  value = -1;
-	  count=10;
-	  mutex_lock(&data->idd_lock);
-	  while((value < 0 || value == 0xffff) && count--) {
-		value = i2c_smbus_read_word_data(client, (dev_attr->ida_reg));
-		mdelay(10);
-	  }
-	  mutex_unlock(&data->idd_lock);
-	  if (value < 0 || value == 0xffff) {
-		/* error case */
-		PSU_DEBUG("I2C read error, value: %d\n", value);
-		return -1;
-	  }
 
+  count = RETRY_TIMES;
+  mutex_lock(&data->idd_lock);
+  while((value < 0 || value == 0xffff) && count--) {
+     value = i2c_smbus_read_word_data(client, (dev_attr->ida_reg));
+     mdelay(DELAY_MS);
+  }
+  mutex_unlock(&data->idd_lock);
+  if (value < 0 || value == 0xffff) {
+	/* error case */
+	PSU_DEBUG("I2C read error, value: %d\n", value);
+	return -1;
   }
 
-  PSU_DEBUG("reg:[0x%x] value:[0x%x] [%d]\n", dev_attr->ida_reg, value, value);
+  //PSU_DEBUG("reg:[0x%x] value:[0x%x] [%d]\n", dev_attr->ida_reg, value, value);
   return value;
 }
 
@@ -258,7 +352,7 @@ static int psu_convert_model(struct device *dev, struct device_attribute *attr)
   i2c_dev_data_st *data = i2c_get_clientdata(client);
   i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
   const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
-  int count = 10;
+  int count = RETRY_TIMES;
   int ret = -1;
   u8 length, model_chr;
   uint8_t block_buffer[I2C_SMBUS_BLOCK_MAX + 1] = {0};
@@ -272,7 +366,7 @@ static int psu_convert_model(struct device *dev, struct device_attribute *attr)
   while((ret < 0 || length > 32) && count--) {
     ret = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL, block_buffer);
     length = ret & 0xff;
-    mdelay(10);
+    mdelay(DELAY_MS);
   }
   //PSU_DEBUG("1st char+length = %d + %d\n", ((ret >> 8) & 0xff), (ret & 0xff));
   mutex_unlock(&data->idd_lock);
@@ -338,15 +432,11 @@ static int psu_update_device(struct device *dev, struct device_attribute *attr)
     i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
     const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
     int value = -1;
-    int count = 10;
 
     mutex_lock(&data->idd_lock);
-    while((value < 0 || value == 0xffff) && count--)
-    {
-        value = i2c_smbus_read_word_data(client, (dev_attr->ida_reg));
-        mdelay(10);
-    }
+    value = i2c_smbus_read_word_data(client, (dev_attr->ida_reg));
     mutex_unlock(&data->idd_lock);
+    mdelay(DELAY_MS);
 
     if ((value < 0) || (value == 0xffff))
     {
@@ -362,135 +452,425 @@ static ssize_t psu_vin_show(struct device *dev,
                                 struct device_attribute *attr,
                                 char *buf)
 {
-  int result = psu_convert(dev, attr);
-
-  if (result < 0) {
-    /* error case */
+  int val,result;
+  uint8_t retry = 10;
+  struct i2c_client *client = to_i2c_client(dev);
+  int psu_status, psu_pwok;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
     return -EINVAL;
   }
 
-  switch (model) {
-    case DELTA_1500:
-    case LITEON_1500:
-      result = linear_convert(LINEAR_11, result, 0);
-      break;
-    case BELPOWER_600_NA:
-    case BELPOWER_1100_NA:
-    case BELPOWER_1100_NAS:
-    case BELPOWER_1100_ND:
-    case BELPOWER_1500_NAC:
-    case MURATA_1500:
-      result = linear_convert(LINEAR_11, result, -1);
-      break;
-    default:
-      break;
+  //workaround: if convert fail, diaplay cache info
+  val = psu_convert(dev, attr);
+  if (val < 0) {
+    /* error case */
+    if(PSU1_ADDR == client->addr)
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU1 cache vin\n", __FUNCTION__, __LINE__);
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vin);
+    }
+    else
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU2 cache vin\n", __FUNCTION__, __LINE__);
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vin);
+    }
   }
 
-  return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  // rework bug: Psu sensors show all 0  when no voltage, commit 1d62fca
+  psu_pwok = psu_check_power_input(client->addr);
+  if(psu_pwok < 0)
+  {
+      if(PSU1_ADDR == client->addr)
+      {
+          psu_info_cache[0].vin = 0;
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vin);
+      }
+      else
+      {
+          psu_info_cache[1].vin = 0;
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vin);
+      }
+  }
+
+  while(retry)
+  {
+      switch (model) {
+        case DELTA_1500:
+        case LITEON_1500:
+          result = linear_convert(LINEAR_11, val, 0);
+          break;
+        case BELPOWER_1100_ND:
+        case BELPOWER_600_NA:
+        case BELPOWER_1100_NA:
+        case BELPOWER_1100_NAS:
+        case BELPOWER_1500_NAC:
+        case MURATA_1500:
+          result = linear_convert(LINEAR_11, val, -1);
+          break;
+        default:
+          break;
+      }
+
+      if(result >= 0)
+      {
+          retry = 0;
+      }
+      else
+      {
+          val = psu_update_device(dev, attr);
+          retry--;
+      }
+  }
+
+  if(PSU1_ADDR == client->addr)
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[0].vin = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache vin\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vin);
+  }
+  else
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[1].vin = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache vin\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vin);
+  }
+
 }
 
 static ssize_t psu_iin_show(struct device *dev,
                                 struct device_attribute *attr,
                                 char *buf)
 {
-  int result = psu_convert(dev, attr);
-
-  if (result < 0) {
-    /* error case */
+  int val,result;
+  uint8_t retry = 10;
+  struct i2c_client *client = to_i2c_client(dev);
+  int psu_status, psu_pwok;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
     return -EINVAL;
   }
 
-  switch (model) {
-    case DELTA_1500:
-    case LITEON_1500:
-      result = linear_convert(LINEAR_11, result, 0);
-      break;
-    case BELPOWER_600_NA:
-    case BELPOWER_1100_NA:
-    case BELPOWER_1500_NAC:
-      result = linear_convert(LINEAR_11, result, -6);
-      break;
-    case BELPOWER_1100_NAS:
-      result = linear_convert(LINEAR_11, result, -6);
-      break;
-    case BELPOWER_1100_ND:
-      result = linear_convert(LINEAR_11, result, -5);
-      break;
-    case MURATA_1500:
-      result = linear_convert(LINEAR_11, result, -5);
-      break;
-    default:
-      break;
+//workaround: if convert fail, diaplay cache info
+  val = psu_convert(dev, attr);
+  if (val < 0) {
+    /* error case */
+    if(PSU1_ADDR == client->addr)
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU1 cache iin\n", __FUNCTION__, __LINE__);
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].iin);
+    }
+    else
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU2 cache iin\n", __FUNCTION__, __LINE__);
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].iin);
+    }
   }
 
-  return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  // rework bug: Psu sensors show all 0  when no voltage, commit 1d62fca
+  psu_pwok = psu_check_power_input(client->addr);
+  if(psu_pwok < 0)
+  {
+      if(PSU1_ADDR == client->addr)
+      {
+          psu_info_cache[0].iin = 0;
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].iin);
+      }
+      else
+      {
+          psu_info_cache[1].iin = 0;
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].iin);
+      }
+  }
+
+
+  while(retry)
+  {
+        switch (model) {
+        case DELTA_1500:
+        case LITEON_1500:
+          result = linear_convert(LINEAR_11, val, 0);
+          break;
+        case BELPOWER_600_NA:
+        case BELPOWER_1100_NA:
+        case BELPOWER_1500_NAC:
+        case BELPOWER_1100_NAS:
+          result = linear_convert(LINEAR_11, val, -6);
+          break;
+        case BELPOWER_1100_ND:
+        case MURATA_1500:
+          result = linear_convert(LINEAR_11, val, -5);
+          break;
+        default:
+          break;
+        }
+
+        if(result >= 0)
+        {
+          retry = 0;
+        }
+        else
+        {
+          val = psu_update_device(dev, attr);
+          retry--;
+        }
+  }
+
+
+  if(PSU1_ADDR == client->addr)
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[0].iin = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache iin\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].iin);
+  }
+  else
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[1].iin = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache iin\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].iin);
+  }
+
 }
 
 static ssize_t psu_vout_show(struct device *dev,
                                  struct device_attribute *attr,
                                  char *buf)
 {
-  int result = psu_convert(dev, attr);
-
-  if (result < 0) {
-    /* error case */
+  int val,result;
+  uint8_t retry = 10;
+  struct i2c_client *client = to_i2c_client(dev);
+  
+  int psu_status, psu_pwok;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
     return -EINVAL;
   }
-
-  switch (model) {
-    case DELTA_1500:
-      result = linear_convert(LINEAR_11, result, 0);
-      break;
-    case LITEON_1500:
-      result = linear_convert(LINEAR_16, result, -9);
-      break;
-    case BELPOWER_600_NA:
-    case BELPOWER_1100_NA:
-    case BELPOWER_1100_NAS:
-    case BELPOWER_1100_ND:
-    case BELPOWER_1500_NAC:
-    case MURATA_1500:
-      result = linear_convert(LINEAR_11, result, -6);
-      break;
-    default:
-    break;
+  
+  //workaround: if convert fail, diaplay cache info
+  val = psu_convert(dev, attr);
+  if (val < 0) {
+    /* error case */
+    if(PSU1_ADDR == client->addr)
+    {
+      printk(KERN_DEBUG "%s[%d]:use PSU1 cache vout\n", __FUNCTION__, __LINE__);
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vout);
+    }
+    else
+    {
+      printk(KERN_DEBUG "%s[%d]:use PSU2 cache vout\n", __FUNCTION__, __LINE__);
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vout);
+    }
   }
 
+  // rework bug: Psu sensors show all 0  when no voltage, commit 1d62fca
+  psu_pwok = psu_check_power_input(client->addr);
+  if(psu_pwok < 0)
+  {
+      if(PSU1_ADDR == client->addr)
+      {
+        psu_info_cache[0].vout = 0;
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vout);
+      }
+      else
+      {
+        psu_info_cache[1].vout = 0;
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vout);
+      }
 
-  return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  }
+
+  while(retry)
+  {
+        switch (model) {
+        case DELTA_1500:
+          result = linear_convert(LINEAR_11, val, 0);
+          break;
+        case LITEON_1500:
+          result = linear_convert(LINEAR_16, val, -9);
+          break;
+        case BELPOWER_1100_ND:
+        case BELPOWER_600_NA:
+        case BELPOWER_1100_NA:
+        case BELPOWER_1100_NAS:
+        case BELPOWER_1500_NAC:
+        case MURATA_1500:
+          result = linear_convert(LINEAR_11, val, -6);
+          break;
+        default:
+        break;
+        }
+          
+        if(result >= 0)
+        {
+          retry = 0;
+        }
+        else
+        {
+          val = psu_update_device(dev, attr);
+          retry--;
+        }
+
+  }
+
+  if(PSU1_ADDR == client->addr)
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[0].vout = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache vout\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vout);
+  }
+  else
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[1].vout = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache vout\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vout);
+  }
+
 }
 
 static ssize_t psu_iout_show(struct device *dev,
                                  struct device_attribute *attr,
                                  char *buf)
 {
-  int result = psu_convert(dev, attr);
+  int val,result;
+  uint8_t retry = 10;
+  struct i2c_client *client = to_i2c_client(dev);
 
-  if (result < 0) {
-    /* error case */
+  int psu_status, psu_pwok;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
     return -EINVAL;
   }
-
-  switch (model) {
-    case DELTA_1500:
-    case LITEON_1500:
-      result = linear_convert(LINEAR_11, result, 0);
-      break;
-    case BELPOWER_600_NA:
-    case BELPOWER_1100_NAS:
-    case BELPOWER_1100_ND:
-    case BELPOWER_1100_NA:
-      result = linear_convert(LINEAR_11, result, -3);
-      break;
-    case BELPOWER_1500_NAC:
-    case MURATA_1500:
-      result = linear_convert(LINEAR_11, result, -2);
-      break;
-    default:
-      break;
+  
+  //workaround: if convert fail, diaplay cache info
+  val = psu_convert(dev, attr);
+  if (val < 0) {
+    /* error case */
+  
+    if(PSU1_ADDR == client->addr)
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU1 cache iout\n", __FUNCTION__, __LINE__);
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].iout);
+    }
+    else
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU2 cache iout\n", __FUNCTION__, __LINE__);
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].iout);
+    }
   }
 
-  return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  // rework bug: Psu sensors show all 0  when no voltage, commit 1d62fca
+  psu_pwok = psu_check_power_input(client->addr);
+  if(psu_pwok < 0)
+  {
+      if(PSU1_ADDR == client->addr)
+      {
+          psu_info_cache[0].iout = 0;
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].iout);
+      }
+      else
+      {
+          psu_info_cache[1].iout = 0;
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].iout);
+      }
+  }
+
+  while(retry)
+  {
+        switch (model) {
+        case DELTA_1500:
+        case LITEON_1500:
+          result = linear_convert(LINEAR_11, val, 0);
+          break;
+        case BELPOWER_1100_ND:
+        case BELPOWER_600_NA:
+        case BELPOWER_1100_NAS:
+        case BELPOWER_1100_NA:
+          result = linear_convert(LINEAR_11, val, -3);
+          break;
+        case BELPOWER_1500_NAC:
+        case MURATA_1500:
+          result = linear_convert(LINEAR_11, val, -2);
+          break;
+        default:
+          break;
+        }
+
+        if(result >= 0)
+        {
+          retry = 0;
+        }
+        else
+        {
+          val = psu_update_device(dev, attr);
+          retry--;
+        }
+  }
+
+  if(PSU1_ADDR == client->addr)
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[0].iout = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache iout\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].iout);
+  }
+  else
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[1].iout = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache iout\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].iout);
+  }
+
 }
 
 static ssize_t psu_temp_show(struct device *dev,
@@ -499,70 +879,245 @@ static ssize_t psu_temp_show(struct device *dev,
 {
   i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
   const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
-  
-  int result = psu_convert(dev, attr);
+  struct i2c_client *client = to_i2c_client(dev);
 
-  if (result < 0) {
-    /* error case */
+  uint8_t retry = 10;
+  int val,result;
+
+  int psu_status, psu_pwok;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
     return -EINVAL;
   }
-
-  switch (model) {
-    case DELTA_1500:
-    case LITEON_1500:
-      result = linear_convert(LINEAR_11, result, 0);
-      break;
-    case BELPOWER_600_NA:
-    case BELPOWER_1100_NA:
-    case BELPOWER_1100_NAS:
-    case BELPOWER_1100_ND:
-    case BELPOWER_1500_NAC:
-      result = linear_convert(LINEAR_11, result, -3);
-      break;
-    case MURATA_1500:
-      result = linear_convert(LINEAR_11, result, 0);
-      break;
-    default:
-      break;
-  }
   
-  if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA 
-  || model == BELPOWER_1100_NA || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND)){
-      return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
-  }else{
-      return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  //workaround: if convert fail, diaplay cache info
+  val = psu_convert(dev, attr);
+  if (val < 0) {
+    /* error case */
+    if(PSU1_ADDR == client->addr)
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU1 cache temp\n", __FUNCTION__, __LINE__);
+        if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA 
+        || model == BELPOWER_1100_NA || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND)){
+            return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+        }else{
+            return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].temp);
+        }
+    }
+    else
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU2 cache temp\n", __FUNCTION__, __LINE__);
+        if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA 
+        || model == BELPOWER_1100_NA || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND)){
+            return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+        }else{
+            return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].temp);
+        }
+    }
   }
+
+  // rework bug: Psu sensors show all 0  when no voltage, commit 1d62fca
+  psu_pwok = psu_check_power_input(client->addr);
+  if(psu_pwok < 0)
+  {
+      if(PSU1_ADDR == client->addr)
+      {
+          psu_info_cache[0].temp = 0;
+          if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA 
+          || model == BELPOWER_1100_NA || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND)){
+              return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+          }else{
+              return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].temp);
+          }
+      }
+      else
+      {
+          psu_info_cache[1].temp = 0;
+          if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA 
+          || model == BELPOWER_1100_NA || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND)){
+              return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+          }else{
+              return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].temp);
+          }
+      }
+  }
+
+  while(retry)
+  {
+        switch (model) {
+        case DELTA_1500:
+        case LITEON_1500:
+          result = linear_convert(LINEAR_11, val, 0);
+          break;
+        case BELPOWER_1100_ND:
+        case BELPOWER_600_NA:
+        case BELPOWER_1100_NA:
+        case BELPOWER_1100_NAS:
+        case BELPOWER_1500_NAC:
+          result = linear_convert(LINEAR_11, val, -3);
+          break;
+        case MURATA_1500:
+          result = linear_convert(LINEAR_11, val, 0);
+          break;
+        default:
+          break;
+        }
+
+        if(result >= 0)
+        {
+          retry = 0;
+        }
+        else
+        {
+          val = psu_update_device(dev, attr);
+          retry--;
+        }
+  }
+
+
+  if(PSU1_ADDR == client->addr)
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[0].temp = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache temp\n", __FUNCTION__, __LINE__);
+      }
+      if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA 
+      || model == BELPOWER_1100_NA || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND)){
+          return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+      }else{
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].temp);
+      }
+  }
+  else
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[1].temp = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache temp\n", __FUNCTION__, __LINE__);
+      }
+      if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA 
+      || model == BELPOWER_1100_NA || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND)){
+          return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+      }else{
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].temp);
+      }
+  }
+
 }
 
 static ssize_t psu_fan_show(struct device *dev,
                                 struct device_attribute *attr,
                                 char *buf)
 {
-  int result = psu_convert(dev, attr);
 
-  if (result < 0) {
-    /* error case */
+  uint8_t retry = 10;
+  struct i2c_client *client = to_i2c_client(dev);
+  int val,result;
+
+  int psu_status, psu_pwok;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
     return -EINVAL;
   }
-
-  switch (model) {
-    case DELTA_1500:
-    case LITEON_1500:
-      result = linear_convert(LINEAR_11, result, 0) / 1000;
-      break;
-    case BELPOWER_600_NA:
-    case BELPOWER_1100_NA:
-    case BELPOWER_1100_NAS:
-    case BELPOWER_1100_ND:
-    case BELPOWER_1500_NAC:
-    case MURATA_1500:
-      result = linear_convert(LINEAR_11, result, 5) / 1000;
-      break;
-    default:
-      break;
+  
+  //workaround: if convert fail, diaplay cache info
+  val = psu_convert(dev, attr);
+  if (val < 0) {
+    /* error case */
+    if(PSU1_ADDR == client->addr)
+    {
+      printk(KERN_DEBUG "%s[%d]:use PSU1 cache fan\n", __FUNCTION__, __LINE__);
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].fan);
+    }
+    else
+    {
+      printk(KERN_DEBUG "%s[%d]:use PSU2 cache fan\n", __FUNCTION__, __LINE__);
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].fan);
+    }
   }
 
-  return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+
+  // rework bug: Psu sensors show all 0  when no voltage, commit 1d62fca
+  psu_pwok = psu_check_power_input(client->addr);
+  if(psu_pwok < 0)
+  {
+      if(PSU1_ADDR == client->addr)
+      {
+        psu_info_cache[0].fan = 0;
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].fan);
+      }
+      else
+      {
+        psu_info_cache[1].fan = 0;
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].fan);
+      }
+
+  }
+
+  while(retry)
+  {
+        switch (model) {
+        case DELTA_1500:
+        case LITEON_1500:
+          result = linear_convert(LINEAR_11, val, 0) / 1000;
+          break;
+        case BELPOWER_1100_ND:
+        case BELPOWER_600_NA:
+        case BELPOWER_1100_NA:
+        case BELPOWER_1100_NAS:
+        case BELPOWER_1500_NAC:
+        case MURATA_1500:
+          result = linear_convert(LINEAR_11, val, 5) / 1000;
+          break;
+        default:
+          break;
+        }
+
+        if(result >= 0)
+        {
+          retry = 0;
+        }
+        else
+        {
+          val = psu_update_device(dev, attr);
+          retry--;
+        }
+  }
+
+  if(PSU1_ADDR == client->addr)
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[0].fan = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache fan\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].fan);
+  }
+  else
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[1].fan = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache fan\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].fan);
+  }
+
 }
 
 
@@ -570,18 +1125,33 @@ static ssize_t psu_fan_status_show(struct device *dev,
                                 struct device_attribute *attr,
                                 char *buf)
 {
-  int result = -1;
   u8 length = 33;
-  int count = 10;
+  int count = RETRY_TIMES;
   uint8_t values = 0xff;
+  struct i2c_client *client = to_i2c_client(dev);
+  int psu_status;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
+  return -EINVAL;
+  }
   
-  //if(UNKNOWN == model) {
-    result = psu_convert_model(dev, attr);
-    if (result < 0) {
-       /* error case */
-       return -EINVAL;
+  //workaround: if convert fail, diaplay cache info
+  int result = psu_convert_model(dev, attr);
+  if (result < 0) {
+    /* error case */
+    if(PSU1_ADDR == client->addr)
+    {
+      printk(KERN_DEBUG "%s[%d]:use PSU1 cache fan_status\n", __FUNCTION__, __LINE__);
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].fan_status);
     }
-  //}
+    else
+    {
+      printk(KERN_DEBUG "%s[%d]:use PSU2 cache fan_status\n", __FUNCTION__, __LINE__);
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].fan_status);
+    }
+  }
+
 
   switch (model) {
     case DELTA_1500:
@@ -593,7 +1163,7 @@ static ssize_t psu_fan_status_show(struct device *dev,
       while(((result < 0) || (values == 0xff)) && count--)
       {
           result = i2c_dev_read_nbytes(dev, attr, &values, 1);
-          mdelay(10);
+          mdelay(DELAY_MS);
       }
       if ((result < 0) || (values == 0xff))
           return -EINVAL;
@@ -603,151 +1173,588 @@ static ssize_t psu_fan_status_show(struct device *dev,
     default:
       break;
   }
-  return scnprintf(buf, PAGE_SIZE, "%d\n", values);
+
+  if(PSU1_ADDR == client->addr)
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[0].fan_status = values;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache fan_status\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].fan_status);
+  }
+  else
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[1].fan_status = values;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache fan_status\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].fan_status);
+  }
+
 }
 
 static ssize_t psu_power_show(struct device *dev,
                                   struct device_attribute *attr,
                                   char *buf)
 {
-  int result = psu_convert(dev, attr);
 
-  if (result < 0) {
-    /* error case */
+  uint8_t retry = 10;
+  i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
+  const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
+  struct i2c_client *client = to_i2c_client(dev);
+  int val,result;
+  int psu_status, psu_pwok;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
     return -EINVAL;
   }
-
-  switch (model) {
-    case DELTA_1500:
-    case LITEON_1500:
-      result = linear_convert(LINEAR_11, result, 0);
-      break;
-    case BELPOWER_600_NA:
-    case BELPOWER_1100_NA:
-    case BELPOWER_1500_NAC:
-    case BELPOWER_1100_NAS:
-    case BELPOWER_1100_ND:
-    case MURATA_1500:
-      result = linear_convert(LINEAR_11, result, 1);
-      break;
-    default:
-      break;
+  
+  //workaround: if convert fail, diaplay cache info
+  val = psu_convert(dev, attr);
+  if (val < 0) {
+    /* error case */
+    if(0x97 == dev_attr->ida_reg)
+    {
+        if(PSU1_ADDR == client->addr)
+        {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache power1\n", __FUNCTION__, __LINE__);
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].power1);
+        }
+        else
+        {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache power1\n", __FUNCTION__, __LINE__);
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].power1);
+        }
+    }
+    else
+    {
+        if(PSU1_ADDR == client->addr)
+        {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache power2\n", __FUNCTION__, __LINE__);
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].power2);
+        }
+        else
+        {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache power2\n", __FUNCTION__, __LINE__);
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].power2);
+        }
+    }
   }
 
-  return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+
+  // rework bug: Psu sensors show all 0  when no voltage, commit 1d62fca
+  psu_pwok = psu_check_power_input(client->addr);
+  if(psu_pwok < 0)
+  {
+      if(0x97 == dev_attr->ida_reg)
+      {
+          if(PSU1_ADDR == client->addr)
+          {
+            psu_info_cache[0].power1 = 0;
+            return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].power1);
+          }
+          else
+          {
+            psu_info_cache[1].power1 = 0;
+            return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].power1);
+          }
+      }
+      else
+      {
+          if(PSU1_ADDR == client->addr)
+          {
+            psu_info_cache[0].power2 = 0;
+            return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].power2);
+          }
+          else
+          {
+            psu_info_cache[1].power2 = 0;
+            return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].power2);
+          }
+      }
+
+  }
+
+  while(retry)
+  {
+      switch (model) {
+        case DELTA_1500:
+        case LITEON_1500:
+          result = linear_convert(LINEAR_11, val, 0);
+          break;
+        case BELPOWER_1100_ND:
+        case BELPOWER_600_NA:
+        case BELPOWER_1100_NA:
+        case BELPOWER_1500_NAC:
+        case BELPOWER_1100_NAS:
+        case MURATA_1500:
+          result = linear_convert(LINEAR_11, val, 1);
+          break;
+        default:
+          break;
+      }
+      if(result >= 0)
+      {
+        retry = 0;
+      }
+      else
+      {
+        val = psu_update_device(dev, attr);
+        retry--;
+      }
+  }
+
+  if(0x97 == dev_attr->ida_reg)
+  {
+      if(PSU1_ADDR == client->addr)
+      {
+        if(result >= 0)
+        {
+            psu_info_cache[0].power1 = result;
+        }
+        else
+        {
+            printk(KERN_DEBUG "%s[%d]:use PSU1 cache power1\n", __FUNCTION__, __LINE__);
+        }
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].power1);
+      }
+      else
+      {
+        if(result >= 0)
+        {
+            psu_info_cache[1].power1 = result;
+        }
+        else
+        {
+            printk(KERN_DEBUG "%s[%d]:use PSU2 cache power1\n", __FUNCTION__, __LINE__);
+        }
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].power1);
+      }
+  }
+  else
+  {
+      if(PSU1_ADDR == client->addr)
+      {
+        if(result >= 0)
+        {
+            psu_info_cache[0].power2 = result;
+        }
+        else
+        {
+            printk(KERN_DEBUG "%s[%d]:use PSU1 cache power2\n", __FUNCTION__, __LINE__);
+        }
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].power2);
+      }
+      else
+      {
+        if(result >= 0)
+        {
+            psu_info_cache[1].power2 = result;
+        }
+        else
+        {
+            printk(KERN_DEBUG "%s[%d]:use PSU2 cache power2\n", __FUNCTION__, __LINE__);
+        }
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].power2);
+      }
+  }
+
 }
 
 static ssize_t psu_vstby_show(struct device *dev,
                                  struct device_attribute *attr,
                                  char *buf)
 {
-  int result = psu_convert(dev, attr);
 
-  if (result < 0) {
-    /* error case */
+  uint8_t retry = 10;
+  struct i2c_client *client = to_i2c_client(dev);
+  int val,result;
+  int psu_status, psu_pwok;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
     return -EINVAL;
   }
-
-  switch (model) {
-    case DELTA_1500:
-      result = linear_convert(LINEAR_11, result, 0);
-      break;
-    case LITEON_1500:
-      result = linear_convert(LINEAR_16, result, -9);
-      break;
-    case BELPOWER_600_NA:
-    case BELPOWER_1100_NA:
-    case BELPOWER_1100_NAS:
-    case BELPOWER_1100_ND:
-    case BELPOWER_1500_NAC:
-      result = linear_convert(LINEAR_11, result, -6);
-      break;
-    case MURATA_1500:
-      result = linear_convert(LINEAR_11, result, -7);
-      break;
-    default:
-      break;
+  
+  //workaround: if convert fail, diaplay cache info
+  val = psu_convert(dev, attr);
+  if (val < 0) {
+    /* error case */
+    if(PSU1_ADDR == client->addr)
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU1 cache vstby\n", __FUNCTION__, __LINE__);
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vstby);
+    }
+    else
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU2 cache vstby\n", __FUNCTION__, __LINE__);
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vstby);
+    }
   }
 
-  return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  // rework bug: Psu sensors show all 0  when no voltage, commit 1d62fca
+  psu_pwok = psu_check_power_input(client->addr);
+  if(psu_pwok < 0)
+  {
+      if(PSU1_ADDR == client->addr)
+      {
+          psu_info_cache[0].vstby = 0;
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vstby);
+      }
+      else
+      {
+          psu_info_cache[1].vstby = 0;
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vstby);
+      }
+  }
+
+
+  while(retry)
+  {
+      switch (model) {
+        case DELTA_1500:
+          result = linear_convert(LINEAR_11, val, 0);
+          break;
+        case LITEON_1500:
+          result = linear_convert(LINEAR_16, val, -9);
+          break;
+        case BELPOWER_1100_ND:
+        case BELPOWER_600_NA:
+        case BELPOWER_1100_NA:
+        case BELPOWER_1100_NAS:
+        case BELPOWER_1500_NAC:
+          result = linear_convert(LINEAR_11, val, -6);
+          break;
+        case MURATA_1500:
+          result = linear_convert(LINEAR_11, val, -7);
+          break;
+        default:
+          break;
+      }
+
+      if(result >= 0)
+      {
+        retry = 0;
+      }
+      else
+      {
+        val = psu_update_device(dev, attr);
+        retry--;
+      }
+  }
+
+  if(PSU1_ADDR == client->addr)
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[0].vstby = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache vstby\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vstby);
+  }
+  else
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[1].vstby = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache vstby\n", __FUNCTION__, __LINE__);
+      }
+      return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vstby);
+  }
+
+
 }
 
 static ssize_t psu_istby_show(struct device *dev,
                                  struct device_attribute *attr,
                                  char *buf)
 {
-  int result = psu_convert(dev, attr);
 
-  if (result < 0) {
-    /* error case */
+  uint8_t retry = 10;
+  struct i2c_client *client = to_i2c_client(dev);
+  int val,result;
+  int psu_status, psu_pwok;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
     return -EINVAL;
   }
-
-  switch (model) {
-    case DELTA_1500:
-    case LITEON_1500:
-      result = linear_convert(LINEAR_11, result, 0);
-      break;
-    case BELPOWER_600_NA:
-    case BELPOWER_1100_NAS:
-    case BELPOWER_1100_ND:
-    case BELPOWER_1100_NA:
-      result = linear_convert(LINEAR_11, result, -3);
-      break;
-    case BELPOWER_1500_NAC:
-      result = linear_convert(LINEAR_11, result, -2);
-      break;
-    case MURATA_1500:
-      result = linear_convert(LINEAR_11, result, -7);
-      break;
-    default:
-      break;
+  
+  //workaround: if convert fail, diaplay cache info
+  val = psu_convert(dev, attr);
+  if (val < 0) {
+    /* error case */
+    if(PSU1_ADDR == client->addr)
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU1 cache istby\n", __FUNCTION__, __LINE__);
+        if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA 
+          || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
+          return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+        }else{
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].istby);
+        }
+    }
+    else
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU2 cache istby\n", __FUNCTION__, __LINE__);
+        if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA 
+          || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
+          return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+        }else{
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].istby);
+        }
+    }
   }
 
-  if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA 
-    || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
-    return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
-  }else{
-    return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  // rework bug: Psu sensors show all 0  when no voltage, commit 1d62fca
+  psu_pwok = psu_check_power_input(client->addr);
+  if(psu_pwok < 0)
+  {
+      if(PSU1_ADDR == client->addr)
+      {
+          psu_info_cache[0].istby = 0;
+          if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA 
+            || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
+            return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+          }else{
+            return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].istby);
+          }
+      }
+      else
+      {
+          psu_info_cache[1].istby = 0;
+          if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA 
+            || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
+            return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+          }else{
+            return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].istby);
+          }
+      }
   }
+
+
+  while(retry)
+  {
+        switch (model) {
+        case DELTA_1500:
+        case LITEON_1500:
+          result = linear_convert(LINEAR_11, val, 0);
+          break;
+        case BELPOWER_600_NA:
+        case BELPOWER_1100_NAS:
+        case BELPOWER_1100_ND:
+        case BELPOWER_1100_NA:
+          result = linear_convert(LINEAR_11, val, -3);
+          break;
+        case BELPOWER_1500_NAC:
+          result = linear_convert(LINEAR_11, val, -2);
+          break;
+        case MURATA_1500:
+          result = linear_convert(LINEAR_11, val, -7);
+          break;
+        default:
+          break;
+        }
+        if(result >= 0)
+        {
+        retry = 0;
+        }
+        else
+        {
+        val = psu_update_device(dev, attr);
+        retry--;
+        }
+  }
+
+
+  if(PSU1_ADDR == client->addr)
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[0].istby = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache istby\n", __FUNCTION__, __LINE__);
+      }
+      if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA 
+        || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
+        return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+      }else{
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].istby);
+      }
+  }
+  else
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[1].istby = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache istby\n", __FUNCTION__, __LINE__);
+      }
+      if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA 
+        || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
+        return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+      }else{
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].istby);
+      }
+  }
+
 }
 
 static ssize_t psu_pstby_show(struct device *dev,
                                   struct device_attribute *attr,
                                   char *buf)
 {
-  int result = psu_convert(dev, attr);
 
-  if (result < 0) {
-    /* error case */
+  uint8_t retry = 10;
+  struct i2c_client *client = to_i2c_client(dev);
+  int val,result;
+
+  int psu_status, psu_pwok;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
     return -EINVAL;
   }
-
-  switch (model) {
-    case DELTA_1500:
-    case LITEON_1500:
-      result = linear_convert(LINEAR_11, result, 0);
-      break;
-    case BELPOWER_600_NA:
-    case BELPOWER_1100_NA:
-    case BELPOWER_1100_NAS:
-    case BELPOWER_1100_ND:
-    case BELPOWER_1500_NAC:
-      result = linear_convert(LINEAR_11, result, 1);
-      break;
-    case MURATA_1500:
-      result = linear_convert(LINEAR_11, result, -5);
-      break;
-    default:
-      break;
-  }
   
-  if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA
-    || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
-    return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
-  }else{
-    return scnprintf(buf, PAGE_SIZE, "%d\n", result);
+  //workaround: if convert fail, diaplay cache info
+  val = psu_convert(dev, attr);
+  if (val < 0) {
+    /* error case */
+    if(PSU1_ADDR == client->addr)
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU1 cache pstby\n", __FUNCTION__, __LINE__);
+        if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA
+          || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
+          return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+        }else{
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].pstby);
+        }
+    }
+    else
+    {
+        printk(KERN_DEBUG "%s[%d]:use PSU2 cache pstby\n", __FUNCTION__, __LINE__);
+        if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA
+          || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
+          return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+        }else{
+          return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].pstby);
+        }
+    }
   }
+
+  // rework bug: Psu sensors show all 0  when no voltage, commit 1d62fca
+  psu_pwok = psu_check_power_input(client->addr);
+  if(psu_pwok < 0)
+  {
+      if(PSU1_ADDR == client->addr)
+      {
+          psu_info_cache[0].pstby = 0;
+          if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA
+            || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
+            return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+          }else{
+            return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].pstby);
+          }
+      }
+      else
+      {
+          psu_info_cache[1].pstby = 0;
+          if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA
+            || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
+            return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+          }else{
+            return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].pstby);
+          }
+      }
+  }
+
+  while(retry)
+  {
+      switch (model) {
+        case DELTA_1500:
+        case LITEON_1500:
+          result = linear_convert(LINEAR_11, val, 0);
+          break;
+        case BELPOWER_600_NA:
+        case BELPOWER_1100_NA:
+        case BELPOWER_1100_NAS:
+        case BELPOWER_1100_ND:
+        case BELPOWER_1500_NAC:
+          result = linear_convert(LINEAR_11, val, 1);
+          break;
+        case MURATA_1500:
+          result = linear_convert(LINEAR_11, val, -5);
+          break;
+        default:
+          break;
+        }
+
+        if(result >= 0)
+        {
+        retry = 0;
+        }
+        else
+        {
+        val = psu_update_device(dev, attr);
+        retry--;
+        }
+  }
+
+
+  if(PSU1_ADDR == client->addr)
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[0].pstby = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache pstby\n", __FUNCTION__, __LINE__);
+      }
+      if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA
+        || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
+        return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+      }else{
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].pstby);
+      }
+  }
+  else
+  {
+      if(result >= 0)
+      {
+          psu_info_cache[1].pstby = result;
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache pstby\n", __FUNCTION__, __LINE__);
+      }
+      if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA
+        || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
+        return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
+      }else{
+        return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].pstby);
+      }
+  }
+
 }
 
 static ssize_t psu_model_show(struct device *dev,
@@ -761,13 +1768,31 @@ static ssize_t psu_model_show(struct device *dev,
   uint8_t block[I2C_SMBUS_BLOCK_MAX + 1]={0};
   int result = -1;
   u8 length = 33;
-  int count = 10;
+  int count = RETRY_TIMES;
+
+  int psu_status;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
+    return -EINVAL;
+  }
+  
 
   if(UNKNOWN == model) {
+    //workaround: if convert fail, diaplay cache info
     result = psu_convert_model(dev, attr);
     if (result < 0) {
-       /* error case */
-       return -EINVAL;
+      /* error case */
+      if(PSU1_ADDR == client->addr)
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache model\n", __FUNCTION__, __LINE__);
+          return scnprintf(buf, PAGE_SIZE, "%s\n", psu_info_cache[0].model);
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache model\n", __FUNCTION__, __LINE__);
+          return scnprintf(buf, PAGE_SIZE, "%s\n", psu_info_cache[1].model);
+      }
     }
   }
 
@@ -782,7 +1807,7 @@ static ssize_t psu_model_show(struct device *dev,
       while((result < 0 || length > 32) && count--) {
         result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
         length = result & 0xff;
-        mdelay(10);
+        mdelay(DELAY_MS);
       }
       mutex_unlock(&data->idd_lock);  
       if (result < 0 || length > 32) {
@@ -791,6 +1816,15 @@ static ssize_t psu_model_show(struct device *dev,
       break;
     default:
       break;
+  }
+
+  if(PSU1_ADDR == client->addr)
+  {
+      strcpy(psu_info_cache[0].model, block);
+  }
+  else
+  {
+      strcpy(psu_info_cache[1].model, block);
   }
 
   return scnprintf(buf, PAGE_SIZE, "%s\n", block);
@@ -807,15 +1841,34 @@ static ssize_t psu_serial_show(struct device *dev,
   uint8_t block[I2C_SMBUS_BLOCK_MAX + 1]={0};
   int result = -1;
   u8 length = 33;
-  int count = 10;
+  int count = RETRY_TIMES;
+
+  int psu_status;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
+    return -EINVAL;
+  }
+  
 
   if(UNKNOWN == model) {
+    //workaround: if convert fail, diaplay cache info
     result = psu_convert_model(dev, attr);
     if (result < 0) {
-       /* error case */
-       return -EINVAL;
+      /* error case */
+      if(PSU1_ADDR == client->addr)
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache serial\n", __FUNCTION__, __LINE__);
+          return scnprintf(buf, PAGE_SIZE, "%s\n", psu_info_cache[0].serial);
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache serial\n", __FUNCTION__, __LINE__);
+          return scnprintf(buf, PAGE_SIZE, "%s\n", psu_info_cache[1].serial);
+      }
     }
   }
+
 
   switch (model) {
     case DELTA_1500:
@@ -828,7 +1881,7 @@ static ssize_t psu_serial_show(struct device *dev,
       while((result < 0 || length > 32) && count--) {
         result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
         length = result & 0xff;
-        mdelay(10);
+        mdelay(DELAY_MS);
       }
       mutex_unlock(&data->idd_lock); 
       if (result < 0 || length > 32) {
@@ -837,6 +1890,15 @@ static ssize_t psu_serial_show(struct device *dev,
       break;
     default:
       break;
+  }
+
+  if(PSU1_ADDR == client->addr)
+  {
+      strcpy(psu_info_cache[0].serial, block);
+  }
+  else
+  {
+      strcpy(psu_info_cache[1].serial, block);
   }
 
   return scnprintf(buf, PAGE_SIZE, "%s\n", block);
@@ -853,15 +1915,34 @@ static ssize_t psu_revision_show(struct device *dev,
   uint8_t block[I2C_SMBUS_BLOCK_MAX + 1]={0};
   int result = -1;
   u8 length = 33;
-  int count = 10;
+  int count = RETRY_TIMES;
+
+  int psu_status;
+  psu_status = psu_status_get(client->addr);
+  if(psu_status < 0)
+  {
+    return -EINVAL;
+  }
+  
 
   if(UNKNOWN == model) {
+    //workaround: if convert fail, diaplay cache info
     result = psu_convert_model(dev, attr);
     if (result < 0) {
-       /* error case */
-       return -EINVAL;
+      /* error case */
+      if(PSU1_ADDR == client->addr)
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU1 cache revision\n", __FUNCTION__, __LINE__);
+          return scnprintf(buf, PAGE_SIZE, "%s\n", psu_info_cache[0].revision);
+      }
+      else
+      {
+          printk(KERN_DEBUG "%s[%d]:use PSU2 cache revision\n", __FUNCTION__, __LINE__);
+          return scnprintf(buf, PAGE_SIZE, "%s\n", psu_info_cache[1].revision);
+      }
     }
   }
+
 
   switch (model) {
     case DELTA_1500:
@@ -874,7 +1955,7 @@ static ssize_t psu_revision_show(struct device *dev,
       while((result < 0 || length > 32) && count--) {
         result = i2c_smbus_read_block_data(client, dev_attr->ida_reg, block);
         length = result & 0xff;
-        mdelay(10);
+        mdelay(DELAY_MS);
       }
       mutex_unlock(&data->idd_lock); 
       if (result < 0 || length > 32) {
@@ -883,6 +1964,15 @@ static ssize_t psu_revision_show(struct device *dev,
       break;
     default:
       break;
+  }
+
+  if(PSU1_ADDR == client->addr)
+  {
+      strcpy(psu_info_cache[0].revision, block);
+  }
+  else
+  {
+      strcpy(psu_info_cache[1].revision, block);
   }
 
   return scnprintf(buf, PAGE_SIZE, "%s\n", block);

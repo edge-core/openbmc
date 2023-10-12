@@ -1,0 +1,13 @@
+diff --git a/drivers/i2c/busses/i2c-ast.c b/drivers/i2c/busses/i2c-ast.c
+index 7524f965..56a0687 100755
+--- a/drivers/i2c/busses/i2c-ast.c
++++ b/drivers/i2c/busses/i2c-ast.c
+@@ -582,7 +582,7 @@ static int ast_i2c_wait_bus_not_busy(struct ast_i2c_dev *i2c_dev)
+ 		}
+ #endif
+ 		if ((--timeout) > 0)
+-			msleep(1);
++			udelay(1000);
+ 	}
+ 
+   if (timeout <=0) {

@@ -12,5 +12,6 @@ SRC_URI += "file://patch-2.6.28.9/0035-Create-Mavericks-OpenBMC.patch \
             file://patch-2.6.28.9/add-sensors-support-65x.patch \
             file://patch-2.6.28.9/0037-i2c-device-for-24c64-0x50.patch \
             file://patch-2.6.28.9/0038-32x-switch-eeprom-i2c-bus.patch \
+            file://patch-2.6.28.9/0039-i2c-ast-use-udelay-instead-of-msleep.patch \
             file://defconfig \
            "
