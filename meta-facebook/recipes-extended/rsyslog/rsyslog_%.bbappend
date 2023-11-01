@@ -20,7 +20,7 @@ do_install_append_openbmc-fb() {
   install -m 755 ${WORKDIR}/rotate_console_log ${dst}/console_log
 
   install -m 644 ${WORKDIR}/rsyslog.conf ${D}${sysconfdir}/rsyslog.conf
-  sed -i "s/__OPENBMC_VERSION__/${OPENBMC_VERSION}/g" ${D}${sysconfdir}/rsyslog.conf
+  sed -i "s/__OPENBMC_VERSION__//g" ${D}${sysconfdir}/rsyslog.conf
 
   install -m 644 ${WORKDIR}/rsyslog-remote.conf ${D}${sysconfdir}/rsyslog.d/remote.conf
 
