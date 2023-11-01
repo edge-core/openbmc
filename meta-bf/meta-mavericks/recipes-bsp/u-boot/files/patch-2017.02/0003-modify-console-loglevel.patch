@@ -1,0 +1,13 @@
+diff --git a/include/configs/mavericks.h b/include/configs/mavericks.h
+index 8fc19f7..6fbd5c1 100755
+--- a/include/configs/mavericks.h
++++ b/include/configs/mavericks.h
+@@ -93,7 +93,7 @@
+ #define CONFIG_CMDLINE_TAG	 1		/* enable passing of ATAGs	*/
+ #define CONFIG_SETUP_MEMORY_TAGS 1
+ #define CONFIG_INITRD_TAG	 1
+-#define	CONFIG_BOOTARGS 	"debug console=ttyS2,9600n8 root=/dev/ram rw"
++#define	CONFIG_BOOTARGS 	"quiet console=ttyS2,9600n8 root=/dev/ram rw"
+ #define CONFIG_UPDATE           "tftp 40800000 ast2400.scr; so 40800000'"
+ 
+ #define CONFIG_BOOTDELAY	3		/* autoboot after 3 seconds	*/

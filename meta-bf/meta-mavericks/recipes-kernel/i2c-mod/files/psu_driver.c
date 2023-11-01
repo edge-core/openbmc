@@ -48,6 +48,7 @@
 #define PMBUS_POWER 0x96
 #define DELAY_MS 10
 #define RETRY_TIMES 20
+#define RETRY_TIMES1 10
 #define PSU_PRESENT 0x8
 #define PSU_PWOK 0x10
 #define PSU1_ADDR 0x5a
@@ -453,7 +454,7 @@ static ssize_t psu_vin_show(struct device *dev,
                                 char *buf)
 {
   int val,result;
-  uint8_t retry = 10;
+  uint8_t retry = RETRY_TIMES1;
   struct i2c_client *client = to_i2c_client(dev);
   int psu_status, psu_pwok;
   psu_status = psu_status_get(client->addr);
@@ -468,12 +469,12 @@ static ssize_t psu_vin_show(struct device *dev,
     /* error case */
     if(PSU1_ADDR == client->addr)
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU1 cache vin\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU1 cache vin\n", __FUNCTION__);
         return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vin);
     }
     else
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU2 cache vin\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU2 cache vin\n", __FUNCTION__);
         return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vin);
     }
   }
@@ -532,7 +533,7 @@ static ssize_t psu_vin_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache vin\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache vin\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vin);
   }
@@ -544,7 +545,7 @@ static ssize_t psu_vin_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache vin\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache vin\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vin);
   }
@@ -556,7 +557,7 @@ static ssize_t psu_iin_show(struct device *dev,
                                 char *buf)
 {
   int val,result;
-  uint8_t retry = 10;
+  uint8_t retry = RETRY_TIMES1;
   struct i2c_client *client = to_i2c_client(dev);
   int psu_status, psu_pwok;
   psu_status = psu_status_get(client->addr);
@@ -571,12 +572,12 @@ static ssize_t psu_iin_show(struct device *dev,
     /* error case */
     if(PSU1_ADDR == client->addr)
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU1 cache iin\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU1 cache iin\n", __FUNCTION__);
         return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].iin);
     }
     else
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU2 cache iin\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU2 cache iin\n", __FUNCTION__);
         return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].iin);
     }
   }
@@ -639,7 +640,7 @@ static ssize_t psu_iin_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache iin\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache iin\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].iin);
   }
@@ -651,7 +652,7 @@ static ssize_t psu_iin_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache iin\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache iin\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].iin);
   }
@@ -663,7 +664,7 @@ static ssize_t psu_vout_show(struct device *dev,
                                  char *buf)
 {
   int val,result;
-  uint8_t retry = 10;
+  uint8_t retry = RETRY_TIMES1;
   struct i2c_client *client = to_i2c_client(dev);
   
   int psu_status, psu_pwok;
@@ -679,12 +680,12 @@ static ssize_t psu_vout_show(struct device *dev,
     /* error case */
     if(PSU1_ADDR == client->addr)
     {
-      printk(KERN_DEBUG "%s[%d]:use PSU1 cache vout\n", __FUNCTION__, __LINE__);
+      printk(KERN_DEBUG "%s:use PSU1 cache vout\n", __FUNCTION__);
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vout);
     }
     else
     {
-      printk(KERN_DEBUG "%s[%d]:use PSU2 cache vout\n", __FUNCTION__, __LINE__);
+      printk(KERN_DEBUG "%s:use PSU2 cache vout\n", __FUNCTION__);
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vout);
     }
   }
@@ -747,7 +748,7 @@ static ssize_t psu_vout_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache vout\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache vout\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vout);
   }
@@ -759,7 +760,7 @@ static ssize_t psu_vout_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache vout\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache vout\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vout);
   }
@@ -771,7 +772,7 @@ static ssize_t psu_iout_show(struct device *dev,
                                  char *buf)
 {
   int val,result;
-  uint8_t retry = 10;
+  uint8_t retry = RETRY_TIMES1;
   struct i2c_client *client = to_i2c_client(dev);
 
   int psu_status, psu_pwok;
@@ -788,12 +789,12 @@ static ssize_t psu_iout_show(struct device *dev,
   
     if(PSU1_ADDR == client->addr)
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU1 cache iout\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU1 cache iout\n", __FUNCTION__);
         return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].iout);
     }
     else
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU2 cache iout\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU2 cache iout\n", __FUNCTION__);
         return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].iout);
     }
   }
@@ -854,7 +855,7 @@ static ssize_t psu_iout_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache iout\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache iout\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].iout);
   }
@@ -866,7 +867,7 @@ static ssize_t psu_iout_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache iout\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache iout\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].iout);
   }
@@ -881,7 +882,7 @@ static ssize_t psu_temp_show(struct device *dev,
   const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
   struct i2c_client *client = to_i2c_client(dev);
 
-  uint8_t retry = 10;
+  uint8_t retry = RETRY_TIMES1;
   int val,result;
 
   int psu_status, psu_pwok;
@@ -897,7 +898,7 @@ static ssize_t psu_temp_show(struct device *dev,
     /* error case */
     if(PSU1_ADDR == client->addr)
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU1 cache temp\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU1 cache temp\n", __FUNCTION__);
         if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA 
         || model == BELPOWER_1100_NA || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND)){
             return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
@@ -907,7 +908,7 @@ static ssize_t psu_temp_show(struct device *dev,
     }
     else
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU2 cache temp\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU2 cache temp\n", __FUNCTION__);
         if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA 
         || model == BELPOWER_1100_NA || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND)){
             return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
@@ -984,7 +985,7 @@ static ssize_t psu_temp_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache temp\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache temp\n", __FUNCTION__);
       }
       if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA 
       || model == BELPOWER_1100_NA || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND)){
@@ -1001,7 +1002,7 @@ static ssize_t psu_temp_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache temp\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache temp\n", __FUNCTION__);
       }
       if(strcmp(dev_attr->ida_name,"temp3_input") == 0 && (model == BELPOWER_600_NA 
       || model == BELPOWER_1100_NA || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND)){
@@ -1018,7 +1019,7 @@ static ssize_t psu_fan_show(struct device *dev,
                                 char *buf)
 {
 
-  uint8_t retry = 10;
+  uint8_t retry = RETRY_TIMES1;
   struct i2c_client *client = to_i2c_client(dev);
   int val,result;
 
@@ -1035,12 +1036,12 @@ static ssize_t psu_fan_show(struct device *dev,
     /* error case */
     if(PSU1_ADDR == client->addr)
     {
-      printk(KERN_DEBUG "%s[%d]:use PSU1 cache fan\n", __FUNCTION__, __LINE__);
+      printk(KERN_DEBUG "%s:use PSU1 cache fan\n", __FUNCTION__);
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].fan);
     }
     else
     {
-      printk(KERN_DEBUG "%s[%d]:use PSU2 cache fan\n", __FUNCTION__, __LINE__);
+      printk(KERN_DEBUG "%s:use PSU2 cache fan\n", __FUNCTION__);
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].fan);
     }
   }
@@ -1101,7 +1102,7 @@ static ssize_t psu_fan_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache fan\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache fan\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].fan);
   }
@@ -1113,7 +1114,7 @@ static ssize_t psu_fan_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache fan\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache fan\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].fan);
   }
@@ -1142,12 +1143,12 @@ static ssize_t psu_fan_status_show(struct device *dev,
     /* error case */
     if(PSU1_ADDR == client->addr)
     {
-      printk(KERN_DEBUG "%s[%d]:use PSU1 cache fan_status\n", __FUNCTION__, __LINE__);
+      printk(KERN_DEBUG "%s:use PSU1 cache fan_status\n", __FUNCTION__);
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].fan_status);
     }
     else
     {
-      printk(KERN_DEBUG "%s[%d]:use PSU2 cache fan_status\n", __FUNCTION__, __LINE__);
+      printk(KERN_DEBUG "%s:use PSU2 cache fan_status\n", __FUNCTION__);
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].fan_status);
     }
   }
@@ -1182,7 +1183,7 @@ static ssize_t psu_fan_status_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache fan_status\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache fan_status\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].fan_status);
   }
@@ -1194,7 +1195,7 @@ static ssize_t psu_fan_status_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache fan_status\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache fan_status\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].fan_status);
   }
@@ -1206,7 +1207,7 @@ static ssize_t psu_power_show(struct device *dev,
                                   char *buf)
 {
 
-  uint8_t retry = 10;
+  uint8_t retry = RETRY_TIMES1;
   i2c_sysfs_attr_st *i2c_attr = TO_I2C_SYSFS_ATTR(attr);
   const i2c_dev_attr_st *dev_attr = i2c_attr->isa_i2c_attr;
   struct i2c_client *client = to_i2c_client(dev);
@@ -1226,12 +1227,12 @@ static ssize_t psu_power_show(struct device *dev,
     {
         if(PSU1_ADDR == client->addr)
         {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache power1\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache power1\n", __FUNCTION__);
           return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].power1);
         }
         else
         {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache power1\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache power1\n", __FUNCTION__);
           return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].power1);
         }
     }
@@ -1239,12 +1240,12 @@ static ssize_t psu_power_show(struct device *dev,
     {
         if(PSU1_ADDR == client->addr)
         {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache power2\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache power2\n", __FUNCTION__);
           return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].power2);
         }
         else
         {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache power2\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache power2\n", __FUNCTION__);
           return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].power2);
         }
     }
@@ -1323,7 +1324,7 @@ static ssize_t psu_power_show(struct device *dev,
         }
         else
         {
-            printk(KERN_DEBUG "%s[%d]:use PSU1 cache power1\n", __FUNCTION__, __LINE__);
+            printk(KERN_DEBUG "%s:use PSU1 cache power1\n", __FUNCTION__);
         }
         return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].power1);
       }
@@ -1335,7 +1336,7 @@ static ssize_t psu_power_show(struct device *dev,
         }
         else
         {
-            printk(KERN_DEBUG "%s[%d]:use PSU2 cache power1\n", __FUNCTION__, __LINE__);
+            printk(KERN_DEBUG "%s:use PSU2 cache power1\n", __FUNCTION__);
         }
         return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].power1);
       }
@@ -1350,7 +1351,7 @@ static ssize_t psu_power_show(struct device *dev,
         }
         else
         {
-            printk(KERN_DEBUG "%s[%d]:use PSU1 cache power2\n", __FUNCTION__, __LINE__);
+            printk(KERN_DEBUG "%s:use PSU1 cache power2\n", __FUNCTION__);
         }
         return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].power2);
       }
@@ -1362,7 +1363,7 @@ static ssize_t psu_power_show(struct device *dev,
         }
         else
         {
-            printk(KERN_DEBUG "%s[%d]:use PSU2 cache power2\n", __FUNCTION__, __LINE__);
+            printk(KERN_DEBUG "%s:use PSU2 cache power2\n", __FUNCTION__);
         }
         return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].power2);
       }
@@ -1375,7 +1376,7 @@ static ssize_t psu_vstby_show(struct device *dev,
                                  char *buf)
 {
 
-  uint8_t retry = 10;
+  uint8_t retry = RETRY_TIMES1;
   struct i2c_client *client = to_i2c_client(dev);
   int val,result;
   int psu_status, psu_pwok;
@@ -1391,12 +1392,12 @@ static ssize_t psu_vstby_show(struct device *dev,
     /* error case */
     if(PSU1_ADDR == client->addr)
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU1 cache vstby\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU1 cache vstby\n", __FUNCTION__);
         return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vstby);
     }
     else
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU2 cache vstby\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU2 cache vstby\n", __FUNCTION__);
         return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vstby);
     }
   }
@@ -1460,7 +1461,7 @@ static ssize_t psu_vstby_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache vstby\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache vstby\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[0].vstby);
   }
@@ -1472,7 +1473,7 @@ static ssize_t psu_vstby_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache vstby\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache vstby\n", __FUNCTION__);
       }
       return scnprintf(buf, PAGE_SIZE, "%d\n", psu_info_cache[1].vstby);
   }
@@ -1485,7 +1486,7 @@ static ssize_t psu_istby_show(struct device *dev,
                                  char *buf)
 {
 
-  uint8_t retry = 10;
+  uint8_t retry = RETRY_TIMES1;
   struct i2c_client *client = to_i2c_client(dev);
   int val,result;
   int psu_status, psu_pwok;
@@ -1501,7 +1502,7 @@ static ssize_t psu_istby_show(struct device *dev,
     /* error case */
     if(PSU1_ADDR == client->addr)
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU1 cache istby\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU1 cache istby\n", __FUNCTION__);
         if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA 
           || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
           return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
@@ -1511,7 +1512,7 @@ static ssize_t psu_istby_show(struct device *dev,
     }
     else
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU2 cache istby\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU2 cache istby\n", __FUNCTION__);
         if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA 
           || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
           return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
@@ -1590,7 +1591,7 @@ static ssize_t psu_istby_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache istby\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache istby\n", __FUNCTION__);
       }
       if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA 
         || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
@@ -1607,7 +1608,7 @@ static ssize_t psu_istby_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache istby\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache istby\n", __FUNCTION__);
       }
       if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA 
         || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
@@ -1624,7 +1625,7 @@ static ssize_t psu_pstby_show(struct device *dev,
                                   char *buf)
 {
 
-  uint8_t retry = 10;
+  uint8_t retry = RETRY_TIMES1;
   struct i2c_client *client = to_i2c_client(dev);
   int val,result;
 
@@ -1641,7 +1642,7 @@ static ssize_t psu_pstby_show(struct device *dev,
     /* error case */
     if(PSU1_ADDR == client->addr)
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU1 cache pstby\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU1 cache pstby\n", __FUNCTION__);
         if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA
           || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
           return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
@@ -1651,7 +1652,7 @@ static ssize_t psu_pstby_show(struct device *dev,
     }
     else
     {
-        printk(KERN_DEBUG "%s[%d]:use PSU2 cache pstby\n", __FUNCTION__, __LINE__);
+        printk(KERN_DEBUG "%s:use PSU2 cache pstby\n", __FUNCTION__);
         if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA
           || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
           return scnprintf(buf, PAGE_SIZE, "%s\n", "N/A");
@@ -1728,7 +1729,7 @@ static ssize_t psu_pstby_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache pstby\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache pstby\n", __FUNCTION__);
       }
       if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA
         || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
@@ -1745,7 +1746,7 @@ static ssize_t psu_pstby_show(struct device *dev,
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache pstby\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache pstby\n", __FUNCTION__);
       }
       if(model == BELPOWER_600_NA || model == BELPOWER_1100_NA
         || model == BELPOWER_1100_NAS || model == BELPOWER_1100_ND){
@@ -1785,12 +1786,12 @@ static ssize_t psu_model_show(struct device *dev,
       /* error case */
       if(PSU1_ADDR == client->addr)
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache model\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache model\n", __FUNCTION__);
           return scnprintf(buf, PAGE_SIZE, "%s\n", psu_info_cache[0].model);
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache model\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache model\n", __FUNCTION__);
           return scnprintf(buf, PAGE_SIZE, "%s\n", psu_info_cache[1].model);
       }
     }
@@ -1858,12 +1859,12 @@ static ssize_t psu_serial_show(struct device *dev,
       /* error case */
       if(PSU1_ADDR == client->addr)
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache serial\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache serial\n", __FUNCTION__);
           return scnprintf(buf, PAGE_SIZE, "%s\n", psu_info_cache[0].serial);
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache serial\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache serial\n", __FUNCTION__);
           return scnprintf(buf, PAGE_SIZE, "%s\n", psu_info_cache[1].serial);
       }
     }
@@ -1932,12 +1933,12 @@ static ssize_t psu_revision_show(struct device *dev,
       /* error case */
       if(PSU1_ADDR == client->addr)
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU1 cache revision\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU1 cache revision\n", __FUNCTION__);
           return scnprintf(buf, PAGE_SIZE, "%s\n", psu_info_cache[0].revision);
       }
       else
       {
-          printk(KERN_DEBUG "%s[%d]:use PSU2 cache revision\n", __FUNCTION__, __LINE__);
+          printk(KERN_DEBUG "%s:use PSU2 cache revision\n", __FUNCTION__);
           return scnprintf(buf, PAGE_SIZE, "%s\n", psu_info_cache[1].revision);
       }
     }
