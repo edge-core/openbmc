@@ -147,14 +147,15 @@ def get_bmc_tmp(param1):
 
     if platform == "mavericks" or platform == "mavericks-p0c":
         try:
-            for i in range(0, 9):
+            for i in range(0, 7):
                 output.append(int(l[2*i + 1] * 10))
             #Max device temperature
-            output.append(int(l[19] * 10))
+            output.append(int(l[14] * 10))
+            output.append(int(l[15] * 10))
         except Exception as e:
             #fill all 0 when error
             output = []
-            if len(l) != 20:
+            if len(l) != 16:
                err = 3
             output.append(err)
             for i in range(0, 10):

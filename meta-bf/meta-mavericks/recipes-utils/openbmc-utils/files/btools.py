@@ -3778,12 +3778,12 @@ def tmp_lower(board):
 def tmp_upper(p0c):
 
     if (p0c == 1):
-      TMP75_I2C_ADDR = {1: "0x48", 2: "0x49", 3: "0x4a", 4: "0x4b"}
+      TMP75_I2C_ADDR = {1: "0x4a", 2: "0x4b"}
       #TMP75_I2C_ADDR = {1: "0x4d", 2: "0x4e", 3: "0x4a", 4: "0x4b"}
     else:
-      TMP75_I2C_ADDR = {1: "0x48", 2: "0x49", 3: "0x4a", 4: "0x4b"}
+      TMP75_I2C_ADDR = {1: "0x4a", 2: "0x4b"}
 
-    for i in range(1, 5):
+    for i in range(1, 3):
 
         try:
             cmd = "i2cget"
