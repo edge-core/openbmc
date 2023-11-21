@@ -43,6 +43,7 @@ SRC_URI += "file://disable_watchdog.sh \
             file://cpld_refresh.sh \
             file://tmp431_threshold.sh \
             file://tmp431_init.sh \
+            file://setup_lm75.sh \
            "
 
 OPENBMC_UTILS_FILES += " \
@@ -67,6 +68,7 @@ OPENBMC_UTILS_FILES += " \
     enable_ucd_security.sh \
     cpld_refresh.sh \
     tmp431_threshold.sh \
+    setup_lm75.sh \
     "
 
 DEPENDS_append = " update-rc.d-native"
@@ -117,6 +119,9 @@ do_install_board() {
     install -m 0755 ${WORKDIR}/btools.py ${D}/usr/local/fbpackages/rest-api/btools.py
     ln -snf "/usr/local/fbpackages/rest-api/btools.py" ${D}/usr/local/bin/btools.py
     install -m 0755 ${WORKDIR}/rest_mntr.sh ${D}/usr/local/bin/rest_mntr.sh
+
+    install -m 755 setup_lm75.sh ${D}${sysconfdir}/init.d/setup_lm75.sh
+    update-rc.d -r ${D} setup_lm75.sh start 99 2 3 4 5 .
 }
 
 FILES_${PN} += "${sysconfdir}"
