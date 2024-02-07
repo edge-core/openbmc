@@ -45,6 +45,7 @@ IMAGE_INSTALL += " \
   cpldupdate \
   fio \
   stressapptest \
+  iptables \
   "
 
 IMAGE_FEATURES += " \
