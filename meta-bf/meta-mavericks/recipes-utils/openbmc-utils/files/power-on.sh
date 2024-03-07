@@ -131,3 +131,11 @@ fi
 echo "wait for 45 seconds before connecting to COMe..."
 mav_tty_switch_delay.sh 0 45 &
 
+if [ -e /mnt/data/iptables.rules ]; then
+    iptables-restore < /mnt/data/iptables.rules
+fi
+
+if [ -e /mnt/data/ip6tables.rules ]; then
+    ip6tables-restore < /mnt/data/ip6tables.rules
+fi
+
