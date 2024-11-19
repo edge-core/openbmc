@@ -1377,66 +1377,13 @@ int write_fan_led(const int fan, const char *color) {
 }
 
 int server_shutdown(const char *why) {
-  if(0 == access("/mnt/data/etc/not_shutdown_come", F_OK))
-  {
-      return 0;
-  }
   int fan;
   for (fan = 0; fan < total_fans; fan++) {
     write_fan_speed(fan + fan_offset, fan_max);
   }
 
-  syslog(LOG_EMERG, "Shutting down:  %s", why);
-
-#if defined(CONFIG_MAVERICKS)
-  syslog(LOG_CRIT, "resetting Tofino...");
-  system("/usr/local/bin/reset_tofino.sh");
-  mav_syscpld_write(12, 0x31, 0x32, 0x3);
-#endif
-
-#if defined(CONFIG_WEDGE100) || defined(CONFIG_MAVERICKS)
-  write_device(USERVER_POWER, "0");
-  sleep(5);
-  write_device(MAIN_POWER, "0");
-#endif
-#if defined(CONFIG_WEDGE) && !defined(CONFIG_WEDGE100) \
-                          && !defined(CONFIG_MAVERICKS)
-  write_device(GPIO_USERVER_POWER_DIRECTION, "out");
-  write_device(GPIO_USERVER_POWER, "0");
-  /*
-   * Putting T2 in reset generates a non-maskable interrupt to uS,
-   * the kernel running on uS might panic depending on its version.
-   * sleep 5s here to make sure uS is completely down.
-   */
-  sleep(5);
-
-  if (write_device(GPIO_T2_POWER_DIRECTION, "out") ||
-      write_device(GPIO_T2_POWER, "1")) {
-    /*
-     * We're here because something has gone badly wrong.  If we
-     * didn't manage to shut down the T2, cut power to the whole box,
-     * using the PMBus OPERATION register.  This will require a power
-     * cycle (removal of both power inputs) to recover.
-     */
-    syslog(LOG_EMERG, "T2 power off failed;  turning off via ADM1278");
-    system("rmmod adm1275");
-    system("i2cset -y 12 0x10 0x01 00");
-  }
-#else
-  // TODO(7088822):  try throttling, then shutting down server.
-  syslog(LOG_EMERG, "Need to implement actual shutdown!\n");
-#endif
-
-  /*
-   * We have to stop the watchdog, or the system will be automatically
-   * rebooted some seconds after fand exits (and stops kicking the
-   * watchdog).
-   */
-
-  stop_watchdog();
-
-  sleep(2);
-  exit(2);
+  syslog(LOG_EMERG, "%s", why);
+  return 0;
 }
 
 /* Gracefully shut down on receipt of a signal */
