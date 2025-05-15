@@ -78,6 +78,247 @@
 
 #include "watchdog.h"
 
+#define MONITOR_UCD
+#ifdef MONITOR_UCD
+
+#include <dirent.h>
+#include <pthread.h>
+
+#define UNNORMAL    1
+#define NORMAL      0
+
+#define ITEM_NAME_MAX_LENGITH 128
+#define UCD_VOUT_COUNT_MAX (16)
+pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
+
+struct monitored_item
+{
+    const char *item_name;
+    unsigned int low_threshold;
+    unsigned int high_threshold;
+};
+
+/*
+ * UCD90120A can monitor and sequence 12 voltage rails
+ * so need 12 low and high thresholds for every voltage
+ * rails
+ */
+
+#define UCD_DIR "/sys/bus/i2c/drivers/ucd9000/2-0034"
+
+#define UCD90120A_VOUT_COUNT                 (12)
+#define UCD90160_VOUT_COUNT                  (16)
+
+struct monitored_item UCD90120A[] =
+{
+    {"in1_input", 10200, 13799},
+    {"in2_input",  4250,  5750},
+    {"in3_input",  2804,  3794},
+    {"in4_input",  2804,  3794},
+    {"in5_input",  2804,  3794},
+    {"in6_input",  2125,  2875},
+    {"in7_input",  2125,  2875},
+    {"in8_input",  1530,  2069},
+    {"in9_input",  1274,  1725},
+    {"in10_input", 1020,  1378},
+    {"in11_input",  764,  1034},
+    {"in12_input",  714,   966},
+};
+
+
+struct monitored_item UCD90160[] =
+{
+    {"VDD12V"       , 10800, 13200},
+    {"VDD5V_IR"     ,  4500,  5500},
+    {"VDD5V_stby"   ,  4500,  5500},
+    {"VDD3_3V_iso"  ,  2970,  3630},
+    {"VDD3_3V_stby" ,  2970,  3630},
+    {"VDD3_3V_lower",  2970,  3630},
+    {"VDD3_3V_upper",  2970,  3630},
+    {"VDD2_5V_stby" ,  2250,  2750},
+    {"VDD1_8V_rt"   ,  1620,  1980},
+    {"VDD2_5V_tf"   ,  2250,  2750},
+    {"VDD1_8V_stby" ,  1620,  1980},
+    {"VDD1_5V_stby" ,  1350,  1650},
+    {"VDD1_2V_stby" ,  1080,  1320},
+    {"VDD0_9V_anlg" ,   810,   990},
+    {"VDD_core"     ,   720,   880},
+    {"VDD1_0V_rt"   ,   900,   1100},
+};
+
+enum BOARD_TYPE
+{
+    montara,
+    maverick,
+    others,
+};
+
+static void *ucd_handling_thread(void *arg)
+{
+    int flag[UCD_VOUT_COUNT_MAX] = {0};
+    int old_flag = 0;
+    int value = 0;
+    int i = 0;
+    float base = 1000;
+    int retry = 0;
+    FILE* fp;
+    char line[128];
+    int j;
+    char vol[32];
+    int ucdVoutCnt;
+    int highThreshold;
+    int lowThreshold;
+    int boardType;
+    int ret;
+
+    pthread_detach(pthread_self());
+    sleep(30);
+    //init state
+
+    fp = fopen("/tmp/eeprom_board_type", "r");
+    if(!fp)
+    {
+        syslog(LOG_CRIT,"Error: failed open /tmp/eeprom_board_type\n");
+        return NULL;
+    }
+    fgets(line, sizeof(line), fp);
+    if(strstr(line, "Maverick"))
+    {
+        ucdVoutCnt = UCD90160_VOUT_COUNT;
+        boardType = maverick;
+    }
+    else
+    {
+        ucdVoutCnt = UCD90120A_VOUT_COUNT;
+        boardType = montara;
+
+    }
+    fclose(fp);
+
+    ret = system("/usr/local/bin/btools.py --UCD sh v > /tmp/ucd_data 2>&1");
+    if(ret < 0)
+    {
+        syslog(LOG_CRIT,"Error: failed to run btools.py --UCD sh v\n");
+        return NULL;
+    }
+    sleep(1);
+    fp = fopen("/tmp/ucd_data", "r");
+    if(!fp)
+    {
+        syslog(LOG_CRIT,"Error: failed open ucd data file\n");
+        return NULL;
+    }
+
+    fgets(line, sizeof(line), fp);
+    fgets(line, sizeof(line), fp);
+
+    for(i = 0; i < ucdVoutCnt; i++)
+    {
+        flag[i]=UNNORMAL;
+
+        fgets(line, sizeof(line), fp);
+        strcpy(vol, (line+32));
+        value = atof(vol) * base;
+
+        if(maverick == boardType)
+        {
+            highThreshold = UCD90160[i].high_threshold;
+            lowThreshold = UCD90160[i].low_threshold;
+        }
+        else
+        {
+            highThreshold = UCD90120A[i].high_threshold;
+            lowThreshold = UCD90120A[i].low_threshold;
+        }
+
+        if((value >= highThreshold)||(value <= lowThreshold))
+        {
+            flag[i] = UNNORMAL;
+        }
+        else
+        {
+            flag[i] = NORMAL;
+        }
+        
+        if(flag[i] == UNNORMAL)
+        {
+           syslog(LOG_CRIT,"CRITICAL: UCD901xx rail%d is UNNORMAL, value is %.2f, range is %.2f - %.2f\n", i, value/base, lowThreshold/base, highThreshold/base);
+        }
+        else
+        {
+           //syslog(LOG_WARNING,"WARNING: UCD90120A rail%d is back to NORMAL, value is %.2f, range is %.2f - %.2f\n", i, value/base, lowThreshold/base, highThreshold/base);
+        }
+    }
+
+    fclose(fp);
+
+    //loop
+    while(1)
+    {
+        ret = system("/usr/local/bin/btools.py --UCD sh v > /tmp/ucd_data 2>&1");
+        if(ret < 0)
+        {
+            syslog(LOG_CRIT,"Error: failed to run btools.py --UCD sh v\n");
+            return NULL;
+        }
+
+        fp = fopen("/tmp/ucd_data", "r");
+        if(!fp)
+        {
+            syslog(LOG_CRIT,"Error: failed open ucd data file\n");
+            return NULL;
+        }
+        fgets(line, sizeof(line), fp);
+        fgets(line, sizeof(line), fp);
+
+        for(i = 0; i < ucdVoutCnt; i++)
+        {
+            old_flag = flag[i];
+            flag[i]=UNNORMAL;
+
+            fgets(line, sizeof(line), fp);
+            strcpy(vol, (line+32));
+            value = atof(vol) * base;
+
+            if(maverick == boardType)
+            {
+                highThreshold = UCD90160[i].high_threshold;
+                lowThreshold = UCD90160[i].low_threshold;
+            }
+            else
+            {
+                highThreshold = UCD90120A[i].high_threshold;
+                lowThreshold = UCD90120A[i].low_threshold;
+            }
+
+            if((value >= highThreshold)||(value <= lowThreshold))
+            {
+                flag[i] = UNNORMAL;
+            }
+            else
+            {
+                flag[i] = NORMAL;
+            }
+ 
+            if(old_flag != flag[i])
+            {
+                if(flag[i] == UNNORMAL)
+                {
+                   syslog(LOG_CRIT,"CRITICAL: UCD901xx rail%d is UNNORMAL, value is %.2f, range is %.2f - %.2f\n", i, value/base, lowThreshold/base, highThreshold/base);
+                }
+                else
+                {
+                   syslog(LOG_WARNING,"WARNING: UCD90120A rail%d is back to NORMAL, value is %.2f, range is %.2f - %.2f\n", i, value/base, lowThreshold/base, highThreshold/base);
+                }
+            }
+        }
+
+        fclose(fp);
+        sleep(10);
+    }
+}
+#endif
+
 #define USERVER_ERROR_THRESHOLD INTERNAL_TEMPS(120)
 
 #if !defined(CONFIG_LIGHTNING)
@@ -1653,6 +1894,16 @@ int main(int argc, char **argv) {
   set_persistent_watchdog(WATCHDOG_SET_PERSISTENT);
 
   sleep(5);  /* Give the fans time to come up to speed */
+
+#ifdef MONITOR_UCD
+  pthread_t ucd_thread;
+  int s;
+  s = pthread_create(&ucd_thread, NULL, &ucd_handling_thread, NULL);
+  if(s!= 0)
+  {
+      perror("create ucd handing thread failed\r\n");
+  }
+#endif
 
   while (1) {
     int max_temp;
