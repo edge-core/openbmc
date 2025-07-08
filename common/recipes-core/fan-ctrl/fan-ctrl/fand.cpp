@@ -128,22 +128,22 @@ struct monitored_item UCD90120A[] =
 
 struct monitored_item UCD90160[] =
 {
-    {"VDD12V"       , 10800, 13200},
-    {"VDD5V_IR"     ,  4500,  5500},
-    {"VDD5V_stby"   ,  4500,  5500},
-    {"VDD3_3V_iso"  ,  2970,  3630},
-    {"VDD3_3V_stby" ,  2970,  3630},
-    {"VDD3_3V_lower",  2970,  3630},
-    {"VDD3_3V_upper",  2970,  3630},
-    {"VDD2_5V_stby" ,  2250,  2750},
-    {"VDD1_8V_rt"   ,  1620,  1980},
-    {"VDD2_5V_tf"   ,  2250,  2750},
-    {"VDD1_8V_stby" ,  1620,  1980},
-    {"VDD1_5V_stby" ,  1350,  1650},
-    {"VDD1_2V_stby" ,  1080,  1320},
-    {"VDD0_9V_anlg" ,   810,   990},
-    {"VDD_core"     ,   720,   880},
-    {"VDD1_0V_rt"   ,   900,   1100},
+    {"VDD12V"       ,  9600, 14400},
+    {"VDD5V_IR"     ,  4000,  6000},
+    {"VDD5V_stby"   ,  4000,  6000},
+    {"VDD3_3V_iso"  ,  2640,  3960},
+    {"VDD3_3V_stby" ,  2640,  3960},
+    {"VDD3_3V_lower",  2640,  3960},
+    {"VDD3_3V_upper",  2640,  3960},
+    {"VDD2_5V_stby" ,  2000,  3000},
+    {"VDD1_8V_rt"   ,  1440,  2160},
+    {"VDD2_5V_tf"   ,  2000,  3000},
+    {"VDD1_8V_stby" ,  1440,  2160},
+    {"VDD1_5V_stby" ,  1200,  1800},
+    {"VDD1_2V_stby" ,   960,  1440},
+    {"VDD0_9V_anlg" ,   720,  1080},
+    {"VDD_core"     ,   640,   960},
+    {"VDD1_0V_rt"   ,   800,  1200},
 };
 
 enum BOARD_TYPE
