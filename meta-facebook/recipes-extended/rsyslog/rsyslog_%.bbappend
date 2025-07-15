@@ -9,7 +9,7 @@ SRC_URI += "file://rsyslog.conf \
             file://rsyslog-remote.conf \
 "
 
-MTERM_LOG_FILES ?= "mTerm_${MACHINE}"
+MTERM_LOG_FILES ?= "mTerm_wedge"
 
 do_install_append() {
   dst="${D}/usr/local/fbpackages/rotate"
