@@ -156,20 +156,21 @@ enum BOARD_TYPE
 static void *ucd_handling_thread(void *arg)
 {
     int flag[UCD_VOUT_COUNT_MAX] = {0};
-    int old_flag = 0;
-    int value = 0;
+    int old_flag[UCD_VOUT_COUNT_MAX] = {0};
+    int value[UCD_VOUT_COUNT_MAX] = {0};
     int i = 0;
     float base = 1000;
-    int retry = 0;
+    int retry = 3;
     FILE* fp;
     char line[128];
     int j;
     char vol[32];
     int ucdVoutCnt;
-    int highThreshold;
-    int lowThreshold;
+    int highThreshold[UCD_VOUT_COUNT_MAX] = {0};
+    int lowThreshold[UCD_VOUT_COUNT_MAX] = {0};
     int boardType;
     int ret;
+    int status = UNNORMAL;
 
     pthread_detach(pthread_self());
     sleep(30);
@@ -195,65 +196,9 @@ static void *ucd_handling_thread(void *arg)
     }
     fclose(fp);
 
-    ret = system("/usr/local/bin/btools.py --UCD sh v > /tmp/ucd_data 2>&1");
-    if(ret < 0)
-    {
-        syslog(LOG_CRIT,"Error: failed to run btools.py --UCD sh v\n");
-        return NULL;
-    }
-    sleep(1);
-    fp = fopen("/tmp/ucd_data", "r");
-    if(!fp)
-    {
-        syslog(LOG_CRIT,"Error: failed open ucd data file\n");
-        return NULL;
-    }
-
-    fgets(line, sizeof(line), fp);
-    fgets(line, sizeof(line), fp);
-
-    for(i = 0; i < ucdVoutCnt; i++)
-    {
-        flag[i]=UNNORMAL;
-
-        fgets(line, sizeof(line), fp);
-        strcpy(vol, (line+32));
-        value = atof(vol) * base;
-
-        if(maverick == boardType)
-        {
-            highThreshold = UCD90160[i].high_threshold;
-            lowThreshold = UCD90160[i].low_threshold;
-        }
-        else
-        {
-            highThreshold = UCD90120A[i].high_threshold;
-            lowThreshold = UCD90120A[i].low_threshold;
-        }
-
-        if((value >= highThreshold)||(value <= lowThreshold))
-        {
-            flag[i] = UNNORMAL;
-        }
-        else
-        {
-            flag[i] = NORMAL;
-        }
-        
-        if(flag[i] == UNNORMAL)
-        {
-           syslog(LOG_CRIT,"CRITICAL: UCD901xx rail%d is UNNORMAL, value is %.2f, range is %.2f - %.2f\n", i, value/base, lowThreshold/base, highThreshold/base);
-        }
-        else
-        {
-           //syslog(LOG_WARNING,"WARNING: UCD90120A rail%d is back to NORMAL, value is %.2f, range is %.2f - %.2f\n", i, value/base, lowThreshold/base, highThreshold/base);
-        }
-    }
-
-    fclose(fp);
-
-    //loop
-    while(1)
+    status=UNNORMAL;
+    retry = 3;
+    while(status == UNNORMAL && retry > 0)
     {
         ret = system("/usr/local/bin/btools.py --UCD sh v > /tmp/ucd_data 2>&1");
         if(ret < 0)
@@ -261,37 +206,37 @@ static void *ucd_handling_thread(void *arg)
             syslog(LOG_CRIT,"Error: failed to run btools.py --UCD sh v\n");
             return NULL;
         }
-
+        sleep(1);
         fp = fopen("/tmp/ucd_data", "r");
         if(!fp)
         {
             syslog(LOG_CRIT,"Error: failed open ucd data file\n");
             return NULL;
         }
+
         fgets(line, sizeof(line), fp);
         fgets(line, sizeof(line), fp);
 
         for(i = 0; i < ucdVoutCnt; i++)
         {
-            old_flag = flag[i];
             flag[i]=UNNORMAL;
 
             fgets(line, sizeof(line), fp);
             strcpy(vol, (line+32));
-            value = atof(vol) * base;
+            value[i] = atof(vol) * base;
 
             if(maverick == boardType)
             {
-                highThreshold = UCD90160[i].high_threshold;
-                lowThreshold = UCD90160[i].low_threshold;
+                highThreshold[i] = UCD90160[i].high_threshold;
+                lowThreshold[i] = UCD90160[i].low_threshold;
             }
             else
             {
-                highThreshold = UCD90120A[i].high_threshold;
-                lowThreshold = UCD90120A[i].low_threshold;
+                highThreshold[i] = UCD90120A[i].high_threshold;
+                lowThreshold[i] = UCD90120A[i].low_threshold;
             }
 
-            if((value >= highThreshold)||(value <= lowThreshold))
+            if((value[i] >= highThreshold[i])||(value[i] <= lowThreshold[i]))
             {
                 flag[i] = UNNORMAL;
             }
@@ -299,21 +244,121 @@ static void *ucd_handling_thread(void *arg)
             {
                 flag[i] = NORMAL;
             }
- 
-            if(old_flag != flag[i])
+        }
+
+        fclose(fp);
+        for(i = 0; i < ucdVoutCnt; i++)
+        {
+            if(flag[i] == UNNORMAL)
             {
-                if(flag[i] == UNNORMAL)
+                status = UNNORMAL;
+                retry--;
+                sleep(10);
+                break;
+            }
+            status = NORMAL;
+        }
+    }
+
+    for(i = 0; i < ucdVoutCnt; i++)
+    {
+       // syslog(LOG_CRIT,"CRITICAL: UCD901xx rail%d  value is %.2f, range is %.2f - %.2f\n", i, value[i]/base, lowThreshold[i]/base, highThreshold[i]/base);
+        if(flag[i] == UNNORMAL)
+        {
+           syslog(LOG_CRIT,"CRITICAL: UCD901xx rail%d is UNNORMAL, value is %.2f, range is %.2f - %.2f\n", i, value[i]/base, lowThreshold[i]/base, highThreshold[i]/base);
+        }
+        else
+        {
+           //syslog(LOG_WARNING,"WARNING: UCD90120A rail%d is back to NORMAL, value is %.2f, range is %.2f - %.2f\n", i, value/base, lowThreshold/base, highThreshold/base);
+        }
+    }
+    sleep(10);
+    
+    //loop
+    while(1)
+    {
+        status=UNNORMAL;
+        retry = 3;
+        for(i = 0; i < ucdVoutCnt; i++)
+        {
+            old_flag[i] = flag[i];
+        }
+
+        while(status == UNNORMAL && retry > 0)
+        {
+            ret = system("/usr/local/bin/btools.py --UCD sh v > /tmp/ucd_data 2>&1");
+            if(ret < 0)
+            {
+                syslog(LOG_CRIT,"Error: failed to run btools.py --UCD sh v\n");
+                return NULL;
+            }
+
+            fp = fopen("/tmp/ucd_data", "r");
+            if(!fp)
+            {
+                syslog(LOG_CRIT,"Error: failed open ucd data file\n");
+                return NULL;
+            }
+            fgets(line, sizeof(line), fp);
+            fgets(line, sizeof(line), fp);
+
+            for(i = 0; i < ucdVoutCnt; i++)
+            {
+                flag[i]=UNNORMAL;
+
+                fgets(line, sizeof(line), fp);
+                strcpy(vol, (line+32));
+                value[i] = atof(vol) * base;
+
+                if(maverick == boardType)
                 {
-                   syslog(LOG_CRIT,"CRITICAL: UCD901xx rail%d is UNNORMAL, value is %.2f, range is %.2f - %.2f\n", i, value/base, lowThreshold/base, highThreshold/base);
+                    highThreshold[i] = UCD90160[i].high_threshold;
+                    lowThreshold[i] = UCD90160[i].low_threshold;
                 }
                 else
                 {
-                   syslog(LOG_WARNING,"WARNING: UCD90120A rail%d is back to NORMAL, value is %.2f, range is %.2f - %.2f\n", i, value/base, lowThreshold/base, highThreshold/base);
+                    highThreshold[i] = UCD90120A[i].high_threshold;
+                    lowThreshold[i] = UCD90120A[i].low_threshold;
+                }
+
+                if((value[i] >= highThreshold[i])||(value[i] <= lowThreshold[i]))
+                {
+                    flag[i] = UNNORMAL;
+                }
+                else
+                {
+                    flag[i] = NORMAL;
+                }
+            }
+            fclose(fp);
+            for(i = 0; i < ucdVoutCnt; i++)
+            {
+                if(flag[i] == UNNORMAL)
+                {
+                    status = UNNORMAL;
+                    retry--;
+                    sleep(10);
+                    break;
+                }
+                status = NORMAL;
+            }
+        }
+
+        for(i = 0; i < ucdVoutCnt; i++)
+        {
+            if(old_flag[i] != flag[i])
+            {
+                if(flag[i] == UNNORMAL)
+                {
+                   syslog(LOG_CRIT,"CRITICAL: UCD901xx rail%d is UNNORMAL, value is %.2f, range is %.2f - %.2f\n", i, value[i]/base, lowThreshold[i]/base, highThreshold[i]/base);
+                }
+                else
+                {
+                   syslog(LOG_WARNING,"WARNING: UCD901xx rail%d is back to NORMAL, value is %.2f, range is %.2f - %.2f\n", i, value[i]/base, lowThreshold[i]/base, highThreshold[i]/base);
                 }
             }
         }
 
-        fclose(fp);
         sleep(10);
     }
 }

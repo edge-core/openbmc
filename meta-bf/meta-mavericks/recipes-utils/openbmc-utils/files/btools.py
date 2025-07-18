@@ -601,7 +601,16 @@ def ucd_rail_voltage_mavericks(poc):
                 set_cmd = "i2cset"
                 output = subprocess.check_output([set_cmd, "-f", "-y", UCD_I2C_BUS,
                                      UCD_I2C_ADDR, UCD_PAGE_OP, str(hex(i))])
-                err = 0
+                sleep(0.010)
+                get_cmd = "i2cget"
+                page = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
+                                               UCD_I2C_ADDR, UCD_PAGE_OP])
+                page = int(page, 16)
+                if (page == i):
+                    err = 0
+                else:
+                    err = 1
+                    print "Switch to page %.2d failed" % i
             except subprocess.CalledProcessError as e:
                 print e
                 print "Error occured while processing i2cset for rail %.2d " % i
@@ -699,7 +708,16 @@ def ucd_rail_voltage_montara():
                 set_cmd = "i2cset"
                 output = subprocess.check_output([set_cmd, "-f", "-y", UCD_I2C_BUS,
                                      UCD_I2C_ADDR, UCD_PAGE_OP, str(hex(i))])
-                err = 0
+                sleep(0.010)
+                get_cmd = "i2cget"
+                page = subprocess.check_output([get_cmd, "-f", "-y", UCD_I2C_BUS,
+                                               UCD_I2C_ADDR, UCD_PAGE_OP])
+                page = int(page, 16)
+                if (page == i):
+                    err = 0
+                else:
+                    err = 1
+                    print "Switch to page %.2d failed" % i
             except subprocess.CalledProcessError as e:
                 print e
                 print "Error occured while processing i2cset for rail %.2d " % i
