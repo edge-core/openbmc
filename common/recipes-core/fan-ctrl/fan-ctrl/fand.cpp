@@ -160,7 +160,7 @@ static void *ucd_handling_thread(void *arg)
     int value[UCD_VOUT_COUNT_MAX] = {0};
     int i = 0;
     float base = 1000;
-    int retry = 3;
+    int retry = 10;
     FILE* fp;
     char line[128];
     int j;
@@ -197,7 +197,7 @@ static void *ucd_handling_thread(void *arg)
     fclose(fp);
 
     status=UNNORMAL;
-    retry = 3;
+    retry = 10;
     while(status == UNNORMAL && retry > 0)
     {
         ret = system("/usr/local/bin/btools.py --UCD sh v > /tmp/ucd_data 2>&1");
@@ -278,7 +278,7 @@ static void *ucd_handling_thread(void *arg)
     while(1)
     {
         status=UNNORMAL;
-        retry = 3;
+        retry = 10;
         for(i = 0; i < ucdVoutCnt; i++)
         {
             old_flag[i] = flag[i];
@@ -364,6 +364,45 @@ static void *ucd_handling_thread(void *arg)
 }
 #endif
 
+int read_device_hex(const char *device, int *value) {
+  FILE *fp;
+  int rc;
+
+  fp = fopen(device, "r");
+  if (!fp) {
+    int err = errno;
+    syslog(LOG_INFO, "failed to open device %s", device);
+    return err;
+  }
+
+  rc = fscanf(fp, "0x%x", value);
+  fclose(fp);
+
+  if (rc != 1) {
+    syslog(LOG_INFO, "failed to read device %s", device);
+    return ENOENT;
+  } else {
+    return 0;
+  }
+}
+
+const char node[128] = "/sys/bus/i2c/devices/12-0031/reset_reason";
+static void *cpld_handling_thread(void *arg)
+{
+    int val, old_val = 0;
+    while(1)
+    {
+        old_val = val;
+        read_device_hex(node, &val);
+        if(val != old_val)
+        {
+            syslog(LOG_INFO, "reset reson code:0x%x", val);
+        }
+        sleep(10);
+    }
+
+    return NULL;
+}
 #define USERVER_ERROR_THRESHOLD INTERNAL_TEMPS(120)
 
 #if !defined(CONFIG_LIGHTNING)
@@ -1948,7 +1987,16 @@ int main(int argc, char **argv) {
   {
       perror("create ucd handing thread failed\r\n");
   }
+  pthread_detach(ucd_thread);
 #endif
+  pthread_t cpld_thread;
+  int s1;
+  s1 = pthread_create(&cpld_thread, NULL, &cpld_handling_thread, NULL);
+  if(s1!= 0)
+  {
+      perror("create cpld handing thread failed\r\n");
+  }
+  pthread_detach(cpld_thread);
 
   while (1) {
     int max_temp;
