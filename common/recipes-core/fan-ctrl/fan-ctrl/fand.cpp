@@ -386,17 +386,17 @@ int read_device_hex(const char *device, int *value) {
   }
 }
 
-const char node[128] = "/sys/bus/i2c/devices/12-0031/reset_reason";
 static void *cpld_handling_thread(void *arg)
 {
-    int val, old_val = 0;
+    const char node[128] = "/sys/bus/i2c/devices/12-0031/reset_reason";
+    int val = 0, old_val = 0;
     while(1)
     {
         old_val = val;
         read_device_hex(node, &val);
         if(val != old_val)
         {
-            syslog(LOG_INFO, "reset reson code:0x%x", val);
+            syslog(LOG_INFO, "reset reason code:0x%x", val);
         }
         sleep(10);
     }
