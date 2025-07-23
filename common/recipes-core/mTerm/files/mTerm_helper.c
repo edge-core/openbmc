@@ -19,18 +19,27 @@
 #include <stdbool.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/uio.h>
 #include <unistd.h>
 #include <errno.h>
 #include <syslog.h>
+#include <signal.h>
+#include <time.h>
 #include "mTerm_helper.h"
 #include "tty_helper.h"
 
+static char g_fru[16];
+
+void setFru(char *dev) {
+    strncpy(g_fru, dev, sizeof(g_fru));
+}
+
 void escHelp(void) {
   printf("\r\n------------------TERMINAL MULTIPLEXER---------------------\r\n");
-  printf("  CTRL-L ?   : Display help message.\r\n");
-  printf("  CTRL-L DEL : Terminate the connection.\r\n");
-  printf("  /var/log/mTerm_wedge.log : Log location\r\n");
-  printf("  CTRL-L + b : Send Break\r\n");
+  printf("  CTRL-l ?   : Display help message.\r\n");
+  printf("  CTRL-l x : Terminate the connection.\r\n");
+  printf("  /var/log/mTerm_%s.log : Log location\r\n", g_fru);
+  printf("  CTRL-l + b : Send Break\r\n");
   /*TODO: Log file read from tool*/
   //printf("  CTRL-L :N - For reading last N lines from end of buffer.\r\n");
   printf("\r\n-----------------------------------------------------------\r\n");
@@ -38,7 +47,7 @@ void escHelp(void) {
 }
 
 void escClose(int clientfd) {
-  sendTlv(clientfd, ASCII_DELETE, NULL , 0);
+  sendTlv(clientfd, 'x', NULL , 0);
   printf("Connection closed.\r\n");
  return;
 }
@@ -53,7 +62,7 @@ int processEscMode(int clientfd, char c, escMode* mode) {
     *mode = SEND;
     return 1;
   }
-  if (c == ASCII_DELETE) {
+  if (c == 'x') {
     escClose(clientfd);
     *mode = EOL;
     return 0;
@@ -148,6 +157,7 @@ bufStore* createBuffer(const char *dev, int fsize) {
 
   buf->buf_fd = open(buf->file, O_RDWR | O_APPEND | O_CREAT, 0666) ;
   buf->maxSizeBytes = fsize;
+  buf->needTimestamp = 1;
   return buf;
 }
 
@@ -159,14 +169,80 @@ void closeBuffer(bufStore* buf) {
   free(buf);
 }
 
+/* Write human-readable timestamp with line number in the provided buffer */
+void writeTimestampToBuffer(bufStore *buf) {
+
+  time_t cur_time;
+  size_t dateLen;
+  char dateBuff[64];
+
+  time(&cur_time);
+
+  if (!ctime_r(&cur_time, dateBuff))
+    strcpy(dateBuff, "unknown time ");
+
+  dateLen = strlen(dateBuff);
+  dateBuff[dateLen - 1] = ' ';
+  snprintf(dateBuff + dateLen, sizeof(dateBuff) - dateLen, "%07lu ", buf->lineNumber++);
+  writeData(buf->buf_fd, dateBuff, strlen(dateBuff), "buffer");
+}
+
+int backupBuffer(bufStore *buf) {
+  int ret = 0;
+  int in_fd, out_fd;
+  ssize_t r_cnt, w_cnt;
+  uint8_t rd_buf[1024];
+
+  in_fd = open(buf->file, O_RDONLY);
+  if (in_fd < 0) {
+    perror("Cannot open the mTerm buffer log file");
+    return -1;
+  }
+
+  out_fd = open(buf->backupfile, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+  if (out_fd < 0) {
+    perror("Cannot create the mTerm backup buffer log file");
+    close(in_fd);
+    return -1;
+  }
+
+  while (1) {
+    r_cnt = read(in_fd, rd_buf, sizeof(rd_buf));
+    if (r_cnt <= 0) {
+      if (r_cnt < 0) {
+        ret = -1;
+      }
+      break;
+    }
+
+    w_cnt = write(out_fd, rd_buf, r_cnt);
+    if (w_cnt != r_cnt) {
+      ret = -1;
+      break;
+    }
+  }
+
+  close(in_fd);
+  close(out_fd);
+  return ret;
+}
+
 void writeToBuffer(bufStore *buf, char* data, int len) {
    bool rotate = false;
    struct stat file_stat;
-   int rc = stat(buf->file, &file_stat);
+   int rc = stat(buf->file, &file_stat), nbytes = len, cur_len;
+   char *cur = data, *prev = data;
+
    if (rc != 0) {
      if (errno == ENOENT) {
        // Maybe someone externally removed our buffer file. Force file rotation.
-       rotate = true;
+       close(buf->buf_fd);
+       buf->buf_fd = open(buf->file, O_RDWR | O_CREAT | O_TRUNC, 0666);
+       if (buf->buf_fd < 0) {
+         perror("Cannot open the mTerm buffer log file");
+         exit(-1);
+       }
+       syncfs(buf->buf_fd);
      } else {
        // We couldn't figure out if the file needs to be rotated.
        // Don't rotate the file.  Continue and log the data anyway, though.
@@ -181,15 +257,35 @@ void writeToBuffer(bufStore *buf, char* data, int len) {
 
    // Rollover to a backup file when buffer hits filesize
    if (rotate) {
-     close(buf->buf_fd);
-     rename(buf->file, buf->backupfile);
-     buf->buf_fd = open(buf->file, O_RDWR | O_APPEND | O_CREAT, 0666) ;
-     if (buf->buf_fd < 0) {
-       perror("Cannot open the mTerm buffer log file");
-       exit(-1);
-     }
+     backupBuffer(buf);
+     ftruncate(buf->buf_fd, 0);
+     syncfs(buf->buf_fd);
+     lseek(buf->buf_fd, 0, SEEK_SET);
    }
-   writeData(buf->buf_fd, data, len, "buffer");
+
+  /*
+   * Treat data as byte array but try to seek out newline characters. When they are
+   * found, add current timestamp and sequential line number.
+   */
+   while ((cur = memchr(cur, '\n', nbytes)) || nbytes) {
+     if (buf->needTimestamp) {
+       writeTimestampToBuffer(buf);
+       buf->needTimestamp = 0;
+     }
+     /* there is no new line in this buffer, move on */
+     if (!cur) {
+       writeData(buf->buf_fd, prev, nbytes, "buffer");
+       break;
+     }
+
+     cur_len = cur - prev + 1;
+     nbytes -= cur_len;
+
+     writeData(buf->buf_fd, prev, cur_len, "buffer");
+     prev = ++cur;
+     buf->needTimestamp = 1;
+  }
+
 }
 
 long int bufferGetLines(char* fname, int clientfd, int nlines, long int curr) {

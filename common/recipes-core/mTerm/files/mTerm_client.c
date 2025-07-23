@@ -178,16 +178,16 @@ static void connectClient(const char *dev) {
 
 static void
 print_usage() {
-  printf("Usage example: /usr/local/bin/mTerm_client wedge \n");
+  printf("Usage example: /usr/local/bin/mTerm_client <fru> \n");
 }
 
 int main(int argc, char **argv)
 {
-   // Eg: /usr/local/bin/mTerm_client wedge
    if (argc != 2) {
      print_usage();
      exit(1);
    }
+   setFru(argv[1]);
    escHelp();
    connectClient(argv[1]);
    return sigexit;

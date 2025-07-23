@@ -45,6 +45,8 @@ typedef struct bufStore {
   int  maxSizeBytes;
   char file[PATH_SIZE];
   char backupfile[PATH_SIZE];
+  char needTimestamp;
+  unsigned long lineNumber;
 } bufStore;
 
 typedef struct TlvHeader {
@@ -52,6 +54,7 @@ typedef struct TlvHeader {
   uint16_t length;
 }TlvHeader;
 
+void setFru();
 //esc mode processing
 void escHelp();
 int processEscMode(int clientfd, char c, escMode* mode);

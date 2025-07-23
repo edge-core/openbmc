@@ -98,7 +98,7 @@ void sendBreak(int clientFd, int solFd, char *c) {
 
 static void processClient(fd_set* master, int clientFd , int solFd,
                           bufStore *buf) {
-  char data[BUF_SIZE];
+  char data[SEND_SIZE];
   int nbytes = 0;
   TlvHeader header;
   struct iovec vec[2];
@@ -107,7 +107,7 @@ static void processClient(fd_set* master, int clientFd , int solFd,
   vec[0].iov_base = &header;
   vec[0].iov_len = sizeof(header);
   vec[1].iov_base = &data;
-  vec[1].iov_len = BUF_SIZE;
+  vec[1].iov_len = SEND_SIZE;
 
   /* TODO: server should be able to handle data for a tlv over multiple reads */
   nbytes = readv(clientFd, vec, 2);
@@ -144,7 +144,7 @@ static void processClient(fd_set* master, int clientFd , int solFd,
           bufferGetLines(buf->file, clientFd, atoi(vec[1].iov_base), 0);
         }
         break;
-      case ASCII_DELETE:
+      case 'x':
         syslog(LOG_INFO, "mTerm_server: Client socket %d closed\n", clientFd);
         closeClient(master, clientFd);
         break;
@@ -264,11 +264,10 @@ static void connectServer(const char *stty, const char *dev) {
 
 static void
 print_usage() {
-  printf("Usage example: /usr/local/bin/mTerm_server wedge /dev/ttyS1\n");
+  printf("Usage example: /usr/local/bin/mTerm_server <fru> /dev/ttyS*\n");
 }
 
 int main(int argc, char **argv) {
-  // Eg /usr/local/bin/mTerm_server wedge /dev/ttyS1
   if (argc != 3) {
     print_usage();
     exit(1);
@@ -301,7 +300,6 @@ int main(int argc, char **argv) {
       exit(1);
     }
   } else {
-    daemon(0,1);
     openlog("mTerm_log", LOG_CONS, LOG_DAEMON);
     syslog(LOG_INFO, "mTerm: daemon started");
 
