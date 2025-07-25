@@ -30,7 +30,7 @@
 #define BUF_SIZE 10
 #define PATH_SIZE 64
 #define SEND_SIZE 256
-#define FILE_SIZE_BYTES 300000
+#define FILE_SIZE_BYTES 15000000
 #define MAX_BYTE 255
 
 typedef enum escMode {
