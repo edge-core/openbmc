@@ -390,6 +390,8 @@ static void *cpld_handling_thread(void *arg)
 {
     const char node[128] = "/sys/bus/i2c/devices/12-0031/reset_reason";
     int val = 0, old_val = 0;
+    //wait for syslog service run
+    sleep(120);
     while(1)
     {
         old_val = val;
